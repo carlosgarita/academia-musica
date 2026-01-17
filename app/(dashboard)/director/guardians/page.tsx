@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
-import { DashboardStats } from "./DashboardStats";
+import { GuardiansList } from "./guardians-list";
 import type { Database } from "@/lib/database.types";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 
-export default async function DirectorDashboardPage() {
+export default async function GuardiansPage() {
   const cookieStore = cookies();
   const supabase = await createServerClient(cookieStore);
 
@@ -31,8 +31,7 @@ export default async function DirectorDashboardPage() {
 
   return (
     <div className="container mx-auto py-10">
-      <h1 className="text-2xl font-bold mb-8">Dashboard</h1>
-      <DashboardStats academyId={profile.academy_id} />
+      <GuardiansList academyId={profile.academy_id} />
     </div>
   );
 }

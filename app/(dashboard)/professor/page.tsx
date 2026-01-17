@@ -6,7 +6,7 @@ import type { Database } from "@/lib/database.types";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 
-export default async function DirectorDashboardPage() {
+export default async function ProfessorDashboardPage() {
   const cookieStore = cookies();
   const supabase = await createServerClient(cookieStore);
 
@@ -19,20 +19,21 @@ export default async function DirectorDashboardPage() {
     redirect("/login");
   }
 
+  // Get the professor's profile (professors are now just profiles with role='professor')
   const { data: profile } = (await supabase
     .from("profiles")
-    .select("academy_id")
+    .select("*")
     .eq("id", user.id)
     .single()) as { data: Profile | null };
 
-  if (!profile?.academy_id) {
+  if (!profile || profile.role !== "professor") {
     redirect("/");
   }
 
   return (
     <div className="container mx-auto py-10">
       <h1 className="text-2xl font-bold mb-8">Dashboard</h1>
-      <DashboardStats academyId={profile.academy_id} />
+      <DashboardStats professorId={profile.id} />
     </div>
   );
 }
