@@ -31,6 +31,7 @@ export function GuardiansList({ academyId }: GuardiansListProps) {
   const [guardians, setGuardians] = useState<Guardian[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("active");
 
   useEffect(() => {
     loadGuardians();
@@ -122,6 +123,14 @@ export function GuardiansList({ academyId }: GuardiansListProps) {
     );
   }
 
+  // Filter guardians based on status filter
+  const filteredGuardians = guardians.filter((guardian) => {
+    if (statusFilter === "all") return true;
+    if (statusFilter === "active") return guardian.status === "active";
+    if (statusFilter === "inactive") return guardian.status === "inactive";
+    return true;
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -150,9 +159,53 @@ export function GuardiansList({ academyId }: GuardiansListProps) {
           </Link>
         </div>
       ) : (
-        <div className="bg-white shadow overflow-hidden sm:rounded-md">
-          <ul className="divide-y divide-gray-200">
-            {guardians.map((guardian) => {
+        <>
+          {/* Status Filter - Only show when there are guardians */}
+          <div className="bg-white shadow rounded-lg p-4">
+            <div className="flex items-center space-x-4">
+              <label
+                htmlFor="statusFilter"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Filtrar por estado:
+              </label>
+              <select
+                id="statusFilter"
+                value={statusFilter}
+                onChange={(e) =>
+                  setStatusFilter(e.target.value as "all" | "active" | "inactive")
+                }
+                className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              >
+                <option value="all">Todos</option>
+                <option value="active">Activos</option>
+                <option value="inactive">Inactivos</option>
+              </select>
+              {statusFilter !== "all" && (
+                <span className="text-sm text-gray-500">
+                  ({filteredGuardians.length} encargado
+                  {filteredGuardians.length !== 1 ? "s" : ""})
+                </span>
+              )}
+            </div>
+          </div>
+
+          {filteredGuardians.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-lg shadow">
+              <p className="text-gray-500">
+                No hay encargados {statusFilter === "active" ? "activos" : "inactivos"}.
+              </p>
+              <button
+                onClick={() => setStatusFilter("all")}
+                className="mt-4 inline-flex items-center text-indigo-600 hover:text-indigo-500"
+              >
+                Ver todos los encargados
+              </button>
+            </div>
+          ) : (
+            <div className="bg-white shadow overflow-hidden sm:rounded-md">
+              <ul className="divide-y divide-gray-200">
+                {filteredGuardians.map((guardian) => {
               const fullName =
                 `${guardian.first_name || ""} ${
                   guardian.last_name || ""
@@ -214,10 +267,10 @@ export function GuardiansList({ academyId }: GuardiansListProps) {
                     </div>
                     <div className="ml-4 flex flex-col space-y-2">
                       <Link
-                        href={`/director/guardians/${guardian.id}/students`}
+                        href={`/director/guardians/${guardian.id}/edit`}
                         className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
                       >
-                        Asignar Estudiantes
+                        Editar
                       </Link>
                       <button
                         onClick={() => handleDelete(guardian.id, fullName)}
@@ -229,9 +282,11 @@ export function GuardiansList({ academyId }: GuardiansListProps) {
                   </div>
                 </li>
               );
-            })}
-          </ul>
-        </div>
+                })}
+              </ul>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

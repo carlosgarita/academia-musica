@@ -63,9 +63,11 @@ create table public.professor_subjects (
 
 -- Schedules table (horarios/clases)
 -- profile_id references profiles (where role='professor')
+-- subject_id references subjects; name is denormalized from subject for display (or legacy free text)
 create table public.schedules (
   id uuid default gen_random_uuid() primary key,
   academy_id uuid references public.academies on delete cascade not null,
+  subject_id uuid references public.subjects on delete set null,
   name text not null check (char_length(name) <= 100),
   profile_id uuid references public.profiles on delete cascade not null,
   day_of_week integer not null check (day_of_week between 1 and 7), -- 1=Lunes, 7=Domingo

@@ -42,8 +42,30 @@ export async function GET(request: NextRequest) {
     }
 
     // Build query - now query from profiles directly (role='professor')
-    // First, get basic professor data
-    let query = supabase
+    // Use service role to bypass RLS since there's no policy for directors to view professors
+    // Check if service role key is available
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error("SUPABASE_SERVICE_ROLE_KEY is not set");
+      return NextResponse.json(
+        { error: "Server configuration error" },
+        { status: 500 }
+      );
+    }
+
+    // Create admin client with service role
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
+    );
+
+    // First, get basic professor data using admin client
+    let query = supabaseAdmin
       .from("profiles")
       .select(
         `
@@ -82,11 +104,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Now fetch subjects and schedules for each professor
+    // Now fetch subjects and schedules for each professor using admin client
     const professorsWithDetails = await Promise.all(
       (professors || []).map(async (prof) => {
         // Fetch subjects
-        const { data: professorSubjects } = await supabase
+        const { data: professorSubjects } = await supabaseAdmin
           .from("professor_subjects")
           .select(
             `
@@ -99,7 +121,7 @@ export async function GET(request: NextRequest) {
           .eq("profile_id", prof.id);
 
         // Fetch schedules
-        const { data: schedules } = await supabase
+        const { data: schedules } = await supabaseAdmin
           .from("schedules")
           .select("id, name, day_of_week, start_time, end_time")
           .eq("profile_id", prof.id);

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 type Professor = {
-  id: string; // Now this is profile.id
+  id: string;
   first_name: string | null;
   last_name: string | null;
   email: string;
@@ -12,6 +12,11 @@ type Professor = {
   status: string;
   academy_id: string;
   additional_info: string | null;
+};
+
+type Subject = {
+  id: string;
+  name: string;
 };
 
 type TimeSlot = {
@@ -38,7 +43,7 @@ export default function NewSchedulePage() {
   const [conflicts, setConflicts] = useState<string[]>([]);
 
   // Form state
-  const [name, setName] = useState("");
+  const [subjectId, setSubjectId] = useState("");
   const [professorId, setProfessorId] = useState("");
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
 
@@ -48,23 +53,37 @@ export default function NewSchedulePage() {
   const [newSlotEndTime, setNewSlotEndTime] = useState("10:00");
   const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
 
-  // Professors list
   const [professors, setProfessors] = useState<Professor[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [loadingSubjects, setLoadingSubjects] = useState(true);
 
   useEffect(() => {
     loadProfessors();
+    loadSubjects();
   }, []);
 
   async function loadProfessors() {
     try {
       const response = await fetch("/api/professors");
-      if (!response.ok) {
-        throw new Error("Failed to load professors");
-      }
+      if (!response.ok) throw new Error("Failed to load professors");
       const data = await response.json();
       setProfessors(data.professors || []);
     } catch (err) {
       console.error("Error loading professors:", err);
+    }
+  }
+
+  async function loadSubjects() {
+    try {
+      setLoadingSubjects(true);
+      const response = await fetch("/api/subjects");
+      if (!response.ok) throw new Error("Failed to load subjects");
+      const data = await response.json();
+      setSubjects(data.subjects || []);
+    } catch (err) {
+      console.error("Error loading subjects:", err);
+    } finally {
+      setLoadingSubjects(false);
     }
   }
 
@@ -177,8 +196,8 @@ export default function NewSchedulePage() {
     setLoading(true);
 
     // Validation
-    if (!name.trim()) {
-      setError("El nombre de la clase es requerido");
+    if (!subjectId) {
+      setError("Debes seleccionar una materia");
       setLoading(false);
       return;
     }
@@ -202,7 +221,7 @@ export default function NewSchedulePage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: name.trim(),
+          subject_id: subjectId,
           profile_id: professorId,
           time_slots: timeSlots.map((slot) => ({
             day_of_week: slot.day_of_week,
@@ -273,26 +292,39 @@ export default function NewSchedulePage() {
         )}
 
         <div className="space-y-6">
-          {/* Class Name */}
+          {/* Materia (Nombre de la Clase) - dropdown con materias creadas */}
           <div>
             <label
-              htmlFor="name"
+              htmlFor="subjectId"
               className="block text-sm font-medium text-gray-700"
             >
-              Nombre de la Clase <span className="text-red-500">*</span>
+              Nombre de la Clase (Materia) <span className="text-red-500">*</span>
             </label>
-            <input
-              type="text"
-              id="name"
-              name="name"
+            <select
+              id="subjectId"
+              name="subjectId"
               required
-              maxLength={100}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-              placeholder="Ej: Piano Nivel 1"
-            />
-            <p className="mt-1 text-xs text-gray-500">Máximo 100 caracteres</p>
+              value={subjectId}
+              onChange={(e) => setSubjectId(e.target.value)}
+              disabled={loadingSubjects}
+              className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              aria-label="Seleccione la materia"
+            >
+              <option value="">
+                {loadingSubjects ? "Cargando materias..." : "Selecciona una materia"}
+              </option>
+              {!loadingSubjects &&
+                subjects.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+            </select>
+            {!loadingSubjects && subjects.length === 0 && (
+              <p className="mt-1 text-xs text-amber-600">
+                No hay materias creadas. Crea materias primero en Materias.
+              </p>
+            )}
           </div>
 
           {/* Professor */}

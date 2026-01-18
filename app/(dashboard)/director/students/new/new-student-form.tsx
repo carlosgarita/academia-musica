@@ -24,6 +24,8 @@ export function NewStudentForm({ academyId }: NewStudentFormProps) {
     const firstName = formData.get("firstName") as string;
     const lastName = formData.get("lastName") as string;
     const dateOfBirth = formData.get("dateOfBirth") as string;
+    const enrollmentStatus =
+      (formData.get("enrollmentStatus") as string) || "inscrito";
     const additionalInfo = formData.get("additionalInfo") as string;
 
     // Validation
@@ -40,6 +42,11 @@ export function NewStudentForm({ academyId }: NewStudentFormProps) {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         date_of_birth: dateOfBirth || null,
+        enrollment_status: ["inscrito", "retirado", "graduado"].includes(
+          enrollmentStatus
+        )
+          ? enrollmentStatus
+          : "inscrito",
         additional_info: additionalInfo?.trim() || null,
       });
 

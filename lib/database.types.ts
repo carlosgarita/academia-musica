@@ -191,6 +191,7 @@ export interface Database {
         Row: {
           id: string;
           academy_id: string;
+          subject_id: string | null;
           name: string;
           profile_id: string;
           day_of_week: number;
@@ -202,6 +203,7 @@ export interface Database {
         Insert: {
           id?: string;
           academy_id: string;
+          subject_id?: string | null;
           name: string;
           profile_id: string;
           day_of_week: number;
@@ -213,6 +215,7 @@ export interface Database {
         Update: {
           id?: string;
           academy_id?: string;
+          subject_id?: string | null;
           name?: string;
           profile_id?: string;
           day_of_week?: number;

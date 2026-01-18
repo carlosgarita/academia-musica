@@ -185,18 +185,51 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       name,
-      profile_id, // Changed from professor_id to profile_id
-      time_slots, // array of { day_of_week, start_time, end_time }
-      // Legacy support: days_of_week, start_time, end_time
+      subject_id,
+      profile_id,
+      time_slots,
       days_of_week,
       start_time,
       end_time,
     } = body;
 
-    // Validation
-    if (!name || !profile_id) {
+    if (!profile_id) {
       return NextResponse.json(
-        { error: "Missing required fields: name and profile_id are required" },
+        { error: "profile_id is required" },
+        { status: 400 }
+      );
+    }
+
+    // Resolve name: from subject_id (preferred) or from name (legacy)
+    let scheduleName: string;
+    let resolvedSubjectId: string | null = null;
+
+    if (subject_id) {
+      const { data: subject, error: subjectError } = await supabase
+        .from("subjects")
+        .select("id, name, academy_id")
+        .eq("id", subject_id)
+        .single();
+
+      if (subjectError || !subject) {
+        return NextResponse.json(
+          { error: "Materia no encontrada" },
+          { status: 400 }
+        );
+      }
+      if (subject.academy_id !== academyId) {
+        return NextResponse.json(
+          { error: "La materia no pertenece a esta academia" },
+          { status: 400 }
+        );
+      }
+      scheduleName = subject.name;
+      resolvedSubjectId = subject.id;
+    } else if (name && typeof name === "string" && name.trim()) {
+      scheduleName = name.trim();
+    } else {
+      return NextResponse.json(
+        { error: "Se requiere subject_id (materia) o name" },
         { status: 400 }
       );
     }
@@ -350,7 +383,8 @@ export async function POST(request: NextRequest) {
         .from("schedules")
         .insert({
           academy_id: academyId,
-          name,
+          subject_id: resolvedSubjectId,
+          name: scheduleName,
           profile_id,
           day_of_week: day_of_week,
           start_time: slotStartTime,

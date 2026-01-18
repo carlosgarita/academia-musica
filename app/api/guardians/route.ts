@@ -42,7 +42,30 @@ export async function GET(request: NextRequest) {
     }
 
     // Build query - now query from profiles directly (role='guardian')
-    let query = supabase
+    // Use service role to bypass RLS since there's no policy for directors to view guardians
+    // Check if service role key is available
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error("SUPABASE_SERVICE_ROLE_KEY is not set");
+      return NextResponse.json(
+        { error: "Server configuration error" },
+        { status: 500 }
+      );
+    }
+
+    // Create admin client with service role
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
+    );
+
+    // Build query using admin client
+    let query = supabaseAdmin
       .from("profiles")
       .select(
         `
@@ -67,7 +90,6 @@ export async function GET(request: NextRequest) {
       `
       )
       .eq("role", "guardian")
-      .eq("status", "active")
       .order("created_at", { ascending: false });
 
     if (profile.role !== "super_admin") {
