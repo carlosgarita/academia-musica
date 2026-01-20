@@ -246,7 +246,11 @@ export default function NewSchedulePage() {
             setError(data.message || "Error al crear horarios");
           }
         } else {
-          setError(data.error || data.details || "Error al crear horarios");
+          const errorMsg = data.message || data.error || "Error al crear horarios";
+          const details = Array.isArray(data.details) 
+            ? data.details.join(". ") 
+            : data.details || "";
+          setError(details ? `${errorMsg}: ${details}` : errorMsg);
         }
         setLoading(false);
         return;

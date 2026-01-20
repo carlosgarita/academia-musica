@@ -3,6 +3,16 @@ import { createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
+const DAY_NAMES = [
+  "Lunes",
+  "Martes",
+  "Miércoles",
+  "Jueves",
+  "Viernes",
+  "Sábado",
+  "Domingo",
+];
+
 // GET: List all schedules for the director's academy
 export async function GET(request: NextRequest) {
   try {
@@ -115,10 +125,26 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Now fetch profile data for each schedule
+    // Now fetch profile data for each schedule using service role to bypass RLS
+    let supabaseAdmin;
+    if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      supabaseAdmin = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY,
+        {
+          auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+          },
+        }
+      );
+    }
+
     const schedulesWithProfiles = await Promise.all(
       (schedules || []).map(async (schedule) => {
-        const { data: profileData } = await supabase
+        // Use admin client if available, otherwise fallback to regular client
+        const client = supabaseAdmin || supabase;
+        const { data: profileData } = await client
           .from("profiles")
           .select("id, first_name, last_name, email")
           .eq("id", schedule.profile_id)
@@ -315,36 +341,57 @@ export async function POST(request: NextRequest) {
     const createdSchedules = [];
     const errors = [];
 
+    // Use service role for RPC calls to avoid RLS issues
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return NextResponse.json(
+        { error: "Server configuration error: missing service role key" },
+        { status: 500 }
+      );
+    }
+
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
+    );
+
     for (const slot of slots) {
       const { day_of_week, start_time: slotStartTime, end_time: slotEndTime } = slot;
-      // Check conflicts using RPC function (now uses profile_id instead of professor_id)
-      const { data: conflicts, error: conflictError } = await supabase.rpc(
-        "check_schedule_conflicts",
-        {
-          p_academy_id: academyId,
-          p_day_of_week: day_of_week,
-          p_start_time: slotStartTime,
-          p_end_time: slotEndTime,
-          p_schedule_id: null, // new schedule
-        }
-      );
+      
+      // Check for conflicts manually (professor at same time, or student conflicts)
+      // First check: professor already has a schedule at this time
+      const { data: professorConflict, error: profConflictError } = await supabaseAdmin
+        .from("schedules")
+        .select("id, name")
+        .eq("academy_id", academyId)
+        .eq("profile_id", profile_id)
+        .eq("day_of_week", day_of_week)
+        .or(
+          `and(start_time.lte.${slotStartTime},end_time.gt.${slotStartTime}),and(start_time.lt.${slotEndTime},end_time.gte.${slotEndTime}),and(start_time.gte.${slotStartTime},end_time.lte.${slotEndTime})`
+        )
+        .limit(1);
 
-      if (conflictError) {
-        console.error("Error checking conflicts:", conflictError);
-        errors.push(`Error checking conflicts for day ${day_of_week}`);
+      if (profConflictError) {
+        console.error("Error checking professor conflicts:", profConflictError);
+        errors.push(`Error verificando conflictos para el día ${day_of_week}: ${profConflictError.message}`);
         continue;
       }
 
-      if (conflicts && conflicts.length > 0) {
-        const conflict = conflicts[0];
+      if (professorConflict && professorConflict.length > 0) {
+        const conflict = professorConflict[0];
         errors.push(
-          `${conflict.conflict_message}: ${conflict.conflicting_schedule_name} (Día ${day_of_week})`
+          `El profesor ya tiene una clase asignada en este horario: "${conflict.name}" (Día ${DAY_NAMES[day_of_week - 1]})`
         );
         continue;
       }
 
-      // Verify the profile_id is a professor in the same academy
-      const { data: professorProfile, error: profileError } = await supabase
+      // Verify the profile_id is a professor in the same academy (using admin client)
+      const { data: professorProfile, error: profileError } = await supabaseAdmin
         .from("profiles")
         .select("id, role, academy_id")
         .eq("id", profile_id)
@@ -352,50 +399,71 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (profileError || !professorProfile) {
-        errors.push(`Invalid professor profile for day ${day_of_week}`);
+        errors.push(`Perfil de profesor inválido para el día ${day_of_week}`);
         continue;
       }
 
       if (professorProfile.academy_id !== academyId) {
-        errors.push(`Professor does not belong to this academy (day ${day_of_week})`);
+        errors.push(`El profesor no pertenece a esta academia (día ${day_of_week})`);
         continue;
       }
 
-      // Check for conflicts: verify no other schedule for this professor at this time
-      const { data: existingSchedule } = await supabase
-        .from("schedules")
-        .select("id")
-        .eq("academy_id", academyId)
-        .eq("profile_id", profile_id)
-        .eq("day_of_week", day_of_week)
-        .or(
-          `and(start_time.lte.${slotStartTime},end_time.gt.${slotStartTime}),and(start_time.lt.${slotEndTime},end_time.gte.${slotEndTime}),and(start_time.gte.${slotStartTime},end_time.lte.${slotEndTime})`
-        )
-        .single();
+      // Create schedule for this day - use service role to bypass RLS
+      // Build insert object conditionally - only include subject_id if it exists
+      const insertData: {
+        academy_id: string;
+        name: string;
+        profile_id: string;
+        day_of_week: number;
+        start_time: string;
+        end_time: string;
+        subject_id?: string | null;
+      } = {
+        academy_id: academyId,
+        name: scheduleName,
+        profile_id,
+        day_of_week: day_of_week,
+        start_time: slotStartTime,
+        end_time: slotEndTime,
+      };
 
-      if (existingSchedule) {
-        errors.push(`Schedule conflict for professor on day ${day_of_week} (${slotStartTime} - ${slotEndTime})`);
-        continue;
+      // Only add subject_id if we have it (column might not exist in older DBs)
+      if (resolvedSubjectId) {
+        insertData.subject_id = resolvedSubjectId;
       }
 
-      // Create schedule for this day
-      const { data: schedule, error: createError } = await supabase
+      const { data: schedule, error: createError } = await supabaseAdmin
         .from("schedules")
-        .insert({
-          academy_id: academyId,
-          subject_id: resolvedSubjectId,
-          name: scheduleName,
-          profile_id,
-          day_of_week: day_of_week,
-          start_time: slotStartTime,
-          end_time: slotEndTime,
-        })
+        .insert(insertData)
         .select()
         .single();
 
       if (createError) {
         console.error("Error creating schedule:", createError);
-        errors.push(`Error creating schedule for day ${day_of_week}`);
+        console.error("Schedule data:", insertData);
+        
+        // Check if error is about missing subject_id column
+        const errorMessage = createError.message || "";
+        if (errorMessage.includes("subject_id") || errorMessage.includes("column")) {
+          return NextResponse.json(
+            {
+              error: "La columna 'subject_id' no existe en la tabla 'schedules'",
+              details: "Por favor ejecuta la migración SQL en Supabase SQL Editor para agregar la columna subject_id a la tabla schedules.",
+              migration_sql: `
+-- Ejecuta este SQL en Supabase SQL Editor:
+ALTER TABLE public.schedules
+  ADD COLUMN IF NOT EXISTS subject_id uuid REFERENCES public.subjects ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_schedules_subject ON public.schedules(subject_id);
+              `.trim()
+            },
+            { status: 500 }
+          );
+        }
+        
+        errors.push(
+          `Error creando horario para el día ${day_of_week}: ${errorMessage || createError.code || "Error desconocido"}`
+        );
         continue;
       }
 
@@ -404,7 +472,11 @@ export async function POST(request: NextRequest) {
 
     if (errors.length > 0 && createdSchedules.length === 0) {
       return NextResponse.json(
-        { error: "Failed to create schedules", details: errors },
+        { 
+          error: "Failed to create schedules", 
+          details: errors,
+          message: errors.length === 1 ? errors[0] : `Multiple errors: ${errors.join("; ")}`
+        },
         { status: 400 }
       );
     }

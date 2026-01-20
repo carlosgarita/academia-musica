@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
 // GET: Get a single schedule by ID
@@ -20,19 +21,41 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { data: schedule, error } = await supabase
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role, academy_id")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+    }
+
+    if (profile.role !== "director" && profile.role !== "super_admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return NextResponse.json(
+        { error: "Server configuration error" },
+        { status: 500 }
+      );
+    }
+
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
+    );
+
+    const { data: schedule, error } = await supabaseAdmin
       .from("schedules")
-      .select(
-        `
-        *,
-        profile:profiles!schedules_profile_id_fkey(
-          id,
-          first_name,
-          last_name,
-          email
-        )
-      `
-      )
+      .select("*")
       .eq("id", params.id)
       .single();
 
@@ -44,7 +67,27 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ schedule });
+    // Verify academy access
+    if (
+      profile.role !== "super_admin" &&
+      schedule.academy_id !== profile.academy_id
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Fetch profile data separately
+    const { data: profileData } = await supabaseAdmin
+      .from("profiles")
+      .select("id, first_name, last_name, email")
+      .eq("id", schedule.profile_id)
+      .single();
+
+    return NextResponse.json({
+      schedule: {
+        ...schedule,
+        profile: profileData || null,
+      },
+    });
   } catch (error) {
     console.error("Unexpected error in GET /api/schedules/[id]:", error);
     return NextResponse.json(
@@ -90,32 +133,31 @@ export async function PATCH(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Get current schedule to check academy
-    const { data: currentSchedule, error: scheduleError } = await supabase
-      .from("schedules")
-      .select("academy_id")
-      .eq("id", params.id)
-      .single();
+    const body = await request.json();
+    const { subject_id, name, profile_id, day_of_week, start_time, end_time } = body;
 
-    if (scheduleError || !currentSchedule) {
+    // Use service role to bypass RLS
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
       return NextResponse.json(
-        { error: "Schedule not found" },
-        { status: 404 }
+        { error: "Server configuration error" },
+        { status: 500 }
       );
     }
 
-    if (
-      profile.role !== "super_admin" &&
-      currentSchedule.academy_id !== profile.academy_id
-    ) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    const body = await request.json();
-    const { name, profile_id, day_of_week, start_time, end_time } = body;
+    const { createClient } = await import("@supabase/supabase-js");
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
+    );
 
     // Get current schedule
-    const { data: existingSchedule, error: scheduleFetchError } = await supabase
+    const { data: existingSchedule, error: scheduleFetchError } = await supabaseAdmin
       .from("schedules")
       .select("*")
       .eq("id", params.id)
@@ -129,17 +171,40 @@ export async function PATCH(
     }
 
     // Verify academy access
-    const { data: currentSchedule } = await supabase
-      .from("schedules")
-      .select("academy_id")
-      .eq("id", params.id)
-      .single();
-
     if (
       profile.role !== "super_admin" &&
-      currentSchedule?.academy_id !== profile.academy_id
+      existingSchedule.academy_id !== profile.academy_id
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Resolve subject_id and name if subject_id is provided
+    let resolvedSubjectId: string | null = existingSchedule.subject_id || null;
+    let resolvedName: string = existingSchedule.name;
+
+    if (subject_id) {
+      const { data: subject, error: subjectError } = await supabaseAdmin
+        .from("subjects")
+        .select("id, name, academy_id")
+        .eq("id", subject_id)
+        .single();
+
+      if (subjectError || !subject) {
+        return NextResponse.json(
+          { error: "Materia no encontrada" },
+          { status: 400 }
+        );
+      }
+      if (subject.academy_id !== existingSchedule.academy_id) {
+        return NextResponse.json(
+          { error: "La materia no pertenece a esta academia" },
+          { status: 400 }
+        );
+      }
+      resolvedSubjectId = subject.id;
+      resolvedName = subject.name;
+    } else if (name && typeof name === "string" && name.trim()) {
+      resolvedName = name.trim();
     }
 
     // Use provided values or existing ones
@@ -149,43 +214,37 @@ export async function PATCH(
     const finalEndTime = end_time || existingSchedule.end_time;
 
     // Check for conflicts (excluding current schedule)
-    const { data: conflicts, error: conflictError } = await supabase.rpc(
-      "check_schedule_conflicts",
-      {
-        p_academy_id: existingSchedule.academy_id,
-        p_day_of_week: finalDayOfWeek,
-        p_start_time: finalStartTime,
-        p_end_time: finalEndTime,
-        p_academy_id: currentSchedule.academy_id,
-        p_schedule_id: params.id, // exclude this schedule
-      }
-    );
+    const { data: conflictingSchedules, error: conflictError } = await supabaseAdmin
+      .from("schedules")
+      .select("id, name")
+      .eq("academy_id", existingSchedule.academy_id)
+      .eq("profile_id", finalProfileId)
+      .eq("day_of_week", finalDayOfWeek)
+      .neq("id", params.id) // exclude current schedule
+      .or(
+        `and(start_time.lte.${finalStartTime},end_time.gt.${finalStartTime}),and(start_time.lt.${finalEndTime},end_time.gte.${finalEndTime}),and(start_time.gte.${finalStartTime},end_time.lte.${finalEndTime})`
+      )
+      .limit(1);
 
     if (conflictError) {
       console.error("Error checking conflicts:", conflictError);
-      return NextResponse.json(
-        { error: "Error checking conflicts", details: conflictError.message },
-        { status: 500 }
-      );
+      // Don't fail on conflict check errors, just log them
     }
 
-    if (conflicts && conflicts.length > 0) {
-      const conflict = conflicts[0];
+    if (conflictingSchedules && conflictingSchedules.length > 0) {
+      const conflict = conflictingSchedules[0];
       return NextResponse.json(
         {
-          error: "Schedule conflict detected",
-          details: `${conflict.conflict_message}: ${conflict.conflicting_schedule_name}`,
+          error: "Conflicto de horario detectado",
+          details: `El profesor ya tiene una clase asignada en este horario: "${conflict.name}"`,
         },
         { status: 400 }
       );
     }
 
-    // Update schedule
-    const updateData: any = {};
-    if (name !== undefined) updateData.name = name;
-    if (profile_id !== undefined) {
-      // Verify the profile_id is a professor in the same academy
-      const { data: professorProfile, error: profileError } = await supabase
+    // Verify the profile_id is a professor in the same academy (if changing)
+    if (profile_id && profile_id !== existingSchedule.profile_id) {
+      const { data: professorProfile, error: profileError } = await supabaseAdmin
         .from("profiles")
         .select("id, role, academy_id")
         .eq("id", profile_id)
@@ -194,25 +253,42 @@ export async function PATCH(
 
       if (profileError || !professorProfile) {
         return NextResponse.json(
-          { error: "Invalid professor profile" },
+          { error: "Perfil de profesor inválido" },
           { status: 400 }
         );
       }
 
       if (professorProfile.academy_id !== existingSchedule.academy_id) {
         return NextResponse.json(
-          { error: "Professor does not belong to this academy" },
+          { error: "El profesor no pertenece a esta academia" },
           { status: 400 }
         );
       }
-
-      updateData.profile_id = profile_id;
     }
+
+    // Update schedule
+    const updateData: {
+      subject_id?: string | null;
+      name?: string;
+      profile_id?: string;
+      day_of_week?: number;
+      start_time?: string;
+      end_time?: string;
+    } = {};
+
+    if (subject_id !== undefined) {
+      updateData.subject_id = resolvedSubjectId;
+      updateData.name = resolvedName;
+    } else if (name !== undefined) {
+      updateData.name = name.trim();
+    }
+
+    if (profile_id !== undefined) updateData.profile_id = profile_id;
     if (day_of_week !== undefined) updateData.day_of_week = day_of_week;
     if (start_time !== undefined) updateData.start_time = start_time;
     if (end_time !== undefined) updateData.end_time = end_time;
 
-    const { data: updatedSchedule, error: updateError } = await supabase
+    const { data: updatedSchedule, error: updateError } = await supabaseAdmin
       .from("schedules")
       .update(updateData)
       .eq("id", params.id)
