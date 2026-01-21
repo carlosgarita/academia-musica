@@ -1,18 +1,12 @@
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
-import { DirectorSidebar } from "@/components/director/DirectorSidebar";
-import { SidebarProvider } from "@/components/director/SidebarContext";
-import { MainContent } from "@/components/director/MainContent";
+import { StudentsList } from "./students-list";
 import type { Database } from "@/lib/database.types";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 
-export default async function DirectorLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default async function StudentsPage() {
   const cookieStore = cookies();
   const supabase = await createServerClient(cookieStore);
 
@@ -27,18 +21,17 @@ export default async function DirectorLayout({
 
   const { data: profile } = (await supabase
     .from("profiles")
-    .select("role")
+    .select("academy_id")
     .eq("id", user.id)
     .single()) as { data: Profile | null };
 
-  if (!profile || profile.role !== "director") {
+  if (!profile?.academy_id) {
     redirect("/");
   }
 
   return (
-    <SidebarProvider>
-      <DirectorSidebar />
-      <MainContent>{children}</MainContent>
-    </SidebarProvider>
+    <div className="container mx-auto py-10">
+      <StudentsList academyId={profile.academy_id} />
+    </div>
   );
 }
