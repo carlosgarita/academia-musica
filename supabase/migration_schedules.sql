@@ -43,15 +43,25 @@ alter table public.enrollments
   add column if not exists schedule_id uuid references public.schedules on delete cascade;
 
 -- Update unique constraint to allow either subject_id OR schedule_id
--- First, drop the old unique constraint if it exists
+-- First, drop the old unique constraints if they exist
 do $$
 begin
+  -- Drop the old subject-based unique constraint
   if exists (
     select 1 from pg_constraint 
     where conname = 'enrollments_student_id_subject_id_teacher_id_key'
   ) then
     alter table public.enrollments
       drop constraint enrollments_student_id_subject_id_teacher_id_key;
+  end if;
+  
+  -- Drop the old schedule-based unique constraint (if it exists as a table constraint)
+  if exists (
+    select 1 from pg_constraint 
+    where conname = 'enrollments_student_id_schedule_id_key'
+  ) then
+    alter table public.enrollments
+      drop constraint enrollments_student_id_schedule_id_key;
   end if;
 end $$;
 

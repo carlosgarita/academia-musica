@@ -84,10 +84,18 @@ export async function GET(
       .is("deleted_at", null)
       .single();
 
+    // Format professor name
+    const professorName = profileData
+      ? `${profileData.first_name || ""} ${profileData.last_name || ""}`.trim() || "Sin nombre"
+      : "Sin nombre";
+
     return NextResponse.json({
       schedule: {
         ...schedule,
         profile: profileData || null,
+        professor: {
+          name: professorName,
+        },
       },
     });
   } catch (error) {

@@ -107,7 +107,7 @@ export default function SchedulesPage() {
           </p>
         </div>
         <Link
-          href="/director/schedules/new"
+          href="/director/direccion/schedules/new"
           className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
         >
           Nuevo Horario
@@ -124,7 +124,7 @@ export default function SchedulesPage() {
         <div className="text-center py-12 bg-white rounded-lg shadow">
           <p className="text-gray-500">No hay horarios creados aún.</p>
           <Link
-            href="/director/schedules/new"
+            href="/director/direccion/schedules/new"
             className="mt-4 inline-flex items-center text-indigo-600 hover:text-indigo-500"
           >
             Crear tu primer horario
@@ -163,19 +163,21 @@ export default function SchedulesPage() {
                           classSchedules[0].profile.email
                         : "Sin nombre"}
                     </div>
+                    <div className="mt-3">
+                      <Link
+                        href={`/director/direccion/schedules/${classSchedules[0].id}/enrollments`}
+                        className="inline-flex items-center text-indigo-600 hover:text-indigo-900 text-sm font-medium"
+                      >
+                        Asignar Estudiantes
+                      </Link>
+                    </div>
                   </div>
                   <div className="ml-4 flex space-x-2">
                     <Link
-                      href={`/director/schedules/${classSchedules[0].id}/edit`}
+                      href={`/director/direccion/schedules/${classSchedules[0].id}/edit`}
                       className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
                     >
                       Editar
-                    </Link>
-                    <Link
-                      href={`/director/schedules/${classSchedules[0].id}/enrollments`}
-                      className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
-                    >
-                      Asignar Estudiantes
                     </Link>
                     <button
                       onClick={() => {

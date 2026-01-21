@@ -141,7 +141,19 @@ export default function ScheduleEnrollmentsPage() {
         }),
       });
 
-      const data = await response.json();
+      // Try to parse JSON, but handle cases where response might not be JSON
+      let data: any = {};
+      try {
+        const text = await response.text();
+        if (text) {
+          data = JSON.parse(text);
+        }
+      } catch (parseError) {
+        console.error("Error parsing response:", parseError);
+        setError(`Error del servidor (${response.status}): ${response.statusText}`);
+        setSubmitting(false);
+        return;
+      }
 
       if (!response.ok) {
         if (response.status === 207 && data.conflicts) {
@@ -158,7 +170,21 @@ export default function ScheduleEnrollmentsPage() {
             setError(data.message || "Error al inscribir estudiantes");
           }
         } else {
-          setError(data.error || data.details || "Error al inscribir estudiantes");
+          // Show detailed error message
+          const errorMessage = data.error || `Error del servidor (${response.status})`;
+          const details = data.details;
+          const fullMessage = details
+            ? `${errorMessage}: ${Array.isArray(details) ? details.join(", ") : details}`
+            : errorMessage;
+          setError(fullMessage);
+          if (Object.keys(data).length > 0) {
+            console.error("Enrollment error:", data);
+          } else {
+            console.error("Enrollment error: Empty response body", {
+              status: response.status,
+              statusText: response.statusText,
+            });
+          }
         }
         setSubmitting(false);
         return;
