@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
 // GET: Get a single subject by ID
@@ -24,6 +25,7 @@ export async function GET(
       .from("subjects")
       .select("*")
       .eq("id", params.id)
+      .is("deleted_at", null)
       .single();
 
     if (error) {
@@ -80,11 +82,12 @@ export async function PATCH(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Get current subject to check academy
+    // Get current subject to check academy (exclude soft deleted)
     const { data: currentSubject, error: subjectError } = await supabase
       .from("subjects")
       .select("academy_id")
       .eq("id", params.id)
+      .is("deleted_at", null)
       .single();
 
     if (subjectError || !currentSubject) {
@@ -122,6 +125,40 @@ export async function PATCH(
         { error: "Failed to update subject", details: updateError.message },
         { status: 500 }
       );
+    }
+
+    // If name was updated, also update the denormalized name in schedules table
+    if (name !== undefined && updatedSubject) {
+      // Use service role to bypass RLS for updating schedules
+      if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        const supabaseAdmin = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY,
+          {
+            auth: {
+              autoRefreshToken: false,
+              persistSession: false,
+            },
+          }
+        );
+
+        const { error: schedulesUpdateError } = await supabaseAdmin
+          .from("schedules")
+          .update({ name: updatedSubject.name })
+          .eq("subject_id", params.id)
+          .is("deleted_at", null); // Only update non-deleted schedules
+
+        if (schedulesUpdateError) {
+          console.error("Error updating schedules name:", schedulesUpdateError);
+          console.error("Error details:", JSON.stringify(schedulesUpdateError, null, 2));
+          // Don't fail the whole operation, just log the error
+          // The subject update was successful, so we return success
+        } else {
+          console.log(`Successfully updated schedules name for subject ${params.id}`);
+        }
+      } else {
+        console.warn("SUPABASE_SERVICE_ROLE_KEY not set, skipping schedules name update");
+      }
     }
 
     return NextResponse.json({ subject: updatedSubject });
@@ -170,11 +207,12 @@ export async function DELETE(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Get current subject to check academy
+    // Get current subject to check academy (exclude soft deleted)
     const { data: currentSubject, error: subjectError } = await supabase
       .from("subjects")
       .select("academy_id")
       .eq("id", params.id)
+      .is("deleted_at", null)
       .single();
 
     if (subjectError || !currentSubject) {
@@ -191,9 +229,10 @@ export async function DELETE(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    // Soft delete subject (update deleted_at instead of DELETE)
     const { error: deleteError } = await supabase
       .from("subjects")
-      .delete()
+      .update({ deleted_at: new Date().toISOString() })
       .eq("id", params.id);
 
     if (deleteError) {

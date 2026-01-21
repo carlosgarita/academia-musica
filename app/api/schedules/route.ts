@@ -56,12 +56,13 @@ export async function GET(request: NextRequest) {
     let schedules;
     let error;
 
-    // First try with regular client
+    // First try with regular client (exclude soft deleted)
     if (profile.role === "super_admin") {
       // Super admin can see all
       const result = await supabase
         .from("schedules")
         .select("*")
+        .is("deleted_at", null)
         .order("day_of_week", { ascending: true })
         .order("start_time", { ascending: true });
       schedules = result.data;
@@ -72,6 +73,7 @@ export async function GET(request: NextRequest) {
         .from("schedules")
         .select("*")
         .eq("academy_id", academyId)
+        .is("deleted_at", null)
         .order("day_of_week", { ascending: true })
         .order("start_time", { ascending: true });
       schedules = result.data;
@@ -95,6 +97,7 @@ export async function GET(request: NextRequest) {
             .from("schedules")
             .select("*")
             .eq("academy_id", academyId)
+            .is("deleted_at", null)
             .order("day_of_week", { ascending: true })
             .order("start_time", { ascending: true });
           schedules = adminResult.data;
@@ -148,6 +151,7 @@ export async function GET(request: NextRequest) {
           .from("profiles")
           .select("id, first_name, last_name, email")
           .eq("id", schedule.profile_id)
+          .is("deleted_at", null)
           .single();
 
         return {
@@ -235,6 +239,7 @@ export async function POST(request: NextRequest) {
         .from("subjects")
         .select("id, name, academy_id")
         .eq("id", subject_id)
+        .is("deleted_at", null)
         .single();
 
       if (subjectError || !subject) {
@@ -364,13 +369,14 @@ export async function POST(request: NextRequest) {
       const { day_of_week, start_time: slotStartTime, end_time: slotEndTime } = slot;
       
       // Check for conflicts manually (professor at same time, or student conflicts)
-      // First check: professor already has a schedule at this time
+      // First check: professor already has a schedule at this time (exclude soft deleted)
       const { data: professorConflict, error: profConflictError } = await supabaseAdmin
         .from("schedules")
         .select("id, name")
         .eq("academy_id", academyId)
         .eq("profile_id", profile_id)
         .eq("day_of_week", day_of_week)
+        .is("deleted_at", null)
         .or(
           `and(start_time.lte.${slotStartTime},end_time.gt.${slotStartTime}),and(start_time.lt.${slotEndTime},end_time.gte.${slotEndTime}),and(start_time.gte.${slotStartTime},end_time.lte.${slotEndTime})`
         )
@@ -390,12 +396,13 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      // Verify the profile_id is a professor in the same academy (using admin client)
+      // Verify the profile_id is a professor in the same academy (using admin client, exclude soft deleted)
       const { data: professorProfile, error: profileError } = await supabaseAdmin
         .from("profiles")
         .select("id, role, academy_id")
         .eq("id", profile_id)
         .eq("role", "professor")
+        .is("deleted_at", null)
         .single();
 
       if (profileError || !professorProfile) {

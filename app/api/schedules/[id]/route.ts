@@ -57,6 +57,7 @@ export async function GET(
       .from("schedules")
       .select("*")
       .eq("id", params.id)
+      .is("deleted_at", null)
       .single();
 
     if (error) {
@@ -75,11 +76,12 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Fetch profile data separately
+    // Fetch profile data separately (exclude soft deleted)
     const { data: profileData } = await supabaseAdmin
       .from("profiles")
       .select("id, first_name, last_name, email")
       .eq("id", schedule.profile_id)
+      .is("deleted_at", null)
       .single();
 
     return NextResponse.json({
@@ -156,11 +158,12 @@ export async function PATCH(
       }
     );
 
-    // Get current schedule
+    // Get current schedule (exclude soft deleted)
     const { data: existingSchedule, error: scheduleFetchError } = await supabaseAdmin
       .from("schedules")
       .select("*")
       .eq("id", params.id)
+      .is("deleted_at", null)
       .single();
 
     if (scheduleFetchError || !existingSchedule) {
@@ -187,6 +190,7 @@ export async function PATCH(
         .from("subjects")
         .select("id, name, academy_id")
         .eq("id", subject_id)
+        .is("deleted_at", null)
         .single();
 
       if (subjectError || !subject) {
@@ -213,7 +217,7 @@ export async function PATCH(
     const finalStartTime = start_time || existingSchedule.start_time;
     const finalEndTime = end_time || existingSchedule.end_time;
 
-    // Check for conflicts (excluding current schedule)
+    // Check for conflicts (excluding current schedule and soft deleted)
     const { data: conflictingSchedules, error: conflictError } = await supabaseAdmin
       .from("schedules")
       .select("id, name")
@@ -221,6 +225,7 @@ export async function PATCH(
       .eq("profile_id", finalProfileId)
       .eq("day_of_week", finalDayOfWeek)
       .neq("id", params.id) // exclude current schedule
+      .is("deleted_at", null)
       .or(
         `and(start_time.lte.${finalStartTime},end_time.gt.${finalStartTime}),and(start_time.lt.${finalEndTime},end_time.gte.${finalEndTime}),and(start_time.gte.${finalStartTime},end_time.lte.${finalEndTime})`
       )
@@ -249,6 +254,7 @@ export async function PATCH(
         .select("id, role, academy_id")
         .eq("id", profile_id)
         .eq("role", "professor")
+        .is("deleted_at", null)
         .single();
 
       if (profileError || !professorProfile) {
@@ -349,11 +355,12 @@ export async function DELETE(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Get current schedule to check academy
+    // Get current schedule to check academy (exclude soft deleted)
     const { data: currentSchedule, error: scheduleError } = await supabase
       .from("schedules")
       .select("academy_id")
       .eq("id", params.id)
+      .is("deleted_at", null)
       .single();
 
     if (scheduleError || !currentSchedule) {
@@ -370,9 +377,29 @@ export async function DELETE(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { error: deleteError } = await supabase
+    // Use service role for soft delete
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return NextResponse.json(
+        { error: "Server configuration error" },
+        { status: 500 }
+      );
+    }
+
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
+    );
+
+    // Soft delete schedule (update deleted_at instead of DELETE)
+    const { error: deleteError } = await supabaseAdmin
       .from("schedules")
-      .delete()
+      .update({ deleted_at: new Date().toISOString() })
       .eq("id", params.id);
 
     if (deleteError) {

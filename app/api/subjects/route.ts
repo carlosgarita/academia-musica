@@ -40,10 +40,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Build query
+    // Build query (exclude soft deleted)
     let query = supabase
       .from("subjects")
       .select("*")
+      .is("deleted_at", null)
       .order("name", { ascending: true });
 
     if (profile.role !== "super_admin") {

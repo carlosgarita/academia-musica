@@ -40,10 +40,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Build query
+    // Build query (exclude soft deleted)
     let query = supabase
       .from("students")
       .select("*")
+      .is("deleted_at", null)
       .order("first_name", { ascending: true })
       .order("last_name", { ascending: true });
 

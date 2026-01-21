@@ -63,6 +63,7 @@ export interface Database {
           academy_id: string | null;
           status: "active" | "inactive" | null;
           additional_info: string | null;
+          deleted_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -81,6 +82,7 @@ export interface Database {
           academy_id?: string | null;
           status?: "active" | "inactive" | null;
           additional_info?: string | null;
+          deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -99,6 +101,7 @@ export interface Database {
           academy_id?: string | null;
           status?: "active" | "inactive" | null;
           additional_info?: string | null;
+          deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -133,6 +136,7 @@ export interface Database {
           date_of_birth: string | null;
           additional_info: string | null;
           enrollment_status: "inscrito" | "retirado" | "graduado" | null;
+          deleted_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -145,6 +149,7 @@ export interface Database {
           date_of_birth?: string | null;
           additional_info?: string | null;
           enrollment_status?: "inscrito" | "retirado" | "graduado" | null;
+          deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -157,6 +162,7 @@ export interface Database {
           date_of_birth?: string | null;
           additional_info?: string | null;
           enrollment_status?: "inscrito" | "retirado" | "graduado" | null;
+          deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -167,6 +173,7 @@ export interface Database {
           academy_id: string;
           name: string;
           description: string | null;
+          deleted_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -175,6 +182,7 @@ export interface Database {
           academy_id: string;
           name: string;
           description?: string | null;
+          deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -183,6 +191,7 @@ export interface Database {
           academy_id?: string;
           name?: string;
           description?: string | null;
+          deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -197,6 +206,7 @@ export interface Database {
           day_of_week: number;
           start_time: string;
           end_time: string;
+          deleted_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -209,6 +219,7 @@ export interface Database {
           day_of_week: number;
           start_time: string;
           end_time: string;
+          deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -221,6 +232,7 @@ export interface Database {
           day_of_week?: number;
           start_time?: string;
           end_time?: string;
+          deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -286,6 +298,32 @@ export interface Database {
           student_id?: string;
           academy_id?: string;
           relationship?: string | null;
+          created_at?: string;
+        };
+      };
+      audit_logs: {
+        Row: {
+          id: string;
+          user_id: string | null;
+          action: string;
+          table_name: string;
+          record_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string | null;
+          action: string;
+          table_name: string;
+          record_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string | null;
+          action?: string;
+          table_name?: string;
+          record_id?: string;
           created_at?: string;
         };
       };

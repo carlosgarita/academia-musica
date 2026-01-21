@@ -22,6 +22,7 @@ create table public.profiles (
   academy_id uuid references public.academies on delete set null,
   status text default 'active' check (status in ('active', 'inactive')),
   additional_info text check (char_length(additional_info) <= 500),
+  deleted_at timestamp with time zone,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
@@ -37,6 +38,7 @@ create table public.students (
   date_of_birth date,
   additional_info text check (char_length(additional_info) <= 500),
   enrollment_status text default 'inscrito' check (enrollment_status in ('inscrito', 'retirado', 'graduado')),
+  deleted_at timestamp with time zone,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
@@ -47,6 +49,7 @@ create table public.subjects (
   academy_id uuid references public.academies on delete cascade not null,
   name text not null check (char_length(name) <= 100),
   description text check (char_length(description) <= 500),
+  deleted_at timestamp with time zone,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
@@ -73,6 +76,7 @@ create table public.schedules (
   day_of_week integer not null check (day_of_week between 1 and 7), -- 1=Lunes, 7=Domingo
   start_time time not null,
   end_time time not null,
+  deleted_at timestamp with time zone,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null,
   -- Ensure end_time is after start_time
@@ -83,6 +87,20 @@ create table public.schedules (
     and end_time <= '22:00:00'::time
   )
 );
+
+-- Audit logs table (for GDPR compliance and audit trail)
+create table public.audit_logs (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users on delete set null,
+  action text not null check (char_length(action) <= 50),
+  table_name text not null check (char_length(table_name) <= 100),
+  record_id uuid not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+create index idx_audit_logs_user_id on public.audit_logs(user_id);
+create index idx_audit_logs_table_record on public.audit_logs(table_name, record_id);
+create index idx_audit_logs_created_at on public.audit_logs(created_at);
 
 -- Guardian students table (encargado-estudiante)
 -- One-to-one relationship: each student can have only one guardian
@@ -486,3 +504,24 @@ create policy "Guardians can view their own student assignments"
   for select
   to authenticated
   using (guardian_id = auth.uid());
+
+-- Audit logs policies
+alter table public.audit_logs enable row level security;
+
+create policy "Users can view their own audit logs"
+  on public.audit_logs
+  as permissive
+  for select
+  to authenticated
+  using (user_id = auth.uid());
+
+create policy "Super admins can view all audit logs"
+  on public.audit_logs
+  as permissive
+  for select
+  to authenticated
+  using (exists (
+    select 1 from public.profiles
+    where profiles.id = auth.uid()
+    and profiles.role = 'super_admin'
+  ));

@@ -55,11 +55,12 @@ export async function GET(
       }
     );
 
-    // Get student
+    // Get student (exclude soft deleted)
     const { data: student, error } = await supabaseAdmin
       .from("students")
       .select("*")
       .eq("id", params.id)
+      .is("deleted_at", null)
       .single();
 
     if (error) {
@@ -168,11 +169,12 @@ export async function PATCH(
       }
     );
 
-    // Verify student exists and belongs to same academy
+    // Verify student exists and belongs to same academy (exclude soft deleted)
     const { data: studentProfile, error: studentError } = await supabaseAdmin
       .from("students")
       .select("academy_id")
       .eq("id", params.id)
+      .is("deleted_at", null)
       .single();
 
     if (studentError || !studentProfile) {
@@ -290,11 +292,12 @@ export async function DELETE(
       }
     );
 
-    // Verify student exists and belongs to same academy
+    // Verify student exists and belongs to same academy (exclude soft deleted)
     const { data: studentProfile, error: studentError } = await supabaseAdmin
       .from("students")
       .select("academy_id")
       .eq("id", params.id)
+      .is("deleted_at", null)
       .single();
 
     if (studentError || !studentProfile) {
@@ -311,10 +314,10 @@ export async function DELETE(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Delete student (this will cascade delete guardian_students relationships)
+    // Soft delete student (update deleted_at instead of DELETE)
     const { error: deleteError } = await supabaseAdmin
       .from("students")
-      .delete()
+      .update({ deleted_at: new Date().toISOString() })
       .eq("id", params.id);
 
     if (deleteError) {

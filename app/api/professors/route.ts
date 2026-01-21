@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    // First, get basic professor data using admin client
+    // First, get basic professor data using admin client (exclude soft deleted)
     let query = supabaseAdmin
       .from("profiles")
       .select(
@@ -82,6 +82,7 @@ export async function GET(request: NextRequest) {
       `
       )
       .eq("role", "professor")
+      .is("deleted_at", null)
       .order("created_at", { ascending: false });
 
     if (profile.role !== "super_admin") {
@@ -107,28 +108,36 @@ export async function GET(request: NextRequest) {
     // Now fetch subjects and schedules for each professor using admin client
     const professorsWithDetails = await Promise.all(
       (professors || []).map(async (prof) => {
-        // Fetch subjects
+        // Fetch subjects (exclude soft deleted - filtered client-side after fetch)
         const { data: professorSubjects } = await supabaseAdmin
           .from("professor_subjects")
           .select(
             `
             subject:subjects(
               id,
-              name
+              name,
+              deleted_at
             )
           `
           )
           .eq("profile_id", prof.id);
 
-        // Fetch schedules
+        // Filter out soft-deleted subjects
+        const activeSubjects = (professorSubjects || []).filter(
+          (ps: { subject: { deleted_at: string | null } | null }) =>
+            ps.subject && !ps.subject.deleted_at
+        );
+
+        // Fetch schedules (exclude soft deleted)
         const { data: schedules } = await supabaseAdmin
           .from("schedules")
           .select("id, name, day_of_week, start_time, end_time")
-          .eq("profile_id", prof.id);
+          .eq("profile_id", prof.id)
+          .is("deleted_at", null);
 
         return {
           ...prof,
-          subjects: professorSubjects || [],
+          subjects: activeSubjects || [],
           schedules: schedules || [],
         };
       })

@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    // Build query using admin client
+    // Build query using admin client (exclude soft deleted)
     let query = supabaseAdmin
       .from("profiles")
       .select(
@@ -80,16 +80,18 @@ export async function GET(request: NextRequest) {
         created_at,
         updated_at,
         students:guardian_students(
-          student:students(
+          student:students!inner(
             id,
             first_name,
             last_name,
-            enrollment_status
+            enrollment_status,
+            deleted_at
           )
         )
       `
       )
       .eq("role", "guardian")
+      .is("deleted_at", null)
       .order("created_at", { ascending: false });
 
     if (profile.role !== "super_admin") {
@@ -106,7 +108,21 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ guardians: guardians || [] });
+    // Filter out deleted students from guardian_students relationships for all guardians
+    const guardiansWithFilteredStudents = (guardians || []).map((guardian) => {
+      if (guardian.students && Array.isArray(guardian.students)) {
+        return {
+          ...guardian,
+          students: guardian.students.filter(
+            (gs: { student: { deleted_at: string | null } | null }) =>
+              gs.student && !gs.student.deleted_at
+          ),
+        };
+      }
+      return guardian;
+    });
+
+    return NextResponse.json({ guardians: guardiansWithFilteredStudents });
   } catch (error) {
     console.error("Unexpected error in GET /api/guardians:", error);
     return NextResponse.json(

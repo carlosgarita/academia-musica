@@ -148,11 +148,12 @@ export async function POST(
       );
     }
 
-    // Verify all students belong to the same academy
+    // Verify all students belong to the same academy (exclude soft deleted)
     const { data: students, error: studentsError } = await supabase
       .from("students")
       .select("id, academy_id")
-      .in("id", student_ids);
+      .in("id", student_ids)
+      .is("deleted_at", null);
 
     if (studentsError || !students) {
       return NextResponse.json(

@@ -101,7 +101,8 @@ export async function getProfessors(
     .select()
     .eq("role", "professor")
     .eq("academy_id", academyId)
-    .eq("status", "active");
+    .eq("status", "active")
+    .is("deleted_at", null); // Exclude soft deleted professors
 
   return {
     data: data as Tables["profiles"]["Row"][] | null,
@@ -118,7 +119,8 @@ export async function getStudents(
   const { data, error } = await supabase
     .from("students")
     .select()
-    .eq("academy_id", academyId);
+    .eq("academy_id", academyId)
+    .is("deleted_at", null); // Exclude soft deleted students
 
   return {
     data: data as Tables["students"]["Row"][] | null,

@@ -50,7 +50,7 @@ export async function GET(
       }
     );
 
-    // Professors are profiles with role='professor'; use admin to bypass RLS
+    // Professors are profiles with role='professor'; use admin to bypass RLS (exclude soft deleted)
     const { data: professor, error } = await supabaseAdmin
       .from("profiles")
       .select(
@@ -68,7 +68,8 @@ export async function GET(
         subjects:professor_subjects(
           subject:subjects(
             id,
-            name
+            name,
+            deleted_at
           )
         ),
         schedules:schedules(
@@ -76,12 +77,14 @@ export async function GET(
           name,
           day_of_week,
           start_time,
-          end_time
+          end_time,
+          deleted_at
         )
       `
       )
       .eq("id", params.id)
       .eq("role", "professor")
+      .is("deleted_at", null)
       .single();
 
     if (error) {
@@ -97,6 +100,21 @@ export async function GET(
       professor.academy_id !== profile.academy_id
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Filter out deleted subjects from professor_subjects relationships
+    if (professor.subjects && Array.isArray(professor.subjects)) {
+      professor.subjects = professor.subjects.filter(
+        (ps: { subject: { deleted_at: string | null } | null }) =>
+          ps.subject && !ps.subject.deleted_at
+      );
+    }
+
+    // Filter out deleted schedules
+    if (professor.schedules && Array.isArray(professor.schedules)) {
+      professor.schedules = professor.schedules.filter(
+        (s: { deleted_at: string | null }) => !s.deleted_at
+      );
     }
 
     return NextResponse.json({ professor });
@@ -182,6 +200,7 @@ export async function PATCH(
       .select("academy_id, role")
       .eq("id", params.id)
       .eq("role", "professor")
+      .is("deleted_at", null)
       .single();
 
     if (professorError || !professorRow) {
@@ -296,12 +315,32 @@ export async function DELETE(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Get professor profile to check academy
-    const { data: professorProfile, error: professorError } = await supabase
+    // Get professor profile to check academy (exclude soft deleted)
+    // Use service role to bypass RLS
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return NextResponse.json(
+        { error: "Server configuration error" },
+        { status: 500 }
+      );
+    }
+
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
+    );
+
+    const { data: professorProfile, error: professorError } = await supabaseAdmin
       .from("profiles")
       .select("academy_id, role")
       .eq("id", params.id)
       .eq("role", "professor")
+      .is("deleted_at", null)
       .single();
 
     if (professorError || !professorProfile) {
@@ -318,25 +357,14 @@ export async function DELETE(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Delete profile (this will cascade delete auth user and related records)
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    );
-
-    // Delete auth user (this will cascade delete profile)
-    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(
-      params.id
-    );
+    // Soft delete: update deleted_at instead of deleting auth user
+    const { error: deleteError } = await supabaseAdmin
+      .from("profiles")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", params.id);
 
     if (deleteError) {
-      console.error("Error deleting professor:", deleteError);
+      console.error("Error soft deleting professor:", deleteError);
       return NextResponse.json(
         { error: "Failed to delete professor", details: deleteError.message },
         { status: 500 }
