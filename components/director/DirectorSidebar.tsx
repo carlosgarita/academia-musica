@@ -21,6 +21,7 @@ import {
   ChevronsRight,
   Power,
   Music,
+  CalendarDays,
 } from "lucide-react";
 
 interface NavigationItem {
@@ -43,6 +44,7 @@ const navigation: NavigationItem[] = [
       { name: "Materias", href: "/director/direccion/subjects", icon: BookOpen },
       { name: "Horarios", href: "/director/direccion/schedules", icon: Calendar },
       { name: "Canciones", href: "/director/direccion/songs", icon: Music },
+      { name: "Cronogramas", href: "/director/direccion/periods", icon: CalendarDays },
     ],
   },
   {

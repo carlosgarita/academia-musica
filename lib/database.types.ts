@@ -333,6 +333,70 @@ export interface Database {
           updated_at?: string;
         };
       };
+      periods: {
+        Row: {
+          id: string;
+          academy_id: string;
+          year: number;
+          period: "I" | "II" | "III" | "IV" | "V" | "VI";
+          deleted_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          academy_id: string;
+          year: number;
+          period: "I" | "II" | "III" | "IV" | "V" | "VI";
+          deleted_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          academy_id?: string;
+          year?: number;
+          period?: "I" | "II" | "III" | "IV" | "V" | "VI";
+          deleted_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      period_dates: {
+        Row: {
+          id: string;
+          period_id: string;
+          date_type: "inicio" | "cierre" | "feriado" | "recital" | "clase" | "otro";
+          date: string;
+          schedule_id: string | null;
+          comment: string | null;
+          deleted_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          period_id: string;
+          date_type: "inicio" | "cierre" | "feriado" | "recital" | "clase" | "otro";
+          date: string;
+          schedule_id?: string | null;
+          comment?: string | null;
+          deleted_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          period_id?: string;
+          date_type?: "inicio" | "cierre" | "feriado" | "recital" | "clase" | "otro";
+          date?: string;
+          schedule_id?: string | null;
+          comment?: string | null;
+          deleted_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
       audit_logs: {
         Row: {
           id: string;

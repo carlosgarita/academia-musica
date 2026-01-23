@@ -147,6 +147,38 @@ create table public.songs (
 create index idx_songs_academy_id on public.songs(academy_id);
 create index idx_songs_difficulty_level on public.songs(difficulty_level);
 
+-- Periods table (cronogramas/periodos)
+create table public.periods (
+  id uuid default gen_random_uuid() primary key,
+  academy_id uuid references public.academies on delete cascade not null,
+  year integer not null check (year >= 2000 and year <= 2100),
+  period text not null check (period in ('I', 'II', 'III', 'IV', 'V', 'VI')),
+  deleted_at timestamp with time zone,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  unique(academy_id, year, period)
+);
+
+create index idx_periods_academy_id on public.periods(academy_id);
+create index idx_periods_year on public.periods(year);
+
+-- Period dates table (fechas del cronograma)
+create table public.period_dates (
+  id uuid default gen_random_uuid() primary key,
+  period_id uuid references public.periods on delete cascade not null,
+  date_type text not null check (date_type in ('inicio', 'cierre', 'feriado', 'recital', 'clase', 'otro')),
+  date date not null,
+  schedule_id uuid references public.schedules on delete set null,
+  comment text check (char_length(comment) <= 500),
+  deleted_at timestamp with time zone,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+create index idx_period_dates_period_id on public.period_dates(period_id);
+create index idx_period_dates_date on public.period_dates(date);
+create index idx_period_dates_schedule_id on public.period_dates(schedule_id) where schedule_id is not null;
+
 -- Create updated_at trigger function
 create or replace function public.handle_updated_at()
 returns trigger as $$
@@ -212,6 +244,8 @@ alter table public.schedules enable row level security;
 alter table public.guardian_students enable row level security;
 alter table public.enrollments enable row level security;
 alter table public.songs enable row level security;
+alter table public.periods enable row level security;
+alter table public.period_dates enable row level security;
 
 -- Academies policies
 create policy "Super admins can do everything with academies"
@@ -604,6 +638,173 @@ create policy "Guardians can view songs in their children's academy"
       where profiles.id = auth.uid()
       and profiles.role = 'guardian'
       and students.academy_id = songs.academy_id
+    )
+  );
+
+-- Periods policies
+create policy "Super admins can do everything with periods"
+  on public.periods
+  as permissive
+  for all
+  to authenticated
+  using (
+    exists (
+      select 1 from public.profiles
+      where profiles.id = auth.uid()
+      and profiles.role = 'super_admin'
+    )
+  );
+
+create policy "Directors can manage periods in their academy"
+  on public.periods
+  as permissive
+  for all
+  to authenticated
+  using (
+    exists (
+      select 1 from public.profiles
+      where profiles.id = auth.uid()
+      and profiles.role = 'director'
+      and profiles.academy_id = periods.academy_id
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.profiles
+      where profiles.id = auth.uid()
+      and profiles.role = 'director'
+      and profiles.academy_id = periods.academy_id
+    )
+  );
+
+create policy "Professors can view periods in their academy"
+  on public.periods
+  as permissive
+  for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.profiles
+      where profiles.id = auth.uid()
+      and profiles.role = 'professor'
+      and profiles.academy_id = periods.academy_id
+    )
+  );
+
+create policy "Students can view periods in their academy"
+  on public.periods
+  as permissive
+  for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.profiles
+      inner join public.students on students.user_id = profiles.id
+      where profiles.id = auth.uid()
+      and profiles.role = 'student'
+      and students.academy_id = periods.academy_id
+    )
+  );
+
+create policy "Guardians can view periods in their children's academy"
+  on public.periods
+  as permissive
+  for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.profiles
+      inner join public.guardian_students on guardian_students.guardian_id = profiles.id
+      inner join public.students on students.id = guardian_students.student_id
+      where profiles.id = auth.uid()
+      and profiles.role = 'guardian'
+      and students.academy_id = periods.academy_id
+    )
+  );
+
+-- Period dates policies
+create policy "Super admins can do everything with period_dates"
+  on public.period_dates
+  as permissive
+  for all
+  to authenticated
+  using (
+    exists (
+      select 1 from public.profiles
+      where profiles.id = auth.uid()
+      and profiles.role = 'super_admin'
+    )
+  );
+
+create policy "Directors can manage period_dates in their academy"
+  on public.period_dates
+  as permissive
+  for all
+  to authenticated
+  using (
+    exists (
+      select 1 from public.profiles
+      inner join public.periods on periods.id = period_dates.period_id
+      where profiles.id = auth.uid()
+      and profiles.role = 'director'
+      and profiles.academy_id = periods.academy_id
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.profiles
+      inner join public.periods on periods.id = period_dates.period_id
+      where profiles.id = auth.uid()
+      and profiles.role = 'director'
+      and profiles.academy_id = periods.academy_id
+    )
+  );
+
+create policy "Professors can view period_dates in their academy"
+  on public.period_dates
+  as permissive
+  for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.profiles
+      inner join public.periods on periods.id = period_dates.period_id
+      where profiles.id = auth.uid()
+      and profiles.role = 'professor'
+      and profiles.academy_id = periods.academy_id
+    )
+  );
+
+create policy "Students can view period_dates in their academy"
+  on public.period_dates
+  as permissive
+  for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.profiles
+      inner join public.students on students.user_id = profiles.id
+      inner join public.periods on periods.id = period_dates.period_id
+      where profiles.id = auth.uid()
+      and profiles.role = 'student'
+      and students.academy_id = periods.academy_id
+    )
+  );
+
+create policy "Guardians can view period_dates in their children's academy"
+  on public.period_dates
+  as permissive
+  for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.profiles
+      inner join public.guardian_students on guardian_students.guardian_id = profiles.id
+      inner join public.students on students.id = guardian_students.student_id
+      inner join public.periods on periods.id = period_dates.period_id
+      where profiles.id = auth.uid()
+      and profiles.role = 'guardian'
+      and students.academy_id = periods.academy_id
     )
   );
 
