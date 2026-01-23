@@ -20,6 +20,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Power,
+  Music,
 } from "lucide-react";
 
 interface NavigationItem {
@@ -41,6 +42,7 @@ const navigation: NavigationItem[] = [
       { name: "Encargados", href: "/director/direccion/guardians", icon: UserCheck },
       { name: "Materias", href: "/director/direccion/subjects", icon: BookOpen },
       { name: "Horarios", href: "/director/direccion/schedules", icon: Calendar },
+      { name: "Canciones", href: "/director/direccion/songs", icon: Music },
     ],
   },
   {

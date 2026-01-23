@@ -301,6 +301,38 @@ export interface Database {
           created_at?: string;
         };
       };
+      songs: {
+        Row: {
+          id: string;
+          academy_id: string;
+          name: string;
+          author: string | null;
+          difficulty_level: number;
+          deleted_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          academy_id: string;
+          name: string;
+          author?: string | null;
+          difficulty_level: number;
+          deleted_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          academy_id?: string;
+          name?: string;
+          author?: string | null;
+          difficulty_level?: number;
+          deleted_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
       audit_logs: {
         Row: {
           id: string;
