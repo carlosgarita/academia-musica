@@ -22,6 +22,7 @@ import {
   Power,
   Music,
   CalendarDays,
+  ClipboardList,
 } from "lucide-react";
 
 interface NavigationItem {
@@ -45,6 +46,7 @@ const navigation: NavigationItem[] = [
       { name: "Horarios", href: "/director/direccion/schedules", icon: Calendar },
       { name: "Canciones", href: "/director/direccion/songs", icon: Music },
       { name: "Cronogramas", href: "/director/direccion/periods", icon: CalendarDays },
+      { name: "Matrículas", href: "/director/direccion/course-registrations", icon: ClipboardList },
     ],
   },
   {

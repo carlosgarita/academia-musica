@@ -397,6 +397,64 @@ export interface Database {
           updated_at?: string;
         };
       };
+      course_registrations: {
+        Row: {
+          id: string;
+          student_id: string;
+          subject_id: string;
+          period_id: string;
+          academy_id: string;
+          status: "active" | "completed" | "cancelled";
+          enrollment_date: string;
+          deleted_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          student_id: string;
+          subject_id: string;
+          period_id: string;
+          academy_id: string;
+          status?: "active" | "completed" | "cancelled";
+          enrollment_date?: string;
+          deleted_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          student_id?: string;
+          subject_id?: string;
+          period_id?: string;
+          academy_id?: string;
+          status?: "active" | "completed" | "cancelled";
+          enrollment_date?: string;
+          deleted_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      course_registration_songs: {
+        Row: {
+          id: string;
+          course_registration_id: string;
+          song_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          course_registration_id: string;
+          song_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          course_registration_id?: string;
+          song_id?: string;
+          created_at?: string;
+        };
+      };
       audit_logs: {
         Row: {
           id: string;
