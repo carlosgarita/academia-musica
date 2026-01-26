@@ -45,13 +45,7 @@ export async function GET(
       .select(
         `
         *,
-        schedule:schedules(
-          id,
-          name,
-          day_of_week,
-          start_time,
-          end_time
-        )
+        subject:subjects(id, name, deleted_at)
       `
       )
       .eq("period_id", params.id)
@@ -163,9 +157,11 @@ export async function POST(
     }
 
     // Validate and prepare dates for insertion
-    const dateInserts = [];
+    const dateInserts: { period_id: string; date_type: string; date: string; subject_id: string | null; comment: string | null }[] = [];
+    const clasePairs: { subject_id: string; profile_id: string }[] = [];
+
     for (const dateItem of dates) {
-      const { date_type, date, schedule_id, comment } = dateItem;
+      const { date_type, date, subject_id, profile_id, comment } = dateItem;
 
       // Validation
       if (!date_type || !["inicio", "cierre", "feriado", "recital", "clase", "otro"].includes(date_type)) {
@@ -182,37 +178,79 @@ export async function POST(
         );
       }
 
-      // If date_type is "clase", schedule_id is required
-      if (date_type === "clase" && !schedule_id) {
+      // If date_type is "clase", subject_id and profile_id are required
+      if (date_type === "clase" && !subject_id) {
         return NextResponse.json(
-          { error: "schedule_id is required when date_type is 'clase'" },
+          { error: "subject_id is required when date_type is 'clase'" },
+          { status: 400 }
+        );
+      }
+      if (date_type === "clase" && !profile_id) {
+        return NextResponse.json(
+          { error: "profile_id (profesor) is required when date_type is 'clase'" },
           { status: 400 }
         );
       }
 
-      // Validate schedule exists if provided
-      if (schedule_id) {
-        const { data: schedule, error: scheduleError } = await supabaseAdmin
-          .from("schedules")
-          .select("id, academy_id")
-          .eq("id", schedule_id)
-          .is("deleted_at", null)
+      // Validate subject exists if provided
+      if (subject_id) {
+        const { data: subject, error: subjectError } = await supabaseAdmin
+          .from("subjects")
+          .select("id, academy_id, deleted_at")
+          .eq("id", subject_id)
           .single();
 
-        if (scheduleError || !schedule) {
+        if (subjectError || !subject || subject.deleted_at) {
           return NextResponse.json(
-            { error: `Schedule ${schedule_id} not found` },
+            { error: "Materia (subject) no encontrada" },
             { status: 404 }
           );
         }
 
-        // Verify schedule belongs to same academy
-        if (schedule.academy_id !== period.academy_id) {
+        // Verify subject belongs to same academy
+        if (subject.academy_id !== period.academy_id) {
           return NextResponse.json(
-            { error: "Schedule does not belong to the same academy" },
+            { error: "La materia no pertenece a esta academia" },
             { status: 403 }
           );
         }
+      }
+
+      // Validate professor (profile_id) when date_type is "clase"
+      if (date_type === "clase" && profile_id) {
+        const { data: prof, error: profError } = await supabaseAdmin
+          .from("profiles")
+          .select("id, role, academy_id, deleted_at")
+          .eq("id", profile_id)
+          .single();
+
+        if (profError || !prof || prof.deleted_at || prof.role !== "professor") {
+          return NextResponse.json(
+            { error: "Profesor no encontrado o inválido" },
+            { status: 404 }
+          );
+        }
+        if (prof.academy_id !== period.academy_id && profile.role !== "super_admin") {
+          return NextResponse.json(
+            { error: "El profesor no pertenece a esta academia" },
+            { status: 403 }
+          );
+        }
+        // Verificar que el profesor tiene esa materia en professor_subjects
+        const { data: ps, error: psErr } = await supabaseAdmin
+          .from("professor_subjects")
+          .select("profile_id")
+          .eq("profile_id", profile_id)
+          .eq("subject_id", subject_id)
+          .maybeSingle();
+
+        if (psErr || !ps) {
+          return NextResponse.json(
+            { error: "Este profesor no tiene asignada la materia seleccionada" },
+            { status: 400 }
+          );
+        }
+        clasePairs.push({ subject_id, profile_id });
       }
 
       if (comment && comment.length > 500) {
@@ -226,7 +264,7 @@ export async function POST(
         period_id: params.id,
         date_type,
         date,
-        schedule_id: schedule_id || null,
+        subject_id: subject_id || null,
         comment: comment || null,
       });
     }
@@ -243,6 +281,20 @@ export async function POST(
         { error: "Failed to create dates", details: insertError.message },
         { status: 500 }
       );
+    }
+
+    // Insertar en professor_subject_periods (único por profile_id, subject_id, period_id)
+    const seen = new Set<string>();
+    for (const { subject_id: sid, profile_id: pid } of clasePairs) {
+      const key = `${pid}:${sid}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const { error: pspErr } = await supabaseAdmin
+        .from("professor_subject_periods")
+        .insert({ profile_id: pid, subject_id: sid, period_id: params.id });
+      if (pspErr && (pspErr as { code?: string }).code !== "23505") {
+        console.error("Error inserting professor_subject_periods:", pspErr);
+      }
     }
 
     return NextResponse.json({ dates: insertedDates }, { status: 201 });

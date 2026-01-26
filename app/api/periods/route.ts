@@ -121,15 +121,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    if (profile.role !== "super_admin" && !profile.academy_id) {
-      return NextResponse.json(
-        { error: "Academy not found" },
-        { status: 404 }
-      );
-    }
-
     const body = await request.json();
-    const { year, period } = body;
+    const { year, period, academy_id: bodyAcademyId } = body;
 
     // Validation
     if (!year || typeof year !== "number" || year < 2000 || year > 2100) {
@@ -143,6 +136,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Period must be I, II, III, IV, V, or VI" },
         { status: 400 }
+      );
+    }
+
+    // Resolve academy_id: directors use profile; super_admins can pass it in body when not linked to an academy
+    let academyId: string | null = null;
+    if (profile.role === "super_admin" && !profile.academy_id) {
+      if (!bodyAcademyId || typeof bodyAcademyId !== "string") {
+        return NextResponse.json(
+          { error: "academy_id is required when your account is not linked to an academy" },
+          { status: 400 }
+        );
+      }
+      academyId = bodyAcademyId;
+    } else {
+      academyId = profile.academy_id ?? null;
+    }
+    if (!academyId) {
+      return NextResponse.json(
+        { error: "Academy not found", details: "Your profile has no academy assigned" },
+        { status: 404 }
       );
     }
 
@@ -165,28 +178,65 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    // Check if period already exists
-    const { data: existing } = await supabaseAdmin
-      .from("periods")
+    // Verify academy exists
+    const { data: academy, error: acErr } = await supabaseAdmin
+      .from("academies")
       .select("id")
-      .eq("academy_id", profile.academy_id!)
+      .eq("id", academyId)
+      .single();
+    if (acErr || !academy) {
+      return NextResponse.json(
+        { error: "Academy not found", details: acErr?.message || "Invalid academy_id" },
+        { status: 404 }
+      );
+    }
+
+    // Check if period already exists (including soft-deleted; unique is on academy_id+year+period)
+    const { data: existing, error: existErr } = await supabaseAdmin
+      .from("periods")
+      .select("id, deleted_at")
+      .eq("academy_id", academyId)
       .eq("year", year)
       .eq("period", period)
-      .is("deleted_at", null)
-      .single();
+      .maybeSingle();
+
+    if (existErr) {
+      console.error("Error checking existing period:", existErr);
+      return NextResponse.json(
+        { error: "Failed to create period", details: existErr.message },
+        { status: 500 }
+      );
+    }
 
     if (existing) {
-      return NextResponse.json(
-        { error: "This period already exists" },
-        { status: 400 }
-      );
+      if (!existing.deleted_at) {
+        return NextResponse.json(
+          { error: "This period already exists" },
+          { status: 400 }
+        );
+      }
+      // Restore soft-deleted period
+      const { data: restored, error: upErr } = await supabaseAdmin
+        .from("periods")
+        .update({ deleted_at: null })
+        .eq("id", existing.id)
+        .select()
+        .single();
+      if (upErr) {
+        console.error("Error restoring period:", upErr);
+        return NextResponse.json(
+          { error: "Failed to create period", details: upErr.message },
+          { status: 500 }
+        );
+      }
+      return NextResponse.json({ period: restored }, { status: 201 });
     }
 
     // Create period
     const { data: periodData, error: createError } = await supabaseAdmin
       .from("periods")
       .insert({
-        academy_id: profile.academy_id!,
+        academy_id: academyId,
         year,
         period,
       })

@@ -85,10 +85,10 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { date_type, date, schedule_id, comment } = body;
+    const { date_type, date, subject_id, comment } = body;
 
     // Build update object
-    const updates: any = {};
+    const updates: Record<string, unknown> = {};
 
     if (date_type !== undefined) {
       if (!["inicio", "cierre", "feriado", "recital", "clase", "otro"].includes(date_type)) {
@@ -110,34 +110,33 @@ export async function PATCH(
       updates.date = date;
     }
 
-    if (schedule_id !== undefined) {
-      if (schedule_id === null || schedule_id === "") {
-        updates.schedule_id = null;
+    if (subject_id !== undefined) {
+      if (subject_id === null || subject_id === "") {
+        updates.subject_id = null;
       } else {
-        // Validate schedule exists
-        const { data: schedule, error: scheduleError } = await supabaseAdmin
-          .from("schedules")
-          .select("id, academy_id")
-          .eq("id", schedule_id)
-          .is("deleted_at", null)
+        // Validate subject exists
+        const { data: subject, error: subjectError } = await supabaseAdmin
+          .from("subjects")
+          .select("id, academy_id, deleted_at")
+          .eq("id", subject_id)
           .single();
 
-        if (scheduleError || !schedule) {
+        if (subjectError || !subject || subject.deleted_at) {
           return NextResponse.json(
-            { error: "Schedule not found" },
+            { error: "Materia (subject) no encontrada" },
             { status: 404 }
           );
         }
 
-        // Verify schedule belongs to same academy
-        if (schedule.academy_id !== existingDate.period.academy_id) {
+        // Verify subject belongs to same academy
+        if (subject.academy_id !== existingDate.period.academy_id) {
           return NextResponse.json(
-            { error: "Schedule does not belong to the same academy" },
+            { error: "La materia no pertenece a esta academia" },
             { status: 403 }
           );
         }
 
-        updates.schedule_id = schedule_id;
+        updates.subject_id = subject_id;
       }
     }
 

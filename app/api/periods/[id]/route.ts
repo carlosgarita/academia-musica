@@ -77,13 +77,7 @@ export async function GET(
       .select(
         `
         *,
-        schedule:schedules(
-          id,
-          name,
-          day_of_week,
-          start_time,
-          end_time
-        )
+        subject:subjects(id, name, deleted_at)
       `
       )
       .eq("period_id", params.id)

@@ -9,17 +9,21 @@ type Subject = {
   academy_id: string;
 };
 
+type Professor = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+};
+
 type PeriodDate = {
   id?: string;
   date_type: "inicio" | "cierre" | "feriado" | "recital" | "clase" | "otro";
   date: string;
-  schedule_id: string | null;
+  subject_id: string | null;
+  profile_id?: string | null;
   comment: string | null;
-  schedule?: {
-    id: string;
-    name: string;
-    subject_id: string | null;
-  } | null;
+  subject?: { id: string; name: string; deleted_at?: string | null } | null;
+  professorDisplayName?: string | null;
 };
 
 type Period = {
@@ -41,7 +45,8 @@ export default function EditPeriodPage() {
   const [period, setPeriod] = useState<Period | null>(null);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loadingSubjects, setLoadingSubjects] = useState(true);
-  const [subjectToScheduleMap, setSubjectToScheduleMap] = useState<Map<string, string>>(new Map());
+  const [professors, setProfessors] = useState<Professor[]>([]);
+  const [loadingProfessors, setLoadingProfessors] = useState(false);
 
   const [year, setYear] = useState<number>(new Date().getFullYear());
   const [periodValue, setPeriodValue] = useState<"I" | "II" | "III" | "IV" | "V" | "VI">("I");
@@ -51,12 +56,14 @@ export default function EditPeriodPage() {
   const [dateType, setDateType] = useState<"inicio" | "cierre" | "feriado" | "recital" | "clase" | "otro">("inicio");
   const [date, setDate] = useState<string>("");
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>("");
+  const [selectedProfileId, setSelectedProfileId] = useState<string>("");
   const [comment, setComment] = useState<string>("");
 
   // Multi-date selection mode
   const [multiDateMode, setMultiDateMode] = useState(false);
   const [multiDateType, setMultiDateType] = useState<"inicio" | "cierre" | "feriado" | "recital" | "clase" | "otro">("clase");
   const [multiDateSubjectId, setMultiDateSubjectId] = useState<string>("");
+  const [multiDateProfileId, setMultiDateProfileId] = useState<string>("");
   const [multiDateStart, setMultiDateStart] = useState<string>("");
   const [multiDateEnd, setMultiDateEnd] = useState<string>("");
   const [multiDateDays, setMultiDateDays] = useState<number[]>([]);
@@ -68,6 +75,20 @@ export default function EditPeriodPage() {
       loadSubjects();
     }
   }, [periodId]);
+
+  const subjectIdForProfessors = multiDateMode ? multiDateSubjectId : selectedSubjectId;
+  const isClase = multiDateMode ? multiDateType === "clase" : dateType === "clase";
+  useEffect(() => {
+    if (isClase && subjectIdForProfessors) {
+      setLoadingProfessors(true);
+      fetch(`/api/professors?subject_id=${subjectIdForProfessors}`)
+        .then((r) => r.json())
+        .then((d) => { setProfessors(d.professors || []); })
+        .finally(() => { setLoadingProfessors(false); });
+    } else {
+      setProfessors([]);
+    }
+  }, [isClase, subjectIdForProfessors]);
 
   async function loadPeriod() {
     try {
@@ -93,33 +114,12 @@ export default function EditPeriodPage() {
   async function loadSubjects() {
     try {
       setLoadingSubjects(true);
-      // Load subjects
       const subjectsResponse = await fetch("/api/subjects");
       const subjectsData = await subjectsResponse.json();
-
       if (!subjectsResponse.ok) {
         throw new Error(subjectsData.error || "Failed to load subjects");
       }
-
       setSubjects(subjectsData.subjects || []);
-
-      // Load schedules to map subject_id to schedule_id
-      const schedulesResponse = await fetch("/api/schedules");
-      const schedulesData = await schedulesResponse.json();
-
-      if (schedulesResponse.ok && schedulesData.schedules) {
-        const map = new Map<string, string>();
-        // For each subject, find the first active schedule
-        subjectsData.subjects.forEach((subject: Subject) => {
-          const schedule = schedulesData.schedules.find(
-            (s: any) => s.subject_id === subject.id && !s.deleted_at
-          );
-          if (schedule) {
-            map.set(subject.id, schedule.id);
-          }
-        });
-        setSubjectToScheduleMap(map);
-      }
     } catch (err) {
       console.error("Error loading subjects:", err);
     } finally {
@@ -137,25 +137,25 @@ export default function EditPeriodPage() {
       setError("Debes seleccionar una materia cuando el tipo es 'Clase'");
       return;
     }
-
-    // Get schedule_id from subject_id
-    const scheduleId = dateType === "clase" ? subjectToScheduleMap.get(selectedSubjectId) || null : null;
-    
-    if (dateType === "clase" && !scheduleId) {
-      setError("No se encontró un horario activo para la materia seleccionada");
+    if (dateType === "clase" && !selectedProfileId) {
+      setError("Debes seleccionar un profesor cuando el tipo es 'Clase'");
       return;
     }
 
+    const prof = dateType === "clase" && selectedProfileId ? professors.find((p) => p.id === selectedProfileId) : null;
     const newDate: PeriodDate = {
       date_type: dateType,
       date,
-      schedule_id: scheduleId,
+      subject_id: dateType === "clase" ? selectedSubjectId : null,
+      profile_id: dateType === "clase" ? selectedProfileId : null,
       comment: comment.trim() || null,
+      professorDisplayName: prof ? [prof.first_name, prof.last_name].filter(Boolean).join(" ") || null : null,
     };
 
     setDates([...dates, newDate]);
     setDate("");
     setSelectedSubjectId("");
+    setSelectedProfileId("");
     setComment("");
     setError(null);
   }
@@ -196,20 +196,17 @@ export default function EditPeriodPage() {
       setError("Debes seleccionar una materia cuando el tipo es 'Clase'");
       return;
     }
+    if (multiDateType === "clase" && !multiDateProfileId) {
+      setError("Debes seleccionar un profesor cuando el tipo es 'Clase'");
+      return;
+    }
 
     if (multiDateDays.length === 0) {
       setError("Debes seleccionar al menos un día de la semana");
       return;
     }
 
-    // Get schedule_id from subject_id
-    const scheduleId = multiDateType === "clase" ? subjectToScheduleMap.get(multiDateSubjectId) || null : null;
-    
-    if (multiDateType === "clase" && !scheduleId) {
-      setError("No se encontró un horario activo para la materia seleccionada");
-      return;
-    }
-
+    const prof = multiDateType === "clase" && multiDateProfileId ? professors.find((p) => p.id === multiDateProfileId) : null;
     const start = new Date(multiDateStart);
     const end = new Date(multiDateEnd);
     const newDates: PeriodDate[] = [];
@@ -220,8 +217,10 @@ export default function EditPeriodPage() {
         newDates.push({
           date_type: multiDateType,
           date: d.toISOString().split("T")[0],
-          schedule_id: scheduleId,
+          subject_id: multiDateType === "clase" ? multiDateSubjectId : null,
+          profile_id: multiDateType === "clase" ? multiDateProfileId : null,
           comment: multiDateComment.trim() || null,
+          professorDisplayName: prof ? [prof.first_name, prof.last_name].filter(Boolean).join(" ") || null : null,
         });
       }
     }
@@ -232,11 +231,11 @@ export default function EditPeriodPage() {
     }
 
     setDates([...dates, ...newDates]);
-    setMultiDateMode(false);
     setMultiDateStart("");
     setMultiDateEnd("");
     setMultiDateDays([]);
     setMultiDateSubjectId("");
+    setMultiDateProfileId("");
     setMultiDateComment("");
     setError(null);
   }
@@ -294,15 +293,22 @@ export default function EditPeriodPage() {
         });
       }
 
-      // Add new dates
+      // Add new dates (incluye profile_id para tipo clase)
       if (newDates.length > 0) {
+        const datesPayload = newDates.map((d) => ({
+          date_type: d.date_type,
+          date: d.date,
+          subject_id: d.subject_id,
+          comment: d.comment,
+          ...(d.date_type === "clase" && d.profile_id ? { profile_id: d.profile_id } : {}),
+        }));
         const addResponse = await fetch(`/api/periods/${periodId}/dates`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            dates: newDates,
+            dates: datesPayload,
           }),
         });
 
@@ -453,7 +459,13 @@ export default function EditPeriodPage() {
                     </label>
                     <select
                       value={multiDateType}
-                      onChange={(e) => setMultiDateType(e.target.value as any)}
+                      onChange={(e) => {
+                        setMultiDateType(e.target.value as "inicio" | "cierre" | "feriado" | "recital" | "clase" | "otro");
+                        if (e.target.value !== "clase") {
+                          setMultiDateSubjectId("");
+                          setMultiDateProfileId("");
+                        }
+                      }}
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                     >
                       <option value="inicio">Fecha de Inicio</option>
@@ -466,28 +478,60 @@ export default function EditPeriodPage() {
                   </div>
 
                   {multiDateType === "clase" && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Materia <span className="text-red-500">*</span>
-                      </label>
-                      {loadingSubjects ? (
-                        <div className="mt-1 text-sm text-gray-500">Cargando...</div>
-                      ) : (
-                        <select
-                          value={multiDateSubjectId}
-                          onChange={(e) => setMultiDateSubjectId(e.target.value)}
-                          required
-                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                        >
-                          <option value="">Selecciona una materia</option>
-                          {subjects.map((subject) => (
-                            <option key={subject.id} value={subject.id}>
-                              {subject.name}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          Materia <span className="text-red-500">*</span>
+                        </label>
+                        {loadingSubjects ? (
+                          <div className="mt-1 text-sm text-gray-500">Cargando...</div>
+                        ) : (
+                          <select
+                            value={multiDateSubjectId}
+                            onChange={(e) => {
+                              setMultiDateSubjectId(e.target.value);
+                              setMultiDateProfileId("");
+                            }}
+                            required
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                          >
+                            <option value="">Selecciona una materia</option>
+                            {subjects.map((subject) => (
+                              <option key={subject.id} value={subject.id}>
+                                {subject.name}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          Profesor <span className="text-red-500">*</span>
+                        </label>
+                        {!multiDateSubjectId ? (
+                          <div className="mt-1 text-sm text-gray-500">Primero selecciona una materia</div>
+                        ) : loadingProfessors ? (
+                          <div className="mt-1 text-sm text-gray-500">Cargando...</div>
+                        ) : (
+                          <select
+                            value={multiDateProfileId}
+                            onChange={(e) => setMultiDateProfileId(e.target.value)}
+                            required
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                          >
+                            <option value="">Selecciona un profesor</option>
+                            {professors.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {[p.first_name, p.last_name].filter(Boolean).join(" ") || p.id}
+                              </option>
+                            ))}
+                            {professors.length === 0 && !loadingProfessors && (
+                              <option value="" disabled>Ningún profesor tiene esta materia</option>
+                            )}
+                          </select>
+                        )}
+                      </div>
+                    </>
                   )}
                 </div>
 
@@ -585,9 +629,10 @@ export default function EditPeriodPage() {
                     <select
                       value={dateType}
                       onChange={(e) => {
-                        setDateType(e.target.value as any);
+                        setDateType(e.target.value as "inicio" | "cierre" | "feriado" | "recital" | "clase" | "otro");
                         if (e.target.value !== "clase") {
-                          setSelectedScheduleId("");
+                          setSelectedSubjectId("");
+                          setSelectedProfileId("");
                         }
                       }}
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
@@ -602,28 +647,60 @@ export default function EditPeriodPage() {
                   </div>
 
                   {dateType === "clase" && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Materia <span className="text-red-500">*</span>
-                      </label>
-                      {loadingSubjects ? (
-                        <div className="mt-1 text-sm text-gray-500">Cargando...</div>
-                      ) : (
-                        <select
-                          value={selectedSubjectId}
-                          onChange={(e) => setSelectedSubjectId(e.target.value)}
-                          required={dateType === "clase"}
-                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                        >
-                          <option value="">Selecciona una materia</option>
-                          {subjects.map((subject) => (
-                            <option key={subject.id} value={subject.id}>
-                              {subject.name}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          Materia <span className="text-red-500">*</span>
+                        </label>
+                        {loadingSubjects ? (
+                          <div className="mt-1 text-sm text-gray-500">Cargando...</div>
+                        ) : (
+                          <select
+                            value={selectedSubjectId}
+                            onChange={(e) => {
+                              setSelectedSubjectId(e.target.value);
+                              setSelectedProfileId("");
+                            }}
+                            required={dateType === "clase"}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                          >
+                            <option value="">Selecciona una materia</option>
+                            {subjects.map((subject) => (
+                              <option key={subject.id} value={subject.id}>
+                                {subject.name}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          Profesor <span className="text-red-500">*</span>
+                        </label>
+                        {!selectedSubjectId ? (
+                          <div className="mt-1 text-sm text-gray-500">Primero selecciona una materia</div>
+                        ) : loadingProfessors ? (
+                          <div className="mt-1 text-sm text-gray-500">Cargando...</div>
+                        ) : (
+                          <select
+                            value={selectedProfileId}
+                            onChange={(e) => setSelectedProfileId(e.target.value)}
+                            required={dateType === "clase"}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                          >
+                            <option value="">Selecciona un profesor</option>
+                            {professors.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {[p.first_name, p.last_name].filter(Boolean).join(" ") || p.id}
+                              </option>
+                            ))}
+                            {professors.length === 0 && !loadingProfessors && (
+                              <option value="" disabled>Ningún profesor tiene esta materia</option>
+                            )}
+                          </select>
+                        )}
+                      </div>
+                    </>
                   )}
                 </div>
 
@@ -674,12 +751,8 @@ export default function EditPeriodPage() {
                 </h3>
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {dates.map((dateItem, index) => {
-                    // Find subject name from schedule_id
-                    const subject = dateItem.schedule_id
-                      ? subjects.find((s) => subjectToScheduleMap.get(s.id) === dateItem.schedule_id) ||
-                        (dateItem.schedule?.subject_id
-                          ? subjects.find((s) => s.id === dateItem.schedule.subject_id)
-                          : null)
+                    const subject = dateItem.subject_id
+                      ? (dateItem.subject && !dateItem.subject.deleted_at ? dateItem.subject : subjects.find((s) => s.id === dateItem.subject_id))
                       : null;
 
                     return (
@@ -696,7 +769,7 @@ export default function EditPeriodPage() {
                           </span>
                           {subject && (
                             <span className="ml-2 text-sm text-gray-500">
-                              ({subject.name})
+                              ({subject.name}{dateItem.professorDisplayName ? `, ${dateItem.professorDisplayName}` : ""})
                             </span>
                           )}
                           {dateItem.comment && (

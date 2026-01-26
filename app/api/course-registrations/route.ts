@@ -42,6 +42,21 @@ export async function GET(request: NextRequest) {
     const studentId = searchParams.get("student_id");
     const periodId = searchParams.get("period_id");
     const subjectId = searchParams.get("subject_id");
+    const courseId = searchParams.get("course_id");
+
+    // Si course_id: resolver (profile_id, subject_id, period_id) para filtrar por curso
+    let courseFilter: { profile_id: string; subject_id: string; period_id: string } | null = null;
+    if (courseId) {
+      const { data: psp, error: pspErr } = await supabaseAdmin
+        .from("professor_subject_periods")
+        .select("profile_id, subject_id, period_id")
+        .eq("id", courseId)
+        .single();
+      if (pspErr || !psp) {
+        return NextResponse.json({ courseRegistrations: [] });
+      }
+      courseFilter = { profile_id: psp.profile_id, subject_id: psp.subject_id, period_id: psp.period_id };
+    }
 
     let query = supabaseAdmin
       .from("course_registrations")
@@ -51,6 +66,7 @@ export async function GET(request: NextRequest) {
         student_id,
         subject_id,
         period_id,
+        profile_id,
         academy_id,
         status,
         enrollment_date,
@@ -73,6 +89,9 @@ export async function GET(request: NextRequest) {
     if (studentId) query = query.eq("student_id", studentId);
     if (periodId) query = query.eq("period_id", periodId);
     if (subjectId) query = query.eq("subject_id", subjectId);
+    if (courseFilter) {
+      query = query.eq("profile_id", courseFilter.profile_id).eq("subject_id", courseFilter.subject_id).eq("period_id", courseFilter.period_id);
+    }
 
     const { data: rows, error } = await query;
 
@@ -108,6 +127,7 @@ export async function GET(request: NextRequest) {
       student_id: r.student_id,
       subject_id: r.subject_id,
       period_id: r.period_id,
+      profile_id: r.profile_id ?? null,
       academy_id: r.academy_id,
       status: r.status,
       enrollment_date: r.enrollment_date,
@@ -173,11 +193,17 @@ export async function POST(request: NextRequest) {
     );
 
     const body = await request.json();
-    const { student_id, subject_id, period_id, song_ids } = body;
+    const { student_id, subject_id, period_id, profile_id, song_ids } = body;
 
     if (!student_id || !subject_id || !period_id) {
       return NextResponse.json(
         { error: "student_id, subject_id and period_id are required" },
+        { status: 400 }
+      );
+    }
+    if (!profile_id) {
+      return NextResponse.json(
+        { error: "profile_id (profesor del curso) es obligatorio" },
         { status: 400 }
       );
     }
@@ -229,18 +255,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Period does not belong to this academy" }, { status: 400 });
     }
 
-    // Unique(student_id, subject_id, period_id)
+    // Validar que el curso (profile_id, subject_id, period_id) existe en professor_subject_periods
+    const { data: psp, error: pspErr } = await supabaseAdmin
+      .from("professor_subject_periods")
+      .select("id")
+      .eq("profile_id", profile_id)
+      .eq("subject_id", subject_id)
+      .eq("period_id", period_id)
+      .single();
+
+    if (pspErr || !psp) {
+      return NextResponse.json({ error: "El curso (profesor, materia, periodo) no existe" }, { status: 400 });
+    }
+
+    // Unique(student_id, subject_id, period_id, profile_id)
     const { data: existing } = await supabaseAdmin
       .from("course_registrations")
       .select("id")
       .eq("student_id", student_id)
       .eq("subject_id", subject_id)
       .eq("period_id", period_id)
+      .eq("profile_id", profile_id)
       .is("deleted_at", null)
-      .single();
+      .maybeSingle();
 
     if (existing) {
-      return NextResponse.json({ error: "Este estudiante ya está matriculado en esta clase para este periodo" }, { status: 400 });
+      return NextResponse.json({ error: "Este estudiante ya está matriculado en este curso" }, { status: 400 });
     }
 
     const { data: reg, error: insertErr } = await supabaseAdmin
@@ -249,6 +289,7 @@ export async function POST(request: NextRequest) {
         student_id,
         subject_id,
         period_id,
+        profile_id,
         academy_id: academy,
       })
       .select()
@@ -260,7 +301,7 @@ export async function POST(request: NextRequest) {
       // Unique violation: (student_id, subject_id, period_id) — incl. si hubo matrícula anterior dada de baja
       if (err.code === "23505") {
         return NextResponse.json(
-          { error: "Este estudiante ya está matriculado en esta clase para este periodo (o existe una matrícula anterior dada de baja)." },
+          { error: "Este estudiante ya está matriculado en este curso." },
           { status: 400 }
         );
       }

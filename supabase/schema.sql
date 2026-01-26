@@ -163,12 +163,13 @@ create index idx_periods_academy_id on public.periods(academy_id);
 create index idx_periods_year on public.periods(year);
 
 -- Period dates table (fechas del cronograma)
+-- subject_id = clase (subjects); schedules solo para horario (día/hora)
 create table public.period_dates (
   id uuid default gen_random_uuid() primary key,
   period_id uuid references public.periods on delete cascade not null,
   date_type text not null check (date_type in ('inicio', 'cierre', 'feriado', 'recital', 'clase', 'otro')),
   date date not null,
-  schedule_id uuid references public.schedules on delete set null,
+  subject_id uuid references public.subjects on delete set null,
   comment text check (char_length(comment) <= 500),
   deleted_at timestamp with time zone,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
@@ -177,7 +178,21 @@ create table public.period_dates (
 
 create index idx_period_dates_period_id on public.period_dates(period_id);
 create index idx_period_dates_date on public.period_dates(date);
-create index idx_period_dates_schedule_id on public.period_dates(schedule_id) where schedule_id is not null;
+create index idx_period_dates_subject_id on public.period_dates(subject_id) where subject_id is not null;
+
+-- Professor–subject–period (profesor–clase–periodo) para Aula
+create table public.professor_subject_periods (
+  id uuid default gen_random_uuid() primary key,
+  profile_id uuid references public.profiles on delete cascade not null,
+  subject_id uuid references public.subjects on delete cascade not null,
+  period_id uuid references public.periods on delete cascade not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  unique(profile_id, subject_id, period_id)
+);
+
+create index idx_professor_subject_periods_profile on public.professor_subject_periods(profile_id);
+create index idx_professor_subject_periods_subject on public.professor_subject_periods(subject_id);
+create index idx_professor_subject_periods_period on public.professor_subject_periods(period_id);
 
 -- Course registrations (matrículas: estudiante + clase/subject + periodo)
 create table public.course_registrations (
@@ -283,6 +298,7 @@ alter table public.enrollments enable row level security;
 alter table public.songs enable row level security;
 alter table public.periods enable row level security;
 alter table public.period_dates enable row level security;
+alter table public.professor_subject_periods enable row level security;
 alter table public.course_registrations enable row level security;
 alter table public.course_registration_songs enable row level security;
 
@@ -846,6 +862,20 @@ create policy "Guardians can view period_dates in their children's academy"
       and students.academy_id = periods.academy_id
     )
   );
+
+-- Professor subject periods (profesor–clase–periodo) policies
+create policy "Super admins can do everything with professor_subject_periods"
+  on public.professor_subject_periods as permissive for all to authenticated
+  using (exists (select 1 from public.profiles where profiles.id = auth.uid() and profiles.role = 'super_admin'));
+
+create policy "Directors can manage professor_subject_periods in their academy"
+  on public.professor_subject_periods as permissive for all to authenticated
+  using (exists (select 1 from public.profiles p join public.subjects s on s.id = professor_subject_periods.subject_id where p.id = auth.uid() and p.role = 'director' and p.academy_id = s.academy_id))
+  with check (exists (select 1 from public.profiles p join public.subjects s on s.id = professor_subject_periods.subject_id where p.id = auth.uid() and p.role = 'director' and p.academy_id = s.academy_id));
+
+create policy "Professors can view own professor_subject_periods"
+  on public.professor_subject_periods as permissive for select to authenticated
+  using (profile_id = auth.uid());
 
 -- Course registrations policies
 create policy "Super admins can do everything with course_registrations"

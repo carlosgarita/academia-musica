@@ -368,7 +368,7 @@ export interface Database {
           period_id: string;
           date_type: "inicio" | "cierre" | "feriado" | "recital" | "clase" | "otro";
           date: string;
-          schedule_id: string | null;
+          subject_id: string | null;
           comment: string | null;
           deleted_at: string | null;
           created_at: string;
@@ -379,7 +379,7 @@ export interface Database {
           period_id: string;
           date_type: "inicio" | "cierre" | "feriado" | "recital" | "clase" | "otro";
           date: string;
-          schedule_id?: string | null;
+          subject_id?: string | null;
           comment?: string | null;
           deleted_at?: string | null;
           created_at?: string;
@@ -390,11 +390,34 @@ export interface Database {
           period_id?: string;
           date_type?: "inicio" | "cierre" | "feriado" | "recital" | "clase" | "otro";
           date?: string;
-          schedule_id?: string | null;
+          subject_id?: string | null;
           comment?: string | null;
           deleted_at?: string | null;
           created_at?: string;
           updated_at?: string;
+        };
+      };
+      professor_subject_periods: {
+        Row: {
+          id: string;
+          profile_id: string;
+          subject_id: string;
+          period_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          subject_id: string;
+          period_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          profile_id?: string;
+          subject_id?: string;
+          period_id?: string;
+          created_at?: string;
         };
       };
       course_registrations: {

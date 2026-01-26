@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
 // GET: List all professors for the director's academy
+// Query: ?subject_id=uuid → solo profesores que tienen esa materia en professor_subjects
 export async function GET(request: NextRequest) {
   try {
     const cookieStore = cookies();
@@ -40,6 +41,9 @@ export async function GET(request: NextRequest) {
         { status: 404 }
       );
     }
+
+    const { searchParams } = new URL(request.url);
+    const subjectId = searchParams.get("subject_id");
 
     // Build query - now query from profiles directly (role='professor')
     // Use service role to bypass RLS since there's no policy for directors to view professors
@@ -143,7 +147,15 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    return NextResponse.json({ professors: professorsWithDetails });
+    // Si se pide subject_id, filtrar a profesores que imparten esa materia (professor_subjects)
+    let result = professorsWithDetails;
+    if (subjectId) {
+      result = (professorsWithDetails || []).filter((p: { subjects: { subject?: { id: string } }[] }) =>
+        p.subjects?.some((s: { subject?: { id: string } }) => s.subject?.id === subjectId)
+      );
+    }
+
+    return NextResponse.json({ professors: result });
   } catch (error) {
     console.error("Unexpected error in GET /api/professors:", error);
     return NextResponse.json(

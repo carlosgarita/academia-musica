@@ -228,18 +228,9 @@ export default function EditCourseRegistrationPage() {
       </div>
 
       <div>
-        {reg.subject_id && reg.period_id ? (
-          <Link
-            href={`/director/direccion/course-registrations/class/${reg.subject_id}/${reg.period_id}`}
-            className="text-indigo-600 hover:text-indigo-900 text-sm"
-          >
-            ← Volver a {cl}
-          </Link>
-        ) : (
-          <Link href="/director/direccion/course-registrations" className="text-indigo-600 hover:text-indigo-900 text-sm">
-            ← Volver a matrículas
-          </Link>
-        )}
+        <Link href="/director/direccion/course-registrations" className="text-indigo-600 hover:text-indigo-900 text-sm">
+          ← Volver a matrículas
+        </Link>
       </div>
     </div>
   );
