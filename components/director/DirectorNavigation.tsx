@@ -9,7 +9,6 @@ import {
   GraduationCap,
   UserCheck,
   BookOpen,
-  Calendar,
   School,
   Menu,
   X,
@@ -35,7 +34,6 @@ const navigation: NavigationItem[] = [
       { name: "Estudiantes", href: "/director/direccion/students", icon: GraduationCap },
       { name: "Encargados", href: "/director/direccion/guardians", icon: UserCheck },
       { name: "Materias", href: "/director/direccion/subjects", icon: BookOpen },
-      { name: "Horarios", href: "/director/direccion/schedules", icon: Calendar },
     ],
   },
   {

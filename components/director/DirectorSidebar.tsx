@@ -12,7 +12,6 @@ import {
   UserCheck,
   BookOpen,
   BookMarked,
-  Calendar,
   School,
   Menu,
   X,
@@ -22,7 +21,6 @@ import {
   ChevronsRight,
   Power,
   Music,
-  CalendarDays,
   ClipboardList,
 } from "lucide-react";
 
@@ -45,9 +43,7 @@ const navigation: NavigationItem[] = [
       { name: "Encargados", href: "/director/direccion/guardians", icon: UserCheck },
       { name: "Materias", href: "/director/direccion/subjects", icon: BookOpen },
       { name: "Cursos", href: "/director/direccion/courses", icon: BookMarked },
-      { name: "Horarios", href: "/director/direccion/schedules", icon: Calendar },
       { name: "Canciones", href: "/director/direccion/songs", icon: Music },
-      { name: "Cronogramas", href: "/director/direccion/periods", icon: CalendarDays },
       { name: "Matrículas", href: "/director/direccion/course-registrations", icon: ClipboardList },
     ],
   },
