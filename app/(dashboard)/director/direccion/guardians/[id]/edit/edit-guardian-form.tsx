@@ -137,18 +137,21 @@ export function EditGuardianForm({
       const data = await response.json();
 
       if (!response.ok) {
-        const errorMessage = data.details
-          ? `${data.error || "Error"}: ${data.details}`
-          : data.error || "Error al actualizar el encargado";
+        // Construir mensaje de error más descriptivo
+        let errorMessage = data.error || "Error al actualizar el encargado";
+        if (data.details) {
+          errorMessage += `\n\n${data.details}`;
+        }
         throw new Error(errorMessage);
       }
 
       router.push("/director/guardians");
       router.refresh();
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Error al actualizar el encargado"
-      );
+      const errorMessage = err instanceof Error ? err.message : "Error al actualizar el encargado";
+      setError(errorMessage);
+      // Mostrar alert para que el usuario vea el error claramente
+      alert(errorMessage);
       setIsLoading(false);
     }
   }

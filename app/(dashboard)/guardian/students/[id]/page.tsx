@@ -5,13 +5,15 @@ import Link from "next/link";
 import type { Database } from "@/lib/database.types";
 
 type Student = Database["public"]["Tables"]["students"]["Row"];
-type Enrollment = Database["public"]["Tables"]["enrollments"]["Row"];
+type CourseRegistration = Database["public"]["Tables"]["course_registrations"]["Row"];
 type Subject = Database["public"]["Tables"]["subjects"]["Row"];
+type Period = Database["public"]["Tables"]["periods"]["Row"];
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 
-interface EnrollmentWithDetails extends Enrollment {
-  subject: Subject;
-  teacher: Profile; // teacher_id references profiles (where role='professor')
+interface CourseRegistrationWithDetails extends CourseRegistration {
+  subject: Subject | null;
+  period: Period | null;
+  professor: Profile | null; // profile_id from professor_subject_periods
 }
 
 export default async function StudentDetailPage({
@@ -67,27 +69,49 @@ export default async function StudentDetailPage({
     notFound();
   }
 
-  // Get enrollments with subject and professor details
-  const { data: enrollments } = await supabase
-    .from("enrollments")
+  // Get course_registrations with subject, period, and professor details
+  const { data: registrations } = await supabase
+    .from("course_registrations")
     .select(`
       *,
       subject:subjects(*),
-      professor:professors(*, profile:profiles(*))
+      period:periods(*)
     `)
     .eq("student_id", params.id)
     .eq("status", "active")
+    .is("deleted_at", null)
     .order("enrollment_date", { ascending: false });
 
-  const enrollmentsWithDetails: EnrollmentWithDetails[] =
-    enrollments?.map((e: any) => ({
-      ...e,
-      subject: e.subject,
-      professor: {
-        ...e.professor,
-        profile: e.professor.profile,
-      },
-    })) || [];
+  // Get professors for all registrations via profiles (using profile_id from course_registrations)
+  const registrationsWithProfessor: CourseRegistrationWithDetails[] = [];
+  if (registrations && registrations.length > 0) {
+    const profileIds = registrations
+      .map((r) => r.profile_id)
+      .filter((id): id is string => id !== null);
+    
+    let professorsMap: Record<string, Profile> = {};
+    if (profileIds.length > 0) {
+      const { data: professors } = await supabase
+        .from("profiles")
+        .select("*")
+        .in("id", profileIds)
+        .eq("role", "professor");
+      
+      if (professors) {
+        professorsMap = professors.reduce((acc, p) => {
+          acc[p.id] = p;
+          return acc;
+        }, {} as Record<string, Profile>);
+      }
+    }
+
+    registrationsWithProfessor.push(...registrations.map((reg) => ({
+      ...reg,
+      subject: reg.subject as Subject | null,
+      period: reg.period as Period | null,
+      professor: reg.profile_id ? (professorsMap[reg.profile_id] || null) : null,
+    })));
+  }
 
   return (
     <div className="space-y-6">
@@ -186,38 +210,38 @@ export default async function StudentDetailPage({
           </div>
         </div>
 
-        {/* Enrollments */}
+        {/* Course Registrations */}
         <div className="bg-white shadow sm:rounded-lg">
           <div className="px-4 py-5 sm:p-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">
-              Materias Inscritas
+              Cursos Inscritos
             </h3>
-            {enrollmentsWithDetails.length > 0 ? (
+            {registrationsWithProfessor.length > 0 ? (
               <div className="space-y-4">
-                {enrollmentsWithDetails.map((enrollment) => (
+                {registrationsWithProfessor.map((registration) => (
                   <div
-                    key={enrollment.id}
+                    key={registration.id}
                     className="border-l-4 border-indigo-500 pl-4 py-2"
                   >
                     <h4 className="text-sm font-semibold text-gray-900">
-                      {enrollment.subject?.name || "Materia no disponible"}
+                      {registration.subject?.name || "Curso no disponible"}
                     </h4>
-                    {enrollment.subject?.description && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        {enrollment.subject.description}
+                    {registration.period && (
+                      <p className="text-xs text-gray-600 mt-1">
+                        Periodo: {registration.period.year} – {registration.period.period}
                       </p>
                     )}
-                    {enrollment.teacher && (
-                      <p className="text-xs text-gray-600 mt-2">
+                    {registration.professor && (
+                      <p className="text-xs text-gray-600 mt-1">
                         Profesor:{" "}
-                        {`${enrollment.teacher.first_name || ""} ${enrollment.teacher.last_name || ""}`.trim() ||
-                          enrollment.teacher.email || "N/A"}
+                        {`${registration.professor.first_name || ""} ${registration.professor.last_name || ""}`.trim() ||
+                          registration.professor.email || "N/A"}
                       </p>
                     )}
-                    {enrollment.enrollment_date && (
+                    {registration.enrollment_date && (
                       <p className="text-xs text-gray-500 mt-1">
                         Inscrito desde:{" "}
-                        {new Date(enrollment.enrollment_date).toLocaleDateString(
+                        {new Date(registration.enrollment_date).toLocaleDateString(
                           "es-ES"
                         )}
                       </p>
@@ -227,7 +251,7 @@ export default async function StudentDetailPage({
               </div>
             ) : (
               <p className="text-sm text-gray-400">
-                No hay materias inscritas actualmente
+                No hay cursos inscritos actualmente
               </p>
             )}
           </div>

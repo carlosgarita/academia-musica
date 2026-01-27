@@ -171,12 +171,6 @@ export default function SchedulesPage() {
                     >
                       Editar
                     </Link>
-                    <Link
-                      href={`/director/schedules/${classSchedules[0].id}/enrollments`}
-                      className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
-                    >
-                      Asignar Estudiantes
-                    </Link>
                     <button
                       onClick={() => {
                         // Delete all schedules with this name

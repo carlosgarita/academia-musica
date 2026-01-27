@@ -88,11 +88,36 @@ export function StudentsList({ academyId }: StudentsListProps) {
     );
   }
 
-  // Filter students based on enrollment status filter
-  const filteredStudents = students.filter((student) => {
-    if (enrollmentFilter === "all") return true;
-    return student.enrollment_status === enrollmentFilter;
-  });
+  // Helper function to format name as "Apellido Nombre"
+  const formatName = (firstName: string | null, lastName: string | null): string => {
+    const first = firstName || "";
+    const last = lastName || "";
+    if (last && first) {
+      return `${last} ${first}`.trim();
+    }
+    if (last) return last;
+    if (first) return first;
+    return "Sin nombre";
+  };
+
+  // Filter and sort students by last name
+  const filteredStudents = students
+    .filter((student) => {
+      if (enrollmentFilter === "all") return true;
+      return student.enrollment_status === enrollmentFilter;
+    })
+    .sort((a, b) => {
+      const aLast = (a.last_name || "").toLowerCase();
+      const bLast = (b.last_name || "").toLowerCase();
+      if (aLast < bLast) return -1;
+      if (aLast > bLast) return 1;
+      // If last names are equal, sort by first name
+      const aFirst = (a.first_name || "").toLowerCase();
+      const bFirst = (b.first_name || "").toLowerCase();
+      if (aFirst < bFirst) return -1;
+      if (aFirst > bFirst) return 1;
+      return 0;
+    });
 
   return (
     <div className="space-y-6">
@@ -182,10 +207,7 @@ export function StudentsList({ academyId }: StudentsListProps) {
             <div className="bg-white shadow overflow-hidden sm:rounded-md">
               <ul className="divide-y divide-gray-200">
                 {filteredStudents.map((student) => {
-                  const fullName =
-                    `${student.first_name || ""} ${
-                      student.last_name || ""
-                    }`.trim() || "Sin nombre";
+                  const fullName = formatName(student.first_name, student.last_name);
 
                   return (
                     <li key={student.id} className="p-6">

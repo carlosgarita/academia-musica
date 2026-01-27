@@ -24,8 +24,7 @@ export function NewStudentForm({ academyId }: NewStudentFormProps) {
     const firstName = formData.get("firstName") as string;
     const lastName = formData.get("lastName") as string;
     const dateOfBirth = formData.get("dateOfBirth") as string;
-    const enrollmentStatus =
-      (formData.get("enrollmentStatus") as string) || "inscrito";
+    const enrollmentStatusRaw = formData.get("enrollmentStatus") as string | null;
     const additionalInfo = formData.get("additionalInfo") as string;
 
     // Validation
@@ -35,6 +34,14 @@ export function NewStudentForm({ academyId }: NewStudentFormProps) {
       return;
     }
 
+    // Validate and set enrollment_status
+    const validStatuses = ["inscrito", "retirado", "graduado"] as const;
+    type EnrollmentStatus = typeof validStatuses[number];
+    const enrollmentStatus: EnrollmentStatus = 
+      enrollmentStatusRaw && validStatuses.includes(enrollmentStatusRaw as EnrollmentStatus)
+        ? (enrollmentStatusRaw as EnrollmentStatus)
+        : "inscrito";
+
     try {
       // Create student record without user account
       const { error: studentError } = await db.createStudent({
@@ -42,11 +49,7 @@ export function NewStudentForm({ academyId }: NewStudentFormProps) {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         date_of_birth: dateOfBirth || null,
-        enrollment_status: ["inscrito", "retirado", "graduado"].includes(
-          enrollmentStatus
-        )
-          ? enrollmentStatus
-          : "inscrito",
+        enrollment_status: enrollmentStatus,
         additional_info: additionalInfo?.trim() || null,
       });
 

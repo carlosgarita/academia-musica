@@ -6,6 +6,16 @@ import { useDatabase } from "@/lib/hooks/useDatabase";
 import type { Database } from "@/lib/database.types";
 
 type Student = Database["public"]["Tables"]["students"]["Row"];
+type CourseRegistration = Database["public"]["Tables"]["course_registrations"]["Row"];
+type Subject = Database["public"]["Tables"]["subjects"]["Row"];
+type Period = Database["public"]["Tables"]["periods"]["Row"];
+type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+
+interface CourseRegistrationWithDetails extends CourseRegistration {
+  subject: Subject | null;
+  period: Period | null;
+  professor: Profile | null;
+}
 
 interface StudentsListProps {
   academyId: string;
@@ -14,16 +24,26 @@ interface StudentsListProps {
 export function StudentsList({ academyId }: StudentsListProps) {
   const db = useDatabase();
   const [students, setStudents] = useState<Student[]>([]);
+  const [coursesByStudent, setCoursesByStudent] = useState<Record<string, CourseRegistrationWithDetails[]>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [enrollmentFilter, setEnrollmentFilter] = useState<
     "all" | "inscrito" | "retirado" | "graduado"
   >("inscrito");
 
+  // Cargar estudiantes
   useEffect(() => {
+    if (!academyId) return;
+
+    let cancelled = false;
+    setIsLoading(true);
+    setError(null);
+
     async function loadStudents() {
       try {
         const { data, error } = await db.getStudents(academyId);
+
+        if (cancelled) return;
 
         if (error) {
           throw error;
@@ -31,16 +51,127 @@ export function StudentsList({ academyId }: StudentsListProps) {
 
         setStudents(data || []);
       } catch (err) {
+        if (cancelled) return;
         setError(
           err instanceof Error ? err.message : "Error al cargar los estudiantes"
         );
       } finally {
-        setIsLoading(false);
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       }
     }
 
     loadStudents();
-  }, [academyId, db]);
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [academyId]); // Removido 'db' de las dependencias para evitar loops infinitos
+
+  // Cargar cursos (separado para evitar loops)
+  useEffect(() => {
+    if (!academyId) return;
+
+    let cancelled = false;
+
+    async function loadCourses() {
+      try {
+        // Cargar todos los course_registrations activos de la academia
+        const response = await fetch("/api/course-registrations", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+        
+        if (cancelled) return;
+
+        if (!response.ok) {
+          // Si falla, simplemente no mostrar cursos, pero no romper la UI
+          console.warn("Failed to load courses:", response.status, response.statusText);
+          return;
+        }
+
+        const data = await response.json();
+        const registrations = data.courseRegistrations || [];
+
+        if (cancelled) return;
+
+        // Obtener información de profesores para cada registro
+        const profileIds = [...new Set(registrations.map((r: any) => r.profile_id).filter(Boolean))];
+        
+        let professorsMap: Record<string, Profile> = {};
+        if (profileIds.length > 0) {
+          try {
+            // Cargar profesores (la API filtra automáticamente por academia del usuario)
+            const profResponse = await fetch("/api/professors", {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+              },
+            });
+            
+            if (cancelled) return;
+
+            if (profResponse.ok) {
+              const profData = await profResponse.json();
+              if (profData.professors) {
+                // Filtrar solo los profesores que están en nuestros profile_ids
+                const relevantProfessors = profData.professors.filter((p: Profile) => 
+                  profileIds.includes(p.id)
+                );
+                professorsMap = relevantProfessors.reduce((acc: Record<string, Profile>, p: Profile) => {
+                  acc[p.id] = p;
+                  return acc;
+                }, {});
+              }
+            }
+          } catch (profErr) {
+            // Si falla cargar profesores, continuar sin ellos
+            console.warn("Failed to load professors:", profErr);
+          }
+        }
+
+        if (cancelled) return;
+
+        // Combinar datos y agrupar por student_id
+        const grouped: Record<string, CourseRegistrationWithDetails[]> = {};
+        for (const reg of registrations) {
+          const courseWithDetails: CourseRegistrationWithDetails = {
+            ...reg,
+            subject: reg.subject as Subject | null,
+            period: reg.period as Period | null,
+            professor: reg.profile_id ? (professorsMap[reg.profile_id] || null) : null,
+          };
+
+          if (!grouped[reg.student_id]) {
+            grouped[reg.student_id] = [];
+          }
+          grouped[reg.student_id].push(courseWithDetails);
+        }
+
+        setCoursesByStudent(grouped);
+      } catch (err) {
+        if (cancelled) return;
+        // No fallar completamente si no se pueden cargar los cursos
+        console.error("Error loading courses:", err);
+        // Dejar coursesByStudent vacío en caso de error
+        setCoursesByStudent({});
+      }
+    }
+
+    // Pequeño delay para asegurar que el servidor esté listo
+    const timeoutId = setTimeout(() => {
+      loadCourses();
+    }, 100);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [academyId]); // Solo depende de academyId
 
   async function handleDelete(id: string, name: string) {
     if (
@@ -88,11 +219,36 @@ export function StudentsList({ academyId }: StudentsListProps) {
     );
   }
 
-  // Filter students based on enrollment status filter
-  const filteredStudents = students.filter((student) => {
-    if (enrollmentFilter === "all") return true;
-    return student.enrollment_status === enrollmentFilter;
-  });
+  // Helper function to format name as "Apellido Nombre"
+  const formatName = (firstName: string | null, lastName: string | null): string => {
+    const first = firstName || "";
+    const last = lastName || "";
+    if (last && first) {
+      return `${last} ${first}`.trim();
+    }
+    if (last) return last;
+    if (first) return first;
+    return "Sin nombre";
+  };
+
+  // Filter and sort students by last name
+  const filteredStudents = students
+    .filter((student) => {
+      if (enrollmentFilter === "all") return true;
+      return student.enrollment_status === enrollmentFilter;
+    })
+    .sort((a, b) => {
+      const aLast = (a.last_name || "").toLowerCase();
+      const bLast = (b.last_name || "").toLowerCase();
+      if (aLast < bLast) return -1;
+      if (aLast > bLast) return 1;
+      // If last names are equal, sort by first name
+      const aFirst = (a.first_name || "").toLowerCase();
+      const bFirst = (b.first_name || "").toLowerCase();
+      if (aFirst < bFirst) return -1;
+      if (aFirst > bFirst) return 1;
+      return 0;
+    });
 
   return (
     <div className="space-y-6">
@@ -182,10 +338,7 @@ export function StudentsList({ academyId }: StudentsListProps) {
             <div className="bg-white shadow overflow-hidden sm:rounded-md">
               <ul className="divide-y divide-gray-200">
                 {filteredStudents.map((student) => {
-                  const fullName =
-                    `${student.first_name || ""} ${
-                      student.last_name || ""
-                    }`.trim() || "Sin nombre";
+                  const fullName = formatName(student.first_name, student.last_name);
 
                   return (
                     <li key={student.id} className="p-6">
@@ -227,6 +380,37 @@ export function StudentsList({ academyId }: StudentsListProps) {
                                 {student.enrollment_status || "inscrito"}
                               </span>
                             </div>
+                            {/* Cursos matriculados */}
+                            {coursesByStudent[student.id] && coursesByStudent[student.id].length > 0 ? (
+                              <div className="mt-3">
+                                <span className="font-medium text-gray-700">Cursos matriculados:</span>
+                                <ul className="mt-1 space-y-1">
+                                  {coursesByStudent[student.id]
+                                    .filter((course) => course.status === "active")
+                                    .map((course) => (
+                                      <li key={course.id} className="text-xs text-gray-600 pl-2 border-l-2 border-indigo-300">
+                                        <span className="font-medium">
+                                          {course.subject?.name || "Curso sin nombre"}
+                                        </span>
+                                        {course.period && (
+                                          <span className="text-gray-500">
+                                            {" "}• {course.period.year} – {course.period.period}
+                                          </span>
+                                        )}
+                                        {course.professor && (
+                                          <span className="text-gray-500">
+                                            {" "}• Prof: {`${course.professor.first_name || ""} ${course.professor.last_name || ""}`.trim() || course.professor.email || "N/A"}
+                                          </span>
+                                        )}
+                                      </li>
+                                    ))}
+                                </ul>
+                              </div>
+                            ) : (
+                              <div className="mt-3 text-xs text-gray-400">
+                                Sin cursos matriculados
+                              </div>
+                            )}
                           </div>
                         </div>
                         <div className="ml-4 flex flex-col space-y-2">

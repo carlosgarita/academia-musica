@@ -6,11 +6,11 @@ import type { Database } from "@/lib/database.types";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type Student = Database["public"]["Tables"]["students"]["Row"];
-type Enrollment = Database["public"]["Tables"]["enrollments"]["Row"];
+type CourseRegistration = Database["public"]["Tables"]["course_registrations"]["Row"];
 type Subject = Database["public"]["Tables"]["subjects"]["Row"];
 
 interface StudentWithDetails extends Student {
-  enrollments: (Enrollment & { subject: Subject })[];
+  courses: (CourseRegistration & { subject: Subject | null })[];
   academy: { name: string } | null;
 }
 
@@ -52,50 +52,44 @@ export default async function GuardianDashboardPage() {
       academy:academies(name)
     `)
     .in("id", studentIds.length > 0 ? studentIds : ["00000000-0000-0000-0000-000000000000"])
-    .order("name", { ascending: true });
+    .order("first_name", { ascending: true })
+    .order("last_name", { ascending: true });
 
   if (studentsError) {
     console.error("Error fetching students:", studentsError);
   }
 
-  // Get enrollments for all students
-  const studentIds = students?.map((s) => s.id) || [];
-  let enrollments: Enrollment[] = [];
-  let subjects: Subject[] = [];
+  // Get course_registrations for all students (active only)
+  const studentIdsForCourses = students?.map((s) => s.id) || [];
+  let courseRegistrations: (CourseRegistration & { subject: Subject | null })[] = [];
 
-  if (studentIds.length > 0) {
-    const { data: enrollmentsData } = await supabase
-      .from("enrollments")
-      .select("*")
-      .in("student_id", studentIds)
-      .eq("status", "active");
+  if (studentIdsForCourses.length > 0) {
+    const { data: registrationsData } = await supabase
+      .from("course_registrations")
+      .select(`
+        *,
+        subject:subjects(*)
+      `)
+      .in("student_id", studentIdsForCourses)
+      .eq("status", "active")
+      .is("deleted_at", null);
 
-    enrollments = enrollmentsData || [];
-
-    if (enrollments.length > 0) {
-      const subjectIds = enrollments.map((e) => e.subject_id);
-      const { data: subjectsData } = await supabase
-        .from("subjects")
-        .select("*")
-        .in("id", subjectIds);
-
-      subjects = subjectsData || [];
-    }
+    courseRegistrations = (registrationsData || []).map((r: any) => ({
+      ...r,
+      subject: r.subject || null,
+    }));
   }
 
   // Combine data
   const studentsWithDetails: StudentWithDetails[] =
     students?.map((student) => {
-      const studentEnrollments = enrollments
-        .filter((e) => e.student_id === student.id)
-        .map((e) => ({
-          ...e,
-          subject: subjects.find((s) => s.id === e.subject_id)!,
-        }));
+      const studentCourses = courseRegistrations.filter(
+        (cr) => cr.student_id === student.id
+      );
 
       return {
         ...student,
-        enrollments: studentEnrollments,
+        courses: studentCourses,
         academy: student.academy as { name: string } | null,
       };
     }) || [];
@@ -161,26 +155,26 @@ export default async function GuardianDashboardPage() {
                   </p>
                 )}
 
-                {student.enrollments.length > 0 ? (
+                {student.courses.length > 0 ? (
                   <div className="mt-4">
                     <h4 className="text-sm font-medium text-gray-700 mb-2">
-                      Materias inscritas:
+                      Cursos inscritos:
                     </h4>
                     <ul className="space-y-1">
-                      {student.enrollments.map((enrollment) => (
+                      {student.courses.map((course) => (
                         <li
-                          key={enrollment.id}
+                          key={course.id}
                           className="text-sm text-gray-600 flex items-center"
                         >
                           <span className="mr-2">•</span>
-                          {enrollment.subject?.name || "Materia no disponible"}
+                          {course.subject?.name || "Curso no disponible"}
                         </li>
                       ))}
                     </ul>
                   </div>
                 ) : (
                   <p className="text-sm text-gray-400 mt-4">
-                    Sin materias inscritas
+                    Sin cursos inscritos
                   </p>
                 )}
 
@@ -228,11 +222,11 @@ export default async function GuardianDashboardPage() {
               </div>
               <div className="px-4 py-5 bg-gray-50 rounded-lg">
                 <dt className="text-sm font-medium text-gray-500">
-                  Total de Materias
+                  Total de Cursos
                 </dt>
                 <dd className="mt-1 text-3xl font-semibold text-indigo-600">
                   {studentsWithDetails.reduce(
-                    (acc, s) => acc + s.enrollments.length,
+                    (acc, s) => acc + s.courses.length,
                     0
                   )}
                 </dd>

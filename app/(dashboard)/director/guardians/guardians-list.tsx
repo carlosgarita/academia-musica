@@ -123,13 +123,38 @@ export function GuardiansList({ academyId }: GuardiansListProps) {
     );
   }
 
-  // Filter guardians based on status filter
-  const filteredGuardians = guardians.filter((guardian) => {
-    if (statusFilter === "all") return true;
-    if (statusFilter === "active") return guardian.status === "active";
-    if (statusFilter === "inactive") return guardian.status === "inactive";
-    return true;
-  });
+  // Helper function to format name as "Apellido Nombre"
+  const formatName = (firstName: string | null, lastName: string | null, email?: string): string => {
+    const first = firstName || "";
+    const last = lastName || "";
+    if (last && first) {
+      return `${last} ${first}`.trim();
+    }
+    if (last) return last;
+    if (first) return first;
+    return email || "Sin nombre";
+  };
+
+  // Filter and sort guardians by last name
+  const filteredGuardians = guardians
+    .filter((guardian) => {
+      if (statusFilter === "all") return true;
+      if (statusFilter === "active") return guardian.status === "active";
+      if (statusFilter === "inactive") return guardian.status === "inactive";
+      return true;
+    })
+    .sort((a, b) => {
+      const aLast = (a.last_name || "").toLowerCase();
+      const bLast = (b.last_name || "").toLowerCase();
+      if (aLast < bLast) return -1;
+      if (aLast > bLast) return 1;
+      // If last names are equal, sort by first name
+      const aFirst = (a.first_name || "").toLowerCase();
+      const bFirst = (b.first_name || "").toLowerCase();
+      if (aFirst < bFirst) return -1;
+      if (aFirst > bFirst) return 1;
+      return 0;
+    });
 
   return (
     <div className="space-y-6">
@@ -206,12 +231,9 @@ export function GuardiansList({ academyId }: GuardiansListProps) {
             <div className="bg-white shadow overflow-hidden sm:rounded-md">
               <ul className="divide-y divide-gray-200">
                 {filteredGuardians.map((guardian) => {
-              const fullName =
-                `${guardian.first_name || ""} ${
-                  guardian.last_name || ""
-                }`.trim() || guardian.email;
+              const fullName = formatName(guardian.first_name, guardian.last_name, guardian.email);
               const studentsList = guardian.students
-                .map((gs) => `${gs.student.first_name || ""} ${gs.student.last_name || ""}`.trim() || "Sin nombre")
+                .map((gs) => formatName(gs.student.first_name || null, gs.student.last_name || null))
                 .join(", ");
               const statusColor =
                 guardian.status === "active"

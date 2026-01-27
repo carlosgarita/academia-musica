@@ -183,15 +183,29 @@ export async function POST(
     // Check if any of these students already have a guardian assigned
     const { data: existingAssignments } = await supabase
       .from("guardian_students")
-      .select("student_id")
+      .select("student_id, student:students(id, first_name, last_name)")
       .in("student_id", student_ids);
 
     if (existingAssignments && existingAssignments.length > 0) {
-      const alreadyAssignedIds = existingAssignments.map((a) => a.student_id);
+      // Obtener nombres de estudiantes ya asignados para el mensaje
+      const studentNames = existingAssignments
+        .map((a: any) => {
+          const student = a.student;
+          if (student) {
+            return `${student.first_name || ""} ${student.last_name || ""}`.trim() || `ID: ${a.student_id}`;
+          }
+          return `ID: ${a.student_id}`;
+        })
+        .filter(Boolean);
+      
+      const studentList = studentNames.length > 0 
+        ? studentNames.join(", ")
+        : "uno o más estudiantes";
+      
       return NextResponse.json(
         {
-          error: "Some students already have a guardian assigned",
-          details: `Students with IDs ${alreadyAssignedIds.join(", ")} already have guardians`,
+          error: "Uno o más estudiantes ya tienen un encargado asignado",
+          details: `Los siguientes estudiantes ya están asignados a otro encargado: ${studentList}. Cada estudiante solo puede tener un encargado asignado.`,
         },
         { status: 400 }
       );

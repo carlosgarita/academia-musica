@@ -83,6 +83,32 @@ export default function ProfessorsList() {
     );
   }
 
+  // Helper function to format name as "Apellido Nombre"
+  const formatName = (firstName: string | null, lastName: string | null, email?: string): string => {
+    const first = firstName || "";
+    const last = lastName || "";
+    if (last && first) {
+      return `${last} ${first}`.trim();
+    }
+    if (last) return last;
+    if (first) return first;
+    return email || "Sin nombre";
+  };
+
+  // Sort professors by last name
+  const sortedProfessors = [...professors].sort((a, b) => {
+    const aLast = (a.last_name || "").toLowerCase();
+    const bLast = (b.last_name || "").toLowerCase();
+    if (aLast < bLast) return -1;
+    if (aLast > bLast) return 1;
+    // If last names are equal, sort by first name
+    const aFirst = (a.first_name || "").toLowerCase();
+    const bFirst = (b.first_name || "").toLowerCase();
+    if (aFirst < bFirst) return -1;
+    if (aFirst > bFirst) return 1;
+    return 0;
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -113,11 +139,8 @@ export default function ProfessorsList() {
       ) : (
         <div className="bg-white shadow overflow-hidden sm:rounded-md">
           <ul className="divide-y divide-gray-200">
-            {professors.map((professor) => {
-              const fullName =
-                `${professor.first_name || ""} ${
-                  professor.last_name || ""
-                }`.trim() || professor.email;
+            {sortedProfessors.map((professor) => {
+              const fullName = formatName(professor.first_name, professor.last_name, professor.email);
               const subjectsList = professor.subjects
                 .map((ps) => ps.subject.name)
                 .join(", ");

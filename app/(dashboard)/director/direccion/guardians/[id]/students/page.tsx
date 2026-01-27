@@ -127,7 +127,12 @@ export default function GuardianStudentsPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to assign students");
+        // Construir mensaje de error más descriptivo
+        let errorMessage = data.error || "Error al asignar estudiantes";
+        if (data.details) {
+          errorMessage += `\n\n${data.details}`;
+        }
+        throw new Error(errorMessage);
       }
 
       // Reload data
@@ -135,9 +140,10 @@ export default function GuardianStudentsPage() {
       setSelectedStudentIds([]);
       alert("Estudiantes asignados exitosamente");
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Error al asignar estudiantes"
-      );
+      const errorMessage = err instanceof Error ? err.message : "Error al asignar estudiantes";
+      setError(errorMessage);
+      // Mostrar alert para que el usuario vea el error claramente
+      alert(errorMessage);
     } finally {
       setSubmitting(false);
     }

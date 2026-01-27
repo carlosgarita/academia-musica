@@ -385,19 +385,43 @@ export async function PATCH(
 
       // Add new assignments (only if student doesn't have a guardian already)
       if (toAdd.length > 0) {
-        // Check which students already have guardians
+        // Check which students already have guardians (with student names for error message)
         const { data: existingGuardians } = await supabaseAdmin
           .from("guardian_students")
-          .select("student_id")
+          .select("student_id, student:students(id, first_name, last_name)")
           .in("student_id", toAdd);
 
         const studentsWithGuardians = (existingGuardians || []).map(
-          (g: { student_id: string }) => g.student_id
+          (g: { student_id: string; student?: { first_name: string | null; last_name: string | null } | null }) => g.student_id
         );
 
         const studentsToAdd = toAdd.filter(
           (id: string) => !studentsWithGuardians.includes(id)
         );
+
+        // If some students couldn't be added because they already have guardians, return error
+        if (studentsWithGuardians.length > 0) {
+          const studentNames = (existingGuardians || [])
+            .map((g: { student?: { first_name: string | null; last_name: string | null } | null }) => {
+              if (g.student) {
+                return `${g.student.first_name || ""} ${g.student.last_name || ""}`.trim();
+              }
+              return null;
+            })
+            .filter(Boolean);
+          
+          const studentList = studentNames.length > 0 
+            ? studentNames.join(", ")
+            : "uno o más estudiantes";
+          
+          return NextResponse.json(
+            {
+              error: "Uno o más estudiantes ya tienen un encargado asignado",
+              details: `Los siguientes estudiantes ya están asignados a otro encargado: ${studentList}. Cada estudiante solo puede tener un encargado asignado.`,
+            },
+            { status: 400 }
+          );
+        }
 
         if (studentsToAdd.length > 0) {
           const newAssignments = studentsToAdd.map((studentId: string) => ({
