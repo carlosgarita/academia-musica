@@ -1,0 +1,41 @@
+# Reglas para Supabase y Base de Datos
+
+## Creación de Migraciones
+- Cada vez que se necesite un cambio en el esquema (tablas, columnas, RLS), debes crear una nueva migración.
+- Los archivos deben guardarse siempre en `supabase/migrations/` con formato: `YYYYMMDDHHMMSS_nombre_descriptivo.sql`
+- Lee siempre los archivos existentes en `supabase/migrations/` para entender el esquema actual antes de proponer cambios.
+
+## Flujo de Trabajo (Base de Datos Única)
+
+**Situación:** Una sola base de datos de Supabase (sin separación desarrollo/producción)
+
+### Flujo Recomendado:
+
+1. **Crear la migración** en `supabase/migrations/YYYYMMDDHHMMSS_nombre.sql`
+   - Incluir comentarios explicativos
+   - Usar `IF NOT EXISTS` y `IF EXISTS` cuando sea posible para evitar errores
+   - Considerar hacer cambios reversibles
+
+2. **Aplicar y probar:**
+   - Copiar el contenido SQL de la migración
+   - Aplicar en SQL Editor de Supabase
+   - Probar la aplicación inmediatamente
+   - Si hay errores, corregir la migración y volver a aplicar
+
+3. **Versionar en Git:**
+   - Commitear la migración: `git add supabase/migrations/ && git commit -m "feat(db): descripción"`
+   - Push a Git: `git push`
+
+### Reglas Importantes:
+- SIEMPRE crear la migración en `supabase/migrations/` ANTES de aplicar (para tener el historial)
+- Usar comandos SQL seguros (`IF NOT EXISTS`, `IF EXISTS`) para evitar errores si se aplica dos veces
+- Probar inmediatamente después de aplicar
+- Commitear a Git después de verificar que funciona
+- Si algo falla, puedes revertir manualmente y actualizar la migración
+
+### Para el Futuro (Cuando Tengas Clientes):
+- Configurar 3 entornos: Desarrollo → Staging → Producción
+- NUNCA aplicar migraciones directamente a producción sin probar primero
+- Siempre hacer backup antes de aplicar a producción
+- Probar migraciones en desarrollo y staging antes de producción
+- Ver documentación completa en: `ENTORNOS-PROFESIONALES.md`
