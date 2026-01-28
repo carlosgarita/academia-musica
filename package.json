@@ -6,7 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:migrate": "supabase migration up",
+    "db:migrate:new": "supabase migration new",
+    "db:migrate:list": "supabase migration list",
+    "db:push": "supabase db push",
+    "db:reset": "supabase db reset",
+    "db:types": "supabase gen types typescript --local > lib/database.types.ts",
+    "db:diff": "supabase db diff"
   },
   "dependencies": {
     "@supabase/auth-ui-react": "^0.4.7",
