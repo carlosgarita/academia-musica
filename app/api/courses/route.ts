@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const periodId = searchParams.get("period_id");
+    const profileId = searchParams.get("profile_id");
 
     let query = supabaseAdmin
       .from("professor_subject_periods")
@@ -75,6 +76,9 @@ export async function GET(request: NextRequest) {
 
     if (periodId) {
       query = query.eq("period_id", periodId);
+    }
+    if (profileId) {
+      query = query.eq("profile_id", profileId);
     }
 
     const { data: psp, error } = await query.order("period_id", { ascending: false });

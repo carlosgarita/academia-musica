@@ -1,0 +1,2 @@
+# Este directorio contiene las migraciones de base de datos
+# Las migraciones deben seguir el formato: YYYYMMDDHHMMSS_nombre_descriptivo.sql

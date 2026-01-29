@@ -5,6 +5,7 @@
 **Tu setup:** Una sola base de datos de Supabase (sin separación desarrollo/producción)
 
 **Antes trabajabas así:**
+
 1. Yo creaba código
 2. Te daba SQL para aplicar manualmente en SQL Editor
 3. Aplicabas y probabas
@@ -37,6 +38,7 @@ Tienes **una sola base de datos** de Supabase que usas para todo (desarrollo y p
    - Pruebas la aplicación inmediatamente
 
 3. **Si funciona:**
+
    ```bash
    git add supabase/migrations/
    git commit -m "feat(db): descripción del cambio"
@@ -49,6 +51,7 @@ Tienes **una sola base de datos** de Supabase que usas para todo (desarrollo y p
    - Repites hasta que funcione
 
 **Ventajas:**
+
 - ✅ Simple y directo
 - ✅ Pruebas inmediatas
 - ✅ Todo queda versionado en Git
@@ -65,17 +68,19 @@ Tienes **una sola base de datos** de Supabase que usas para todo (desarrollo y p
 ### Pasos:
 
 1. **Crear migración:**
+
    ```bash
    supabase migration new nombre_del_cambio
    # O yo la creo directamente en supabase/migrations/
    ```
 
 2. **Aplicar localmente para probar:**
+
    ```bash
    # Si tienes Supabase corriendo localmente
    supabase start
    supabase migration up
-   
+
    # O resetear todo y aplicar todas las migraciones
    supabase db reset
    ```
@@ -83,17 +88,19 @@ Tienes **una sola base de datos** de Supabase que usas para todo (desarrollo y p
 3. **Probar la aplicación** (conectada a tu DB local)
 
 4. **Si funciona:**
+
    ```bash
    # Commitear y push a Git
    git add supabase/migrations/
    git commit -m "feat(db): descripción del cambio"
    git push
-   
+
    # Aplicar a producción
    supabase db push
    ```
 
-**Ventajas:** 
+**Ventajas:**
+
 - ✅ Pruebas sin afectar producción
 - ✅ Puedes resetear y empezar de cero fácilmente
 - ✅ Todo versionado
@@ -119,23 +126,26 @@ Tienes **una sola base de datos** de Supabase que usas para todo (desarrollo y p
 3. **Probar la aplicación**
 
 4. **Si funciona:**
+
    ```bash
    # Commitear y push a Git
    git add supabase/migrations/
    git commit -m "feat(db): descripción del cambio"
    git push
-   
+
    # Aplicar a producción (puedes usar CLI o manualmente)
    supabase db push
    # O copiar el mismo SQL y aplicarlo en producción
    ```
 
 **Ventajas:**
+
 - ✅ Familiar (como antes)
 - ✅ Rápido para probar
 - ✅ Las migraciones quedan versionadas
 
-**Importante:** 
+**Importante:**
+
 - ⚠️ Asegúrate de aplicar en desarrollo/staging primero
 - ⚠️ La migración debe estar en Git antes de aplicar a producción
 
@@ -150,6 +160,7 @@ Tienes **una sola base de datos** de Supabase que usas para todo (desarrollo y p
 1. **Crear migración** en `supabase/migrations/`
 
 2. **Commitear y push a Git primero:**
+
    ```bash
    git add supabase/migrations/
    git commit -m "feat(db): descripción"
@@ -162,7 +173,8 @@ Tienes **una sola base de datos** de Supabase que usas para todo (desarrollo y p
    # O manualmente copiando el SQL
    ```
 
-**⚠️ Advertencia:** 
+**⚠️ Advertencia:**
+
 - No pruebes directamente en producción
 - Siempre prueba primero en desarrollo/staging
 
@@ -181,6 +193,7 @@ Con una sola base de datos, usa el **Flujo Simplificado** arriba:
 5. Si hay errores: corriges la migración y vuelves a aplicar
 
 **Ventajas:**
+
 - ✅ Familiar (como antes)
 - ✅ Las migraciones quedan versionadas en Git
 - ✅ Pruebas inmediatas
@@ -193,6 +206,7 @@ Con una sola base de datos, usa el **Flujo Simplificado** arriba:
 **Escenario:** Necesitas agregar una columna `middle_name` a la tabla `students`
 
 ### Lo que yo haré:
+
 1. Crear: `supabase/migrations/20240115143000_add_middle_name_to_students.sql`
 2. Escribir el SQL:
    ```sql
@@ -201,6 +215,7 @@ Con una sola base de datos, usa el **Flujo Simplificado** arriba:
    ```
 
 ### Lo que tú harás:
+
 1. **Abrir el archivo** `supabase/migrations/20240115143000_add_middle_name_to_students.sql`
 2. **Copiar el SQL**
 3. **Ir a Supabase Dashboard → SQL Editor**
@@ -248,6 +263,7 @@ R: Es recomendado pero no necesario. Puedes seguir con una sola DB mientras trab
 ## 💡 Consejo Extra
 
 Si quieres separar desarrollo y producción en el futuro:
+
 - Crea un segundo proyecto en Supabase (gratis)
 - Usa variables de entorno para cambiar entre proyectos
 - Aplica migraciones primero en desarrollo, luego en producción

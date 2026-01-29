@@ -5,6 +5,7 @@ Este proyecto usa **Supabase Migrations** para versionar y gestionar cambios en 
 ## 📋 Requisitos Previos
 
 1. Instalar Supabase CLI:
+
 ```bash
 npm install -g supabase
 # O con Homebrew (macOS):
@@ -12,6 +13,7 @@ brew install supabase/tap/supabase
 ```
 
 2. Verificar instalación:
+
 ```bash
 supabase --version
 ```
@@ -29,11 +31,13 @@ supabase link --project-ref tu-project-ref-id
 ```
 
 Puedes encontrar tu `project-ref-id` en:
+
 - Supabase Dashboard → Settings → General → Reference ID
 
 ### 2. Estructura de Migraciones
 
 Las migraciones se guardan en `supabase/migrations/` con el formato:
+
 ```
 YYYYMMDDHHMMSS_nombre_descriptivo.sql
 ```
@@ -102,6 +106,7 @@ supabase migration list
 Ya tienes varios archivos de migración. Para organizarlos:
 
 1. **Crea el directorio de migraciones:**
+
 ```bash
 mkdir -p supabase/migrations
 ```
@@ -111,6 +116,7 @@ mkdir -p supabase/migrations
    - Formato: `YYYYMMDDHHMMSS_nombre.sql`
 
 Ejemplo de orden sugerido:
+
 ```
 20240101000000_initial_schema.sql (schema.sql base)
 20240102000000_create_periods.sql
@@ -122,6 +128,7 @@ Ejemplo de orden sugerido:
 ## 🔍 Buenas Prácticas
 
 ### 1. Nombres descriptivos
+
 ```sql
 -- ✅ Bueno
 20240115143000_add_profile_id_to_course_registrations.sql
@@ -131,6 +138,7 @@ Ejemplo de orden sugerido:
 ```
 
 ### 2. Migraciones reversibles
+
 Siempre que sea posible, incluye una forma de revertir:
 
 ```sql
@@ -142,9 +150,11 @@ ALTER TABLE students ADD COLUMN middle_name TEXT;
 ```
 
 ### 3. Una migración = un cambio lógico
+
 No mezcles múltiples cambios no relacionados en una sola migración.
 
 ### 4. Probar antes de aplicar
+
 ```bash
 # Prueba localmente primero
 supabase start
@@ -158,6 +168,7 @@ supabase db push
 ## 🔄 Flujo de Trabajo Recomendado
 
 1. **Crear migración:**
+
    ```bash
    supabase migration new agregar_campo_nuevo
    ```
@@ -165,12 +176,14 @@ supabase db push
 2. **Editar el archivo SQL** generado en `supabase/migrations/`
 
 3. **Probar localmente:**
+
    ```bash
    supabase start
    supabase migration up
    ```
 
 4. **Commitear a Git:**
+
    ```bash
    git add supabase/migrations/
    git commit -m "feat(db): agregar campo nuevo a tabla X"
