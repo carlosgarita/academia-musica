@@ -159,6 +159,8 @@ export default async function AulaSesionPage({
           professorId={professorId}
           courseId={courseId}
           sessionId={sessionId}
+          subjectId={psp.subject_id}
+          academyId={period?.academy_id ?? profile.academy_id}
         />
       </div>
     </div>
