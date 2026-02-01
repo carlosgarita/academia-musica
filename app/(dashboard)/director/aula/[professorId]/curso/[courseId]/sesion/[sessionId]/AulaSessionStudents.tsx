@@ -73,7 +73,16 @@ export function AulaSessionStudents({
         const regData = await regRes.json();
         if (!regRes.ok)
           throw new Error(regData.error || regData.details || "Error al cargar estudiantes");
-        setRegistrations(regData.courseRegistrations || []);
+        const regs = regData.courseRegistrations || [];
+        regs.sort((a: CourseRegistration, b: CourseRegistration) => {
+          const lnA = (a.student?.last_name ?? "").toLowerCase();
+          const lnB = (b.student?.last_name ?? "").toLowerCase();
+          if (lnA !== lnB) return lnA.localeCompare(lnB);
+          const fnA = (a.student?.first_name ?? "").toLowerCase();
+          const fnB = (b.student?.first_name ?? "").toLowerCase();
+          return fnA.localeCompare(fnB);
+        });
+        setRegistrations(regs);
 
         const attData = await attRes.json();
         if (attRes.ok && attData.attendances) {
