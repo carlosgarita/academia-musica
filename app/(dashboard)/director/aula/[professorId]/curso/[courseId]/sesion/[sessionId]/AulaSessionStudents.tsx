@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { FileText, MessageSquare, Save, User, Pencil, Trash2, ClipboardList } from "lucide-react";
 import { AulaSongEvaluations } from "./AulaSongEvaluations";
+import { AulaBadgeAssignment } from "./AulaBadgeAssignment";
 
 type CourseRegistration = {
   id: string;
@@ -333,66 +334,55 @@ export function AulaSessionStudents({
 
   return (
     <>
-    <ul className="divide-y divide-gray-200">
+    <ul className="space-y-4">
       {registrations.map((reg) => (
         <li
           key={reg.id}
-          className="py-4 px-3 -mx-3 rounded-lg hover:bg-gray-50"
+          className="py-5 px-3 -mx-3 rounded-lg border border-gray-200 bg-white hover:border-gray-300"
         >
+          {/* Encabezado: avatar, nombre, expediente */}
           <div className="flex items-center gap-4">
-            <div className="flex-1 min-w-0 flex items-center gap-3">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
               <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
                 <User className="h-5 w-5 text-gray-500" />
               </div>
-              <div>
-                <p className="font-medium text-gray-900">{studentName(reg)}</p>
-                <p className="text-sm text-gray-500">
-                  {reg.songs_count ?? 0} canciones asignadas
-                </p>
-              </div>
+              <p className="font-medium text-gray-900">{studentName(reg)}</p>
             </div>
-            <div className="flex items-center gap-3 shrink-0">
-              <select
-                value={attendances[reg.id] ?? ""}
-                onChange={(e) =>
-                  setAttendances((prev) => ({ ...prev, [reg.id]: e.target.value }))
-                }
-                disabled={savingId === reg.id}
-                className="block rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm px-2 py-1.5 border bg-white min-w-[130px]"
-                title="Asistencia"
-              >
-                {ATTENDANCE_OPTIONS.map((opt) => (
-                  <option key={opt.value || "empty"} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={() => handleSave(reg.id)}
-                disabled={savingId === reg.id}
-                className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-2.5 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {savingId === reg.id ? (
-                  "Guardando..."
-                ) : (
-                  <>
-                    <Save className="h-4 w-4" />
-                    Guardar
-                  </>
-                )}
-              </button>
-              <Link
-                href={`/director/aula/${professorId}/curso/${courseId}/estudiante/${reg.id}`}
-                className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700"
-              >
-                <FileText className="h-4 w-4" />
-                Expediente
-              </Link>
-            </div>
+            <Link
+              href={`/director/aula/${professorId}/curso/${courseId}/estudiante/${reg.id}?sesion=${sessionId}`}
+              className="inline-flex items-center gap-1.5 rounded-md border border-indigo-300 bg-indigo-50 px-2.5 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-100"
+            >
+              <FileText className="h-4 w-4" />
+              Expediente
+            </Link>
           </div>
-          <div className="mt-3 ml-12 flex items-start gap-2">
-            <MessageSquare className="h-4 w-4 text-gray-400 shrink-0 mt-2.5" />
-            <div className="flex-1 min-w-0">
+
+          {/* Asistencia */}
+          <div className="mt-4 pl-14">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5">Asistencia</p>
+            <select
+              value={attendances[reg.id] ?? ""}
+              onChange={(e) =>
+                setAttendances((prev) => ({ ...prev, [reg.id]: e.target.value }))
+              }
+              disabled={savingId === reg.id}
+              className="block rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm px-2 py-1.5 border bg-white min-w-[140px]"
+            >
+              {ATTENDANCE_OPTIONS.map((opt) => (
+                <option key={opt.value || "empty"} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Comentario del profesor */}
+          <div className="mt-4 pl-14">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+              <MessageSquare className="h-3.5 w-3.5" />
+              Comentario del profesor
+            </p>
+            <div className="mt-0.5">
               {savedCommentIds.has(reg.id) && editingCommentFor !== reg.id ? (
                 <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
                   <p className="text-sm text-gray-700 whitespace-pre-wrap">{comments[reg.id]}</p>
@@ -417,7 +407,7 @@ export function AulaSessionStudents({
                 </div>
               ) : (
                 <textarea
-                  placeholder="Comentario del profesor para esta sesión..."
+                  placeholder="Escribe un comentario..."
                   value={comments[reg.id] ?? ""}
                   onChange={(e) =>
                     setComments((prev) => ({ ...prev, [reg.id]: e.target.value }))
@@ -430,9 +420,14 @@ export function AulaSessionStudents({
               )}
             </div>
           </div>
-          <div className="mt-3 ml-12 flex items-start gap-2">
-            <ClipboardList className="h-4 w-4 text-gray-400 shrink-0 mt-2.5" />
-            <div className="flex-1 min-w-0">
+
+          {/* Tarea individual */}
+          <div className="mt-4 pl-14">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+              <ClipboardList className="h-3.5 w-3.5" />
+              Tarea individual
+            </p>
+            <div className="mt-0.5">
               {savedAssignmentIds.has(reg.id) && editingAssignmentFor !== reg.id ? (
                 <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
                   <p className="text-sm text-gray-700 whitespace-pre-wrap">{assignments[reg.id]}</p>
@@ -457,7 +452,7 @@ export function AulaSessionStudents({
                 </div>
               ) : (
                 <textarea
-                  placeholder="Tarea individual para esta sesión..."
+                  placeholder="Escribe la tarea para esta sesión..."
                   value={assignments[reg.id] ?? ""}
                   onChange={(e) =>
                     setAssignments((prev) => ({ ...prev, [reg.id]: e.target.value }))
@@ -470,13 +465,44 @@ export function AulaSessionStudents({
               )}
             </div>
           </div>
-          <AulaSongEvaluations
-            registrationId={reg.id}
-            sessionId={sessionId}
-            subjectId={subjectId}
-            academyId={academyId}
-            onSnackbar={showSnackbar}
-          />
+
+          {/* Botón Guardar */}
+          <div className="mt-4 pl-14">
+            <button
+              onClick={() => handleSave(reg.id)}
+              disabled={savingId === reg.id}
+              className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {savingId === reg.id ? (
+                "Guardando..."
+              ) : (
+                <>
+                  <Save className="h-4 w-4" />
+                  Guardar
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Calificar canciones */}
+          <div className="mt-4 pl-14">
+            <AulaSongEvaluations
+              registrationId={reg.id}
+              sessionId={sessionId}
+              subjectId={subjectId}
+              academyId={academyId}
+              onSnackbar={showSnackbar}
+            />
+          </div>
+
+          {/* Asignar badges */}
+          <div className="mt-4 pl-14">
+            <AulaBadgeAssignment
+              registrationId={reg.id}
+              academyId={academyId}
+              onSnackbar={showSnackbar}
+            />
+          </div>
         </li>
       ))}
     </ul>

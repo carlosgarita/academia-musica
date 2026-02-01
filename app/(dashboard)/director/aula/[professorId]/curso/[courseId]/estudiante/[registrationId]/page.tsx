@@ -12,14 +12,17 @@ type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 
 export default async function AulaEstudiantePage({
   params,
+  searchParams,
 }: {
   params: Promise<{
     professorId: string;
     courseId: string;
     registrationId: string;
   }>;
+  searchParams: Promise<{ sesion?: string }>;
 }) {
   const { professorId, courseId, registrationId } = await params;
+  const { sesion: sessionId } = await searchParams;
   const cookieStore = cookies();
   const supabase = await createServerClient(cookieStore);
 
@@ -166,6 +169,7 @@ export default async function AulaEstudiantePage({
         registrationId={registrationId}
         courseId={courseId}
         professorId={professorId}
+        sessionId={sessionId}
       />
     </div>
   );

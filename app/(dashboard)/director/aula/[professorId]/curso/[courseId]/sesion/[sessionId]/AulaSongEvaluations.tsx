@@ -103,7 +103,7 @@ export function AulaSongEvaluations({
       <button
         type="button"
         onClick={() => setExpanded(true)}
-        className="mt-3 ml-12 inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-700"
+        className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
       >
         <ChevronDown className="h-4 w-4" />
         Calificar canciones
@@ -112,7 +112,7 @@ export function AulaSongEvaluations({
   }
 
   return (
-    <div className="mt-3 ml-12 rounded-lg border border-gray-200 bg-gray-50/50 p-4">
+    <div className="mt-2 w-full basis-full shrink-0 rounded-lg border border-gray-200 bg-gray-50/50 p-4">
       <button
         type="button"
         onClick={() => setExpanded(false)}
