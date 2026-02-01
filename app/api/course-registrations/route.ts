@@ -55,6 +55,9 @@ export async function GET(request: NextRequest) {
       if (pspErr || !psp) {
         return NextResponse.json({ courseRegistrations: [] });
       }
+      if (profile.role === "professor" && psp.profile_id !== user.id) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
       courseFilter = { profile_id: psp.profile_id, subject_id: psp.subject_id, period_id: psp.period_id };
     }
 

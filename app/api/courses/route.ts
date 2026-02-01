@@ -14,7 +14,7 @@ const DAY_NAMES = [
 ];
 
 // GET: List courses (professor_subject_periods + period, subject, professor, counts)
-// Query: ?period_id=uuid (opcional)
+// Query: ?period_id=uuid (opcional), ?profile_id=uuid (obligatorio para profesores)
 export async function GET(request: NextRequest) {
   try {
     const cookieStore = cookies();
@@ -39,7 +39,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
-    if (profile.role !== "director" && profile.role !== "super_admin") {
+    const profileIdParam = new URL(request.url).searchParams.get("profile_id");
+    if (profile.role === "professor") {
+      if (!profileIdParam || profileIdParam !== user.id) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    } else if (profile.role !== "director" && profile.role !== "super_admin") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -56,7 +61,7 @@ export async function GET(request: NextRequest) {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    const { searchParams } = new URL(request.url);
+    const searchParams = new URL(request.url).searchParams;
     const periodId = searchParams.get("period_id");
     const profileId = searchParams.get("profile_id");
 

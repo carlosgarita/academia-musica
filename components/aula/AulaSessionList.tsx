@@ -15,11 +15,14 @@ export function AulaSessionList({
   professorId,
   courseId,
   courseName,
+  pathPrefix,
 }: {
   professorId: string;
   courseId: string;
   courseName: string;
+  pathPrefix: "director" | "professor";
 }) {
+  const base = `/${pathPrefix}/aula/${professorId}/curso/${courseId}`;
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +34,6 @@ export function AulaSessionList({
         const d = await r.json();
         if (!r.ok) throw new Error(d.error || d.details || "Error al cargar sesiones");
         setSessions(d.sessions || []);
-        setError(null);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Error al cargar sesiones");
         setSessions([]);
@@ -44,8 +46,7 @@ export function AulaSessionList({
 
   const formatDate = (dateStr: string) => {
     try {
-      const d = new Date(dateStr + "T12:00:00");
-      return d.toLocaleDateString("es-CR", {
+      return new Date(dateStr + "T12:00:00").toLocaleDateString("es-CR", {
         weekday: "short",
         day: "numeric",
         month: "short",
@@ -56,23 +57,12 @@ export function AulaSessionList({
     }
   };
 
-  if (loading) {
-    return (
-      <p className="text-gray-500 text-sm">Cargando sesiones...</p>
-    );
-  }
-
-  if (error) {
-    return (
-      <p className="text-amber-600 text-sm">{error}</p>
-    );
-  }
-
+  if (loading) return <p className="text-gray-500 text-sm">Cargando sesiones...</p>;
+  if (error) return <p className="text-amber-600 text-sm">{error}</p>;
   if (sessions.length === 0) {
     return (
       <p className="text-gray-500 text-sm">
-        No hay sesiones de clase registradas para este curso. Configura las
-        fechas en Dirección → Cursos.
+        No hay sesiones de clase registradas para este curso. Configura las fechas en Dirección → Cursos.
       </p>
     );
   }
@@ -82,7 +72,7 @@ export function AulaSessionList({
       {sessions.map((session) => (
         <li key={session.id}>
           <Link
-            href={`/director/aula/${professorId}/curso/${courseId}/sesion/${session.id}`}
+            href={`${base}/sesion/${session.id}`}
             className="flex items-center gap-4 py-4 px-3 -mx-3 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <div className="flex-1 min-w-0">
@@ -91,9 +81,7 @@ export function AulaSessionList({
                 {formatDate(session.date)}
               </p>
               {session.comment && (
-                <p className="text-sm text-gray-500 mt-0.5 truncate max-w-md">
-                  {session.comment}
-                </p>
+                <p className="text-sm text-gray-500 mt-0.5 truncate max-w-md">{session.comment}</p>
               )}
             </div>
             <span className="flex items-center gap-1 text-sm text-gray-500 shrink-0">

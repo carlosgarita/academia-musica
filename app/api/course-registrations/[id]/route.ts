@@ -56,8 +56,13 @@ export async function GET(
       return NextResponse.json({ error: "Course registration not found" }, { status: 404 });
     }
 
-    if (profile && profile.role !== "super_admin" && profile.academy_id && row.academy_id !== profile.academy_id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (profile) {
+      if (profile.role === "professor" && row.profile_id !== user.id) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      if (profile.role !== "super_admin" && profile.academy_id && row.academy_id !== profile.academy_id) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
     }
 
     const { data: songRows } = await supabaseAdmin

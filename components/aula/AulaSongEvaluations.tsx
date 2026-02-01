@@ -40,22 +40,15 @@ export function AulaSongEvaluations({
         fetch(`/api/evaluation-data?academy_id=${encodeURIComponent(academyId)}&subject_id=${encodeURIComponent(subjectId)}`),
         fetch(`/api/song-evaluations?period_date_id=${encodeURIComponent(sessionId)}&course_registration_id=${encodeURIComponent(registrationId)}`),
       ]);
-
       const songsData = await songsRes.json();
-      if (songsRes.ok && songsData.songs) {
-        setSongs(songsData.songs);
-      }
-
+      if (songsRes.ok && songsData.songs) setSongs(songsData.songs);
       const evalData = await evalDataRes.json();
       if (evalDataRes.ok) {
         setRubrics(evalData.rubrics || []);
         setScales(evalData.scales || []);
       }
-
       const evData = await evaluationsRes.json();
-      if (evaluationsRes.ok && evData.evaluations) {
-        setEvaluations(evData.evaluations);
-      }
+      if (evaluationsRes.ok && evData.evaluations) setEvaluations(evData.evaluations);
     } catch (e) {
       console.error("Error loading song evaluations:", e);
     } finally {
@@ -63,9 +56,7 @@ export function AulaSongEvaluations({
     }
   }, [expanded, registrationId, sessionId, academyId, subjectId]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  useEffect(() => { loadData(); }, [loadData]);
 
   const handleScaleChange = async (songId: string, rubricId: string, scaleId: string) => {
     const key = EVAL_KEY(registrationId, songId, rubricId);
@@ -148,9 +139,7 @@ export function AulaSongEvaluations({
                       <Music className="h-4 w-4 text-gray-400 shrink-0" />
                       <span className="font-medium text-gray-900">{song.name}</span>
                     </div>
-                    {song.author && (
-                      <p className="text-xs text-gray-500 mt-0.5">{song.author}</p>
-                    )}
+                    {song.author && <p className="text-xs text-gray-500 mt-0.5">{song.author}</p>}
                   </td>
                   {rubrics.map((rubric) => (
                     <td key={rubric.id} className="py-2 px-2">

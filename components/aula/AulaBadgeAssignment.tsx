@@ -58,9 +58,7 @@ export function AulaBadgeAssignment({
     }
   }, [expanded, registrationId, academyId]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  useEffect(() => { loadData(); }, [loadData]);
 
   const handleAssign = async (badgeId: string) => {
     setAssigningBadgeId(badgeId);
@@ -76,16 +74,7 @@ export function AulaBadgeAssignment({
       if (badge) {
         setAssignedBadges((prev) => [
           ...prev,
-          {
-            id: crypto.randomUUID(),
-            badge_id: badgeId,
-            name: badge.name,
-            virtud: badge.virtud,
-            description: badge.description,
-            frase: badge.frase,
-            image_url: badge.image_url,
-            assigned_at: new Date().toISOString(),
-          },
+          { id: crypto.randomUUID(), badge_id: badgeId, name: badge.name, virtud: badge.virtud, description: badge.description, frase: badge.frase, image_url: badge.image_url, assigned_at: new Date().toISOString() },
         ]);
         onSnackbar("Badge asignado");
       }
@@ -152,10 +141,7 @@ export function AulaBadgeAssignment({
               <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Asignados</h4>
               <div className="flex flex-wrap gap-2">
                 {assignedBadges.map((b) => (
-                  <div
-                    key={b.id}
-                    className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-2.5 py-2"
-                  >
+                  <div key={b.id} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-2.5 py-2">
                     {b.image_url?.startsWith("http") ? (
                       <img src={b.image_url} alt={b.name} className="h-8 w-8 rounded object-cover" />
                     ) : (
@@ -213,9 +199,7 @@ export function AulaBadgeAssignment({
             </div>
           )}
           {availableBadges.length === 0 && assignedBadges.length === 0 && (
-            <p className="text-sm text-gray-500">
-              No hay badges configurados en la academia. Crea badges en la configuración.
-            </p>
+            <p className="text-sm text-gray-500">No hay badges configurados en la academia. Crea badges en la configuración.</p>
           )}
           {assignedBadges.length > 0 && notAssigned.length === 0 && (
             <p className="text-sm text-gray-500">Todos los badges disponibles ya están asignados.</p>

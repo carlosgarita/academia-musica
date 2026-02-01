@@ -3,14 +3,13 @@ import Link from "next/link";
 import { createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
-import { ProfessorSelector } from "@/components/director/ProfessorSelector";
 import { AulaSessionStudents } from "@/components/aula";
 import type { Database } from "@/lib/database.types";
 import { ChevronRight } from "lucide-react";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 
-export default async function AulaSesionPage({
+export default async function ProfessorAulaSesionPage({
   params,
 }: {
   params: Promise<{ professorId: string; courseId: string; sessionId: string }>;
@@ -30,28 +29,26 @@ export default async function AulaSesionPage({
 
   const { data: profile } = (await supabase
     .from("profiles")
-    .select("role, academy_id")
+    .select("id, role, academy_id")
     .eq("id", user.id)
     .single()) as { data: Profile | null };
 
-  if (!profile || profile.role !== "director" || !profile.academy_id) {
+  if (!profile || profile.role !== "professor") {
     redirect("/");
   }
 
-  // Usar service role para evitar RLS en period_dates y tablas relacionadas
+  if (professorId !== profile.id) {
+    redirect("/professor/aula");
+  }
+
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    redirect(`/director/aula/${professorId}/curso/${courseId}`);
+    redirect(`/professor/aula/${professorId}/curso/${courseId}`);
   }
 
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    }
+    { auth: { autoRefreshToken: false, persistSession: false } }
   );
 
   const { data: professor } = await supabaseAdmin
@@ -63,7 +60,7 @@ export default async function AulaSesionPage({
     .maybeSingle();
 
   if (!professor) {
-    redirect("/director/aula");
+    redirect("/professor/aula");
   }
 
   const { data: psp } = await supabaseAdmin
@@ -73,12 +70,7 @@ export default async function AulaSesionPage({
     .maybeSingle();
 
   if (!psp || psp.profile_id !== professorId) {
-    redirect(`/director/aula/${professorId}`);
-  }
-
-  const period = psp.period as { academy_id?: string } | null;
-  if (profile.role !== "super_admin" && period?.academy_id !== profile.academy_id) {
-    redirect("/director/aula");
+    redirect(`/professor/aula/${professorId}`);
   }
 
   const { data: sessionRow } = await supabaseAdmin
@@ -92,7 +84,7 @@ export default async function AulaSesionPage({
     .maybeSingle();
 
   if (!sessionRow) {
-    redirect(`/director/aula/${professorId}/curso/${courseId}`);
+    redirect(`/professor/aula/${professorId}/curso/${courseId}`);
   }
 
   const subject = psp.subject as { name?: string } | null;
@@ -100,6 +92,7 @@ export default async function AulaSesionPage({
     professor.first_name || professor.last_name
       ? `${professor.first_name || ""} ${professor.last_name || ""}`.trim()
       : professor.email || "Profesor";
+  const period = psp.period as { academy_id?: string } | null;
 
   const formatDate = (dateStr: string) => {
     try {
@@ -119,18 +112,15 @@ export default async function AulaSesionPage({
     <div className="space-y-6">
       <div>
         <nav className="flex items-center gap-2 text-sm text-gray-500 mb-2 flex-wrap">
-          <Link href="/director/aula" className="hover:text-gray-700">
+          <Link href="/professor/aula" className="hover:text-gray-700">
             Aula
           </Link>
           <ChevronRight className="h-4 w-4 shrink-0" />
-          <Link href={`/director/aula/${professorId}`} className="hover:text-gray-700">
+          <Link href={`/professor/aula/${professorId}`} className="hover:text-gray-700">
             {professorName}
           </Link>
           <ChevronRight className="h-4 w-4 shrink-0" />
-          <Link
-            href={`/director/aula/${professorId}/curso/${courseId}`}
-            className="hover:text-gray-700"
-          >
+          <Link href={`/professor/aula/${professorId}/curso/${courseId}`} className="hover:text-gray-700">
             {subject?.name ?? "Curso"}
           </Link>
           <ChevronRight className="h-4 w-4 shrink-0" />
@@ -150,18 +140,15 @@ export default async function AulaSesionPage({
           </p>
         )}
       </div>
-      <ProfessorSelector academyId={profile.academy_id} />
       <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Estudiantes
-        </h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Estudiantes</h2>
         <AulaSessionStudents
           professorId={professorId}
           courseId={courseId}
           sessionId={sessionId}
           subjectId={psp.subject_id}
-          academyId={period?.academy_id ?? profile.academy_id}
-          pathPrefix="director"
+          academyId={period?.academy_id ?? profile.academy_id ?? ""}
+          pathPrefix="professor"
         />
       </div>
     </div>

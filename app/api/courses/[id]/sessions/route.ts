@@ -32,7 +32,11 @@ export async function GET(
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
-    if (profile.role !== "director" && profile.role !== "super_admin") {
+    if (
+      profile.role !== "director" &&
+      profile.role !== "super_admin" &&
+      profile.role !== "professor"
+    ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -60,7 +64,11 @@ export async function GET(
     }
 
     const period = psp.period as { academy_id?: string } | null;
-    if (
+    if (profile.role === "professor") {
+      if (psp.profile_id !== user.id) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    } else if (
       profile.role !== "super_admin" &&
       period?.academy_id !== profile.academy_id
     ) {

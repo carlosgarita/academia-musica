@@ -3,14 +3,13 @@ import Link from "next/link";
 import { createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
-import { ProfessorSelector } from "@/components/director/ProfessorSelector";
 import { AulaSessionList } from "@/components/aula";
 import type { Database } from "@/lib/database.types";
 import { ChevronRight } from "lucide-react";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 
-export default async function AulaCursoPage({
+export default async function ProfessorAulaCursoPage({
   params,
 }: {
   params: Promise<{ professorId: string; courseId: string }>;
@@ -30,28 +29,26 @@ export default async function AulaCursoPage({
 
   const { data: profile } = (await supabase
     .from("profiles")
-    .select("role, academy_id")
+    .select("id, role, academy_id")
     .eq("id", user.id)
     .single()) as { data: Profile | null };
 
-  if (!profile || profile.role !== "director" || !profile.academy_id) {
+  if (!profile || profile.role !== "professor") {
     redirect("/");
   }
 
-  // Usar service role para evitar RLS en profesor_subject_periods y tablas relacionadas
+  if (professorId !== profile.id) {
+    redirect("/professor/aula");
+  }
+
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    redirect(`/director/aula/${professorId}`);
+    redirect(`/professor/aula/${professorId}`);
   }
 
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    }
+    { auth: { autoRefreshToken: false, persistSession: false } }
   );
 
   const { data: professor } = await supabaseAdmin
@@ -63,35 +60,24 @@ export default async function AulaCursoPage({
     .maybeSingle();
 
   if (!professor) {
-    redirect("/director/aula");
+    redirect("/professor/aula");
   }
 
   const { data: psp, error: pspErr } = await supabaseAdmin
     .from("professor_subject_periods")
-    .select(
-      `
+    .select(`
       id,
       profile_id,
       subject_id,
       period_id,
       period:periods(id, year, period, academy_id),
       subject:subjects(id, name)
-    `
-    )
+    `)
     .eq("id", courseId)
     .maybeSingle();
 
-  if (pspErr || !psp) {
-    redirect(`/director/aula/${professorId}`);
-  }
-
-  const period = psp.period as { academy_id?: string; id?: string; year?: number; period?: string } | null;
-  if (profile.role !== "super_admin" && period?.academy_id !== profile.academy_id) {
-    redirect("/director/aula");
-  }
-
-  if (psp.profile_id !== professorId) {
-    redirect(`/director/aula/${professorId}`);
+  if (pspErr || !psp || psp.profile_id !== professorId) {
+    redirect(`/professor/aula/${professorId}`);
   }
 
   const course = {
@@ -116,11 +102,11 @@ export default async function AulaCursoPage({
     <div className="space-y-6">
       <div>
         <nav className="flex items-center gap-2 text-sm text-gray-500 mb-2">
-          <Link href="/director/aula" className="hover:text-gray-700">
+          <Link href="/professor/aula" className="hover:text-gray-700">
             Aula
           </Link>
           <ChevronRight className="h-4 w-4" />
-          <Link href={`/director/aula/${professorId}`} className="hover:text-gray-700">
+          <Link href={`/professor/aula/${professorId}`} className="hover:text-gray-700">
             {professorName}
           </Link>
           <ChevronRight className="h-4 w-4" />
@@ -135,16 +121,13 @@ export default async function AulaCursoPage({
           Sesiones de clase. Selecciona una sesión para ver asistencia y expedientes.
         </p>
       </div>
-      <ProfessorSelector academyId={profile.academy_id} />
       <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Sesiones
-        </h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Sesiones</h2>
         <AulaSessionList
           professorId={professorId}
           courseId={courseId}
           courseName={course.subject?.name ?? "Curso"}
-          pathPrefix="director"
+          pathPrefix="professor"
         />
       </div>
     </div>

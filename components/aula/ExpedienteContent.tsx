@@ -35,12 +35,15 @@ export function ExpedienteContent({
   courseId,
   professorId,
   sessionId,
+  pathPrefix,
 }: {
   registrationId: string;
   courseId: string;
   professorId: string;
   sessionId?: string | null;
+  pathPrefix: "director" | "professor";
 }) {
+  const base = `/${pathPrefix}/aula/${professorId}/curso/${courseId}`;
   const [data, setData] = useState<CourseRegistrationData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -107,7 +110,7 @@ export function ExpedienteContent({
       <div className="bg-white rounded-lg shadow p-6">
         <p className="text-amber-600 text-sm">{error ?? "Expediente no encontrado"}</p>
         <Link
-          href={sessionId ? `/director/aula/${professorId}/curso/${courseId}/sesion/${sessionId}` : `/director/aula/${professorId}/curso/${courseId}`}
+          href={sessionId ? `${base}/sesion/${sessionId}` : base}
           className="inline-flex items-center gap-2 mt-4 text-sm text-indigo-600 hover:text-indigo-700"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -117,26 +120,16 @@ export function ExpedienteContent({
     );
   }
 
-  const periodLabel = data.period
-    ? `${data.period.year} - Período ${data.period.period}`
-    : "";
-
-  const backHref = sessionId
-    ? `/director/aula/${professorId}/curso/${courseId}/sesion/${sessionId}`
-    : `/director/aula/${professorId}/curso/${courseId}`;
+  const backHref = sessionId ? `${base}/sesion/${sessionId}` : base;
   const backLabel = sessionId ? "Volver a la sesión" : "Volver al curso";
 
   return (
     <div className="space-y-6">
-      <Link
-        href={backHref}
-        className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
-      >
+      <Link href={backHref} className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900">
         <ArrowLeft className="h-4 w-4" />
         {backLabel}
       </Link>
 
-      {/* Canciones asignadas */}
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <Music className="h-5 w-5 text-gray-500" />
@@ -145,15 +138,10 @@ export function ExpedienteContent({
         {data.songs && data.songs.length > 0 ? (
           <ul className="divide-y divide-gray-200">
             {data.songs.map((song) => (
-              <li
-                key={song.id}
-                className="py-3 flex items-center justify-between gap-4"
-              >
+              <li key={song.id} className="py-3 flex items-center justify-between gap-4">
                 <div>
                   <p className="font-medium text-gray-900">{song.name}</p>
-                  {song.author && (
-                    <p className="text-sm text-gray-500">{song.author}</p>
-                  )}
+                  {song.author && <p className="text-sm text-gray-500">{song.author}</p>}
                 </div>
                 {song.difficulty_level && (
                   <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600 shrink-0">
@@ -164,14 +152,10 @@ export function ExpedienteContent({
             ))}
           </ul>
         ) : (
-          <p className="text-gray-500 text-sm">
-            No hay canciones asignadas. Asigna canciones desde Dirección →
-            Matrículas.
-          </p>
+          <p className="text-gray-500 text-sm">No hay canciones asignadas. Asigna canciones desde Dirección → Matrículas.</p>
         )}
       </div>
 
-      {/* Calificaciones por sesión */}
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <BookOpen className="h-5 w-5 text-gray-500" />
@@ -195,7 +179,6 @@ export function ExpedienteContent({
         )}
       </div>
 
-      {/* Comentarios del profesor */}
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <MessageSquare className="h-5 w-5 text-gray-500" />
@@ -217,7 +200,6 @@ export function ExpedienteContent({
         )}
       </div>
 
-      {/* Tareas individuales */}
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <ClipboardList className="h-5 w-5 text-gray-500" />
@@ -239,7 +221,6 @@ export function ExpedienteContent({
         )}
       </div>
 
-      {/* Historial de badges */}
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <Award className="h-5 w-5 text-gray-500" />

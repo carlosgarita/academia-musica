@@ -23,38 +23,32 @@ type Course = {
 
 export function AulaCourseList({
   professorId,
+  pathPrefix,
 }: {
   professorId: string;
+  pathPrefix: "director" | "professor";
 }) {
+  const base = `/${pathPrefix}/aula/${professorId}`;
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
-      // Validar que professorId no esté vacío
       if (!professorId || professorId.trim() === "") {
         setError("ID de profesor inválido");
         setCourses([]);
         setLoading(false);
         return;
       }
-
       try {
         setLoading(true);
         setError(null);
-        const url = `/api/courses?profile_id=${encodeURIComponent(professorId)}`;
-        const r = await fetch(url);
+        const r = await fetch(`/api/courses?profile_id=${encodeURIComponent(professorId)}`);
         const d = await r.json();
-        
-        if (!r.ok) {
-          throw new Error(d.error || d.details || "Error al cargar cursos");
-        }
-        
+        if (!r.ok) throw new Error(d.error || d.details || "Error al cargar cursos");
         setCourses(d.courses || []);
-        setError(null);
       } catch (e) {
-        console.error("Error loading courses:", e);
         setError(e instanceof Error ? e.message : "Error al cargar cursos");
         setCourses([]);
       } finally {
@@ -64,38 +58,25 @@ export function AulaCourseList({
     load();
   }, [professorId]);
 
-  if (loading) {
-    return (
-      <p className="text-gray-500 text-sm">Cargando cursos...</p>
-    );
-  }
-
-  if (error) {
-    return (
-      <p className="text-amber-600 text-sm">{error}</p>
-    );
-  }
-
+  if (loading) return <p className="text-gray-500 text-sm">Cargando cursos...</p>;
+  if (error) return <p className="text-amber-600 text-sm">{error}</p>;
   if (courses.length === 0) {
     return (
       <p className="text-gray-500 text-sm">
-        Este profesor no tiene cursos asignados. Crea un curso en Dirección →
-        Cursos.
+        Este profesor no tiene cursos asignados. Crea un curso en Dirección → Cursos.
       </p>
     );
   }
 
   const periodLabel = (c: Course) =>
-    c.period
-      ? `${c.period.year} - Período ${c.period.period}`
-      : "—";
+    c.period ? `${c.period.year} - Período ${c.period.period}` : "—";
 
   return (
     <ul className="divide-y divide-gray-200">
       {courses.map((course) => (
         <li key={course.id}>
           <Link
-            href={`/director/aula/${professorId}/curso/${course.id}`}
+            href={`${base}/curso/${course.id}`}
             className="flex items-center gap-4 py-4 px-3 -mx-3 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <div className="flex-1 min-w-0">
