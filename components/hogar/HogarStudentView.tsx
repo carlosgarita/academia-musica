@@ -47,6 +47,11 @@ export function HogarStudentView({
     [student.first_name, student.last_name].filter(Boolean).join(" ").trim() ||
     "Sin nombre";
 
+  // Reset tab to Curso actual when switching students
+  useEffect(() => {
+    setActiveTab("current");
+  }, [student.id]);
+
   useEffect(() => {
     async function loadCourses() {
       setLoadingCourses(true);

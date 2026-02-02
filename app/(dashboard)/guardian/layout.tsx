@@ -25,17 +25,13 @@ export default async function GuardianLayout({
 
   const { data: profile } = (await supabase
     .from("profiles")
-    .select("role, first_name, last_name")
+    .select("role")
     .eq("id", user.id)
     .single()) as { data: Profile | null };
 
   if (!profile || profile.role !== "guardian") {
     redirect("/");
   }
-
-  const fullName =
-    `${profile.first_name || ""} ${profile.last_name || ""}`.trim() ||
-    "Encargado";
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -46,9 +42,12 @@ export default async function GuardianLayout({
               <div className="flex flex-shrink-0 items-center">
                 <Link
                   href="/guardian/hogar"
-                  className="text-xl font-bold text-indigo-600"
+                  className="text-lg font-bold text-indigo-600 flex items-center gap-2"
                 >
-                  Portal de Encargado
+                  <div className="w-8 h-8 bg-indigo-600 rounded flex items-center justify-center">
+                    <span className="text-white font-bold text-sm">A</span>
+                  </div>
+                  <span>Academia</span>
                 </Link>
               </div>
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
@@ -56,7 +55,7 @@ export default async function GuardianLayout({
                   href="/guardian/hogar"
                   className="inline-flex items-center border-b-2 border-transparent px-1 pt-1 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700"
                 >
-                  Hogar
+                  Estudiantes
                 </Link>
                 <Link
                   href="/guardian/payments"
@@ -67,7 +66,6 @@ export default async function GuardianLayout({
               </div>
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:items-center">
-              <span className="mr-4 text-sm text-gray-700">{fullName}</span>
               <form action="/auth/signout" method="post">
                 <button
                   type="submit"

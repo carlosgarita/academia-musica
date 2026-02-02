@@ -14,7 +14,13 @@ type Student = {
   relationship?: string | null;
 };
 
-export function HogarContent({ guardianId }: { guardianId?: string }) {
+export function HogarContent({
+  guardianId,
+  guardianName,
+}: {
+  guardianId?: string;
+  guardianName?: string;
+}) {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,10 +67,10 @@ export function HogarContent({ guardianId }: { guardianId?: string }) {
           <Home className="h-5 w-5 text-indigo-600" />
         </div>
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">Portal Hogar</h2>
-          <p className="text-sm text-gray-500">
-            Revisa el progreso académico de tus hijos
-          </p>
+          <h2 className="text-xl font-semibold text-gray-900">
+            {guardianName || "Portal Hogar"}
+          </h2>
+          <p className="text-sm text-gray-500">Revisa tu progreso académico</p>
         </div>
       </div>
 

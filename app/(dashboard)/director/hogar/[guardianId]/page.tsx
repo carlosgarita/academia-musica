@@ -61,7 +61,10 @@ export default async function HogarGuardianPage({
         </p>
       </div>
       <GuardianSelector academyId={profile.academy_id} />
-      <HogarContent guardianId={params.guardianId} />
+      <HogarContent
+        guardianId={params.guardianId}
+        guardianName={guardianName}
+      />
     </div>
   );
 }

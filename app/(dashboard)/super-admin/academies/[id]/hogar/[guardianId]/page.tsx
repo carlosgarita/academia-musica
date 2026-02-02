@@ -81,7 +81,10 @@ export default async function SuperAdminHogarGuardianPage({
         </Link>
       </div>
 
-      <HogarContent guardianId={params.guardianId} />
+      <HogarContent
+        guardianId={params.guardianId}
+        guardianName={guardianName}
+      />
     </div>
   );
 }

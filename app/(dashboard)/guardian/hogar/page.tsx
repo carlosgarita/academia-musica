@@ -29,9 +29,13 @@ export default async function GuardianHogarPage() {
     redirect("/");
   }
 
+  const fullName =
+    `${profile.first_name || ""} ${profile.last_name || ""}`.trim() ||
+    "Encargado";
+
   return (
     <div className="space-y-6">
-      <HogarContent />
+      <HogarContent guardianName={fullName} />
     </div>
   );
 }
