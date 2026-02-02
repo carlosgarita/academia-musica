@@ -52,7 +52,7 @@ export async function GET(
 
     const { data: reg, error: regErr } = await supabaseAdmin
       .from("course_registrations")
-      .select("id, academy_id, period_id, subject_id")
+      .select("id, student_id, academy_id, period_id, subject_id")
       .eq("id", registrationId)
       .is("deleted_at", null)
       .single();
@@ -162,6 +162,23 @@ export async function GET(
       .eq("course_registration_id", registrationId)
       .order("updated_at", { ascending: false });
 
+    // Task completions for this student (individual + group)
+    const studentId = reg.student_id;
+    const { data: completionsData } = await supabaseAdmin
+      .from("task_completions")
+      .select("session_assignment_id, session_group_assignment_id")
+      .eq("student_id", studentId);
+    const completedIndividualIds = new Set(
+      (completionsData || [])
+        .filter((c: any) => c.session_assignment_id)
+        .map((c: any) => c.session_assignment_id)
+    );
+    const completedGroupIds = new Set(
+      (completionsData || [])
+        .filter((c: any) => c.session_group_assignment_id)
+        .map((c: any) => c.session_group_assignment_id)
+    );
+
     const assignmentsList = (assignments || [])
       .filter((a: any) => a.period_dates)
       .map((a: any) => ({
@@ -171,6 +188,7 @@ export async function GET(
           ? formatDate(a.period_dates.date)
           : "",
         assignmentText: a.assignment_text,
+        isCompleted: completedIndividualIds.has(a.id),
       }))
       .sort((a: any, b: any) => (b.date || "").localeCompare(a.date || ""));
 
@@ -254,6 +272,7 @@ export async function GET(
             dateFormatted: date ? formatDate(date) : "",
             assignmentText: g.assignment_text,
             isGroup: true as const,
+            isCompleted: completedGroupIds.has(g.id),
           };
         })
       );

@@ -181,51 +181,6 @@ export type Database = {
           }
         ];
       };
-      course_group_assignments: {
-        Row: {
-          content: string;
-          created_at: string;
-          created_by: string | null;
-          id: string;
-          professor_subject_period_id: string;
-          title: string;
-          updated_at: string;
-        };
-        Insert: {
-          content: string;
-          created_at?: string;
-          created_by?: string | null;
-          id?: string;
-          professor_subject_period_id: string;
-          title: string;
-          updated_at?: string;
-        };
-        Update: {
-          content?: string;
-          created_at?: string;
-          created_by?: string | null;
-          id?: string;
-          professor_subject_period_id?: string;
-          title?: string;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "course_group_assignments_created_by_fkey";
-            columns: ["created_by"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "course_group_assignments_professor_subject_period_id_fkey";
-            columns: ["professor_subject_period_id"];
-            isOneToOne: false;
-            referencedRelation: "professor_subject_periods";
-            referencedColumns: ["id"];
-          }
-        ];
-      };
       course_registration_songs: {
         Row: {
           course_registration_id: string;

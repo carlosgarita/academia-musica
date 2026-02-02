@@ -90,14 +90,10 @@ export function AulaSessionStudents({
   const [deletingAssignmentFor, setDeletingAssignmentFor] = useState<
     string | null
   >(null);
-  // Task completion states - which tasks the guardian marked as done
+  // Task completion states - individual assignments marked as done (by guardian or professor in Expediente)
   const [taskCompletions, setTaskCompletions] = useState<{
     byAssignmentId: Set<string>;
-    byGroupAssignmentId: Set<string>;
-  }>({ byAssignmentId: new Set(), byGroupAssignmentId: new Set() });
-  const [groupAssignmentId, setGroupAssignmentId] = useState<string | null>(
-    null
-  );
+  }>({ byAssignmentId: new Set() });
   const [snackbar, setSnackbar] = useState<{ show: boolean; message: string }>({
     show: false,
     message: "",
@@ -227,22 +223,19 @@ export function AulaSessionStudents({
           setGroupAssignmentText(
             groupAssData.groupAssignment.assignment_text ?? ""
           );
-          setGroupAssignmentId(groupAssData.groupAssignment.id ?? null);
           setGroupAssignmentSaved(true);
           setEditingGroupAssignment(false);
         } else {
           setGroupAssignmentText("");
-          setGroupAssignmentId(null);
           setGroupAssignmentSaved(false);
           setEditingGroupAssignment(false);
         }
 
-        // Load task completions for all students
+        // Load task completions for individual assignments (group completion tracked in Expediente)
         const studentIds = regs
           .map((r: CourseRegistration) => r.student?.id)
           .filter(Boolean) as string[];
         const completedAssignmentIds = new Set<string>();
-        const completedGroupAssignmentIds = new Set<string>();
 
         for (const studentId of studentIds) {
           try {
@@ -257,11 +250,6 @@ export function AulaSessionStudents({
                 if (c.session_assignment_id) {
                   completedAssignmentIds.add(c.session_assignment_id);
                 }
-                if (c.session_group_assignment_id) {
-                  completedGroupAssignmentIds.add(
-                    `${c.session_group_assignment_id}-${studentId}`
-                  );
-                }
               });
             }
           } catch (e) {
@@ -272,10 +260,7 @@ export function AulaSessionStudents({
             );
           }
         }
-        setTaskCompletions({
-          byAssignmentId: completedAssignmentIds,
-          byGroupAssignmentId: completedGroupAssignmentIds,
-        });
+        setTaskCompletions({ byAssignmentId: completedAssignmentIds });
 
         setError(null);
       } catch (e) {
@@ -857,38 +842,6 @@ export function AulaSessionStudents({
                 <Trash2 className="h-3.5 w-3.5" /> Eliminar
               </button>
             </div>
-            {/* Show which students have completed the group task */}
-            {groupAssignmentId && registrations.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-gray-200">
-                <p className="text-xs font-medium text-gray-500 mb-2">
-                  Estado de completado por estudiante:
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {registrations.map((reg) => {
-                    const studentId = reg.student?.id;
-                    const isCompleted =
-                      studentId &&
-                      groupAssignmentId &&
-                      taskCompletions.byGroupAssignmentId.has(
-                        `${groupAssignmentId}-${studentId}`
-                      );
-                    return (
-                      <span
-                        key={reg.id}
-                        className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded ${
-                          isCompleted
-                            ? "bg-green-100 text-green-700"
-                            : "bg-gray-100 text-gray-600"
-                        }`}
-                      >
-                        {isCompleted && <CheckCircle2 className="h-3 w-3" />}
-                        {studentName(reg)}
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
           </div>
         ) : (
           <>

@@ -169,10 +169,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
-    // Only guardians, directors, and super_admins can mark tasks
+    // Guardians, directors, professors, and super_admins can mark tasks
     if (
       profile.role !== "guardian" &&
       profile.role !== "director" &&
+      profile.role !== "professor" &&
       profile.role !== "super_admin"
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -234,6 +235,29 @@ export async function POST(request: NextRequest) {
         .eq("id", student_id)
         .maybeSingle();
       if (!student || student.academy_id !== profile.academy_id) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    } else if (profile.role === "professor") {
+      // Verify student is in a course the professor teaches (same period+subject)
+      const { data: crs } = await supabaseAdmin
+        .from("course_registrations")
+        .select("period_id, subject_id")
+        .eq("student_id", student_id)
+        .is("deleted_at", null);
+      const { data: pspRows } = await supabaseAdmin
+        .from("professor_subject_periods")
+        .select("period_id, subject_id")
+        .eq("profile_id", user.id);
+      const professorTeaches = (periodId: string, subjectId: string) =>
+        pspRows?.some(
+          (p: { period_id: string; subject_id: string }) =>
+            p.period_id === periodId && p.subject_id === subjectId
+        );
+      const hasAccess =
+        crs?.some((c: { period_id: string; subject_id: string }) =>
+          professorTeaches(c.period_id, c.subject_id)
+        ) ?? false;
+      if (!hasAccess) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
     }
@@ -406,10 +430,11 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
-    // Only guardians, directors, and super_admins can unmark tasks
+    // Guardians, directors, professors, and super_admins can unmark tasks
     if (
       profile.role !== "guardian" &&
       profile.role !== "director" &&
+      profile.role !== "professor" &&
       profile.role !== "super_admin"
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -498,6 +523,28 @@ export async function DELETE(request: NextRequest) {
         .eq("id", completionToDelete.student_id)
         .maybeSingle();
       if (!student || student.academy_id !== profile.academy_id) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    } else if (profile.role === "professor") {
+      const { data: crs } = await supabaseAdmin
+        .from("course_registrations")
+        .select("period_id, subject_id")
+        .eq("student_id", completionToDelete.student_id)
+        .is("deleted_at", null);
+      const { data: pspRows } = await supabaseAdmin
+        .from("professor_subject_periods")
+        .select("period_id, subject_id")
+        .eq("profile_id", user.id);
+      const professorTeaches = (periodId: string, subjectId: string) =>
+        pspRows?.some(
+          (p: { period_id: string; subject_id: string }) =>
+            p.period_id === periodId && p.subject_id === subjectId
+        );
+      const hasAccess =
+        crs?.some((c: { period_id: string; subject_id: string }) =>
+          professorTeaches(c.period_id, c.subject_id)
+        ) ?? false;
+      if (!hasAccess) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
     }

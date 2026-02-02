@@ -142,8 +142,11 @@ export function HogarCourseProgress({
           method: "DELETE",
         });
         if (!res.ok) {
-          const d = await res.json();
-          throw new Error(d.error || "Error al desmarcar tarea");
+          const d = await res.json().catch(() => ({}));
+          const msg = d.details
+            ? `${d.error || "Error"}: ${d.details}`
+            : d.error || "Error al desmarcar tarea";
+          throw new Error(msg);
         }
         // Update local state
         if (isGroup) {
@@ -181,8 +184,11 @@ export function HogarCourseProgress({
           body: JSON.stringify(body),
         });
         if (!res.ok) {
-          const d = await res.json();
-          throw new Error(d.error || "Error al marcar tarea");
+          const d = await res.json().catch(() => ({}));
+          const msg = d.details
+            ? `${d.error || "Error"}: ${d.details}`
+            : d.error || "Error al marcar tarea";
+          throw new Error(msg);
         }
         // Update local state
         if (isGroup) {
