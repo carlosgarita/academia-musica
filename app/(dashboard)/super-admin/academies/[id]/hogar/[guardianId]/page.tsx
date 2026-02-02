@@ -1,16 +1,16 @@
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
-import { GuardianSelector } from "@/components/director/GuardianSelector";
+import Link from "next/link";
 import { HogarContent } from "@/components/hogar";
 import type { Database } from "@/lib/database.types";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 
-export default async function HogarGuardianPage({
+export default async function SuperAdminHogarGuardianPage({
   params,
 }: {
-  params: { guardianId: string };
+  params: { id: string; guardianId: string };
 }) {
   const cookieStore = cookies();
   const supabase = await createServerClient(cookieStore);
@@ -26,12 +26,23 @@ export default async function HogarGuardianPage({
 
   const { data: profile } = (await supabase
     .from("profiles")
-    .select("role, academy_id")
+    .select("role")
     .eq("id", user.id)
     .single()) as { data: Profile | null };
 
-  if (!profile || profile.role !== "director" || !profile.academy_id) {
+  if (!profile || profile.role !== "super_admin") {
     redirect("/");
+  }
+
+  // Fetch academy
+  const { data: academy } = await supabase
+    .from("academies")
+    .select("id, name")
+    .eq("id", params.id)
+    .single();
+
+  if (!academy) {
+    redirect("/super-admin/academies");
   }
 
   // Fetch guardian data
@@ -43,8 +54,8 @@ export default async function HogarGuardianPage({
     .is("deleted_at", null)
     .single();
 
-  if (!guardian || guardian.academy_id !== profile.academy_id) {
-    redirect("/director/hogar");
+  if (!guardian || guardian.academy_id !== params.id) {
+    redirect(`/super-admin/academies/${params.id}/hogar`);
   }
 
   const guardianName =
@@ -57,10 +68,19 @@ export default async function HogarGuardianPage({
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Hogar</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Vista del encargado: {guardianName}
+          Academia: {academy.name} • Encargado: {guardianName}
         </p>
       </div>
-      <GuardianSelector academyId={profile.academy_id} />
+
+      <div className="flex gap-2">
+        <Link
+          href={`/super-admin/academies/${params.id}/hogar`}
+          className="inline-flex items-center text-sm text-indigo-600 hover:text-indigo-500"
+        >
+          ← Cambiar encargado
+        </Link>
+      </div>
+
       <HogarContent guardianId={params.guardianId} />
     </div>
   );

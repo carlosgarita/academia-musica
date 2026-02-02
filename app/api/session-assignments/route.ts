@@ -27,7 +27,12 @@ export async function GET(request: NextRequest) {
       .eq("id", user.id)
       .single();
 
-    if (!profile || (profile.role !== "director" && profile.role !== "professor" && profile.role !== "super_admin")) {
+    if (
+      !profile ||
+      (profile.role !== "director" &&
+        profile.role !== "professor" &&
+        profile.role !== "super_admin")
+    ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -35,11 +40,17 @@ export async function GET(request: NextRequest) {
     const periodDateId = searchParams.get("period_date_id");
 
     if (!periodDateId) {
-      return NextResponse.json({ error: "period_date_id is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "period_date_id is required" },
+        { status: 400 }
+      );
     }
 
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Server configuration error" },
+        { status: 500 }
+      );
     }
 
     const supabaseAdmin = createClient(
@@ -50,7 +61,7 @@ export async function GET(request: NextRequest) {
 
     const { data: assignments, error } = await supabaseAdmin
       .from("session_assignments")
-      .select("course_registration_id, assignment_text")
+      .select("id, course_registration_id, assignment_text")
       .eq("period_date_id", periodDateId);
 
     if (error) {
@@ -61,6 +72,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Keep backward compatibility: assignments is { [regId]: text }
+    // Add assignmentDetails with full info including ID
     const byRegistration = (assignments || []).reduce<Record<string, string>>(
       (acc, a) => {
         acc[a.course_registration_id] = a.assignment_text;
@@ -69,7 +82,20 @@ export async function GET(request: NextRequest) {
       {}
     );
 
-    return NextResponse.json({ assignments: byRegistration });
+    const assignmentDetails = (assignments || []).reduce<
+      Record<string, { id: string; text: string }>
+    >((acc, a) => {
+      acc[a.course_registration_id] = {
+        id: a.id,
+        text: a.assignment_text,
+      };
+      return acc;
+    }, {});
+
+    return NextResponse.json({
+      assignments: byRegistration,
+      assignmentDetails,
+    });
   } catch (e) {
     console.error("GET /api/session-assignments:", e);
     return NextResponse.json(
@@ -105,7 +131,12 @@ export async function PUT(request: NextRequest) {
       .eq("id", user.id)
       .single();
 
-    if (!profile || (profile.role !== "director" && profile.role !== "professor" && profile.role !== "super_admin")) {
+    if (
+      !profile ||
+      (profile.role !== "director" &&
+        profile.role !== "professor" &&
+        profile.role !== "super_admin")
+    ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -120,18 +151,26 @@ export async function PUT(request: NextRequest) {
     }
 
     if (assignment_text == null || typeof assignment_text !== "string") {
-      return NextResponse.json({ error: "assignment_text is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "assignment_text is required" },
+        { status: 400 }
+      );
     }
 
     if (assignment_text.length > MAX_ASSIGNMENT_LENGTH) {
       return NextResponse.json(
-        { error: `assignment_text must be at most ${MAX_ASSIGNMENT_LENGTH} characters` },
+        {
+          error: `assignment_text must be at most ${MAX_ASSIGNMENT_LENGTH} characters`,
+        },
         { status: 400 }
       );
     }
 
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Server configuration error" },
+        { status: 500 }
+      );
     }
 
     const supabaseAdmin = createClient(
@@ -217,7 +256,12 @@ export async function DELETE(request: NextRequest) {
       .eq("id", user.id)
       .single();
 
-    if (!profile || (profile.role !== "director" && profile.role !== "professor" && profile.role !== "super_admin")) {
+    if (
+      !profile ||
+      (profile.role !== "director" &&
+        profile.role !== "professor" &&
+        profile.role !== "super_admin")
+    ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -233,7 +277,10 @@ export async function DELETE(request: NextRequest) {
     }
 
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Server configuration error" },
+        { status: 500 }
+      );
     }
 
     const supabaseAdmin = createClient(

@@ -3,13 +3,28 @@ import { createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
-// GET: Historial de calificaciones, comentarios y tareas para el expediente
+// Helper: Verify guardian has access to a student
+async function guardianCanAccessStudent(
+  supabaseAdmin: ReturnType<typeof createClient>,
+  guardianId: string,
+  studentId: string
+): Promise<boolean> {
+  const { data } = await supabaseAdmin
+    .from("guardian_students")
+    .select("id")
+    .eq("guardian_id", guardianId)
+    .eq("student_id", studentId)
+    .maybeSingle();
+  return !!data;
+}
+
+// GET: Get course progress for a student
+// Returns evaluations, comments, assignments (with completion status), badges
 export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  request: NextRequest,
+  { params }: { params: { studentId: string; registrationId: string } }
 ) {
   try {
-    const { id: registrationId } = await params;
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
@@ -28,14 +43,11 @@ export async function GET(
       .eq("id", user.id)
       .single();
 
-    if (
-      !profile ||
-      (profile.role !== "director" &&
-        profile.role !== "professor" &&
-        profile.role !== "super_admin")
-    ) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!profile) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
+
+    const { studentId, registrationId } = params;
 
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
       return NextResponse.json(
@@ -50,10 +62,46 @@ export async function GET(
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
+    // Verify access based on role
+    if (profile.role === "guardian") {
+      const canAccess = await guardianCanAccessStudent(
+        supabaseAdmin,
+        user.id,
+        studentId
+      );
+      if (!canAccess) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    } else if (profile.role === "director") {
+      const { data: student } = await supabaseAdmin
+        .from("students")
+        .select("academy_id")
+        .eq("id", studentId)
+        .maybeSingle();
+      if (!student || student.academy_id !== profile.academy_id) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    } else if (profile.role !== "super_admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Verify the registration belongs to this student
     const { data: reg, error: regErr } = await supabaseAdmin
       .from("course_registrations")
-      .select("id, academy_id, period_id, subject_id")
+      .select(
+        `
+        id,
+        student_id,
+        academy_id,
+        period_id,
+        subject_id,
+        status,
+        subject:subjects(id, name),
+        period:periods(id, year, period)
+      `
+      )
       .eq("id", registrationId)
+      .eq("student_id", studentId)
       .is("deleted_at", null)
       .single();
 
@@ -62,14 +110,6 @@ export async function GET(
         { error: "Matrícula no encontrada" },
         { status: 404 }
       );
-    }
-
-    if (
-      profile.role !== "super_admin" &&
-      profile.academy_id &&
-      reg.academy_id !== profile.academy_id
-    ) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const formatDate = (d: string) => {
@@ -85,6 +125,25 @@ export async function GET(
       }
     };
 
+    // Fetch task completions for this student
+    const { data: completionsData } = await supabaseAdmin
+      .from("task_completions")
+      .select(
+        "id, session_assignment_id, session_group_assignment_id, completed_at"
+      )
+      .eq("student_id", studentId);
+
+    const completedAssignmentIds = new Set(
+      (completionsData || [])
+        .filter((c: any) => c.session_assignment_id)
+        .map((c: any) => c.session_assignment_id)
+    );
+    const completedGroupAssignmentIds = new Set(
+      (completionsData || [])
+        .filter((c: any) => c.session_group_assignment_id)
+        .map((c: any) => c.session_group_assignment_id)
+    );
+
     // Evaluaciones de canciones
     const { data: evals } = await supabaseAdmin
       .from("song_evaluations")
@@ -98,7 +157,7 @@ export async function GET(
         period_dates(date),
         songs(name),
         evaluation_rubrics(name),
-        evaluation_scales(name)
+        evaluation_scales(name, numeric_value)
       `
       )
       .eq("course_registration_id", registrationId)
@@ -118,6 +177,7 @@ export async function GET(
           songName: song?.name ?? "—",
           rubricName: rubric?.name ?? "—",
           scaleName: scale?.name ?? "Sin calificar",
+          scaleValue: scale?.numeric_value ?? null,
         };
       })
       .sort((a: any, b: any) => (b.date || "").localeCompare(a.date || ""));
@@ -171,10 +231,62 @@ export async function GET(
           ? formatDate(a.period_dates.date)
           : "",
         assignmentText: a.assignment_text,
+        isCompleted: completedAssignmentIds.has(a.id),
       }))
       .sort((a: any, b: any) => (b.date || "").localeCompare(a.date || ""));
 
-    // Badges asignados (historial de badges recibidos en el curso)
+    // Tareas grupales
+    const { data: periodDatesForCourse } = await supabaseAdmin
+      .from("period_dates")
+      .select("id, date")
+      .eq("period_id", reg.period_id)
+      .eq("subject_id", reg.subject_id)
+      .eq("date_type", "clase")
+      .is("deleted_at", null);
+
+    const periodDateIds = (periodDatesForCourse || []).map((p: any) => p.id);
+    const groupAssignmentsList: {
+      id: string;
+      date: string;
+      dateFormatted: string;
+      assignmentText: string;
+      isGroup: true;
+      isCompleted: boolean;
+    }[] = [];
+
+    if (periodDateIds.length > 0) {
+      const { data: groupAssData } = await supabaseAdmin
+        .from("session_group_assignments")
+        .select("id, period_date_id, assignment_text")
+        .in("period_date_id", periodDateIds);
+
+      const dateById = (periodDatesForCourse || []).reduce(
+        (acc: Record<string, string>, p: any) => {
+          acc[p.id] = p.date;
+          return acc;
+        },
+        {}
+      );
+
+      groupAssignmentsList.push(
+        ...(groupAssData || []).map((g: any) => {
+          const date = dateById[g.period_date_id] ?? "";
+          return {
+            id: g.id,
+            date,
+            dateFormatted: date ? formatDate(date) : "",
+            assignmentText: g.assignment_text,
+            isGroup: true as const,
+            isCompleted: completedGroupAssignmentIds.has(g.id),
+          };
+        })
+      );
+      groupAssignmentsList.sort((a, b) =>
+        (b.date || "").localeCompare(a.date || "")
+      );
+    }
+
+    // Badges
     const { data: badgesData } = await supabaseAdmin
       .from("student_badges")
       .select(
@@ -214,55 +326,13 @@ export async function GET(
         dateFormatted: r.assigned_at ? formatDateTime(r.assigned_at) : "",
       }));
 
-    // Tareas grupales por sesión (sesiones del curso a las que pertenece esta matrícula)
-    const { data: periodDatesForCourse } = await supabaseAdmin
-      .from("period_dates")
-      .select("id, date")
-      .eq("period_id", reg.period_id)
-      .eq("subject_id", reg.subject_id)
-      .eq("date_type", "clase")
-      .is("deleted_at", null);
-
-    const periodDateIds = (periodDatesForCourse || []).map((p: any) => p.id);
-    const groupAssignmentsList: {
-      id: string;
-      dateFormatted: string;
-      assignmentText: string;
-      isGroup: true;
-    }[] = [];
-
-    if (periodDateIds.length > 0) {
-      const { data: groupAssData } = await supabaseAdmin
-        .from("session_group_assignments")
-        .select("id, period_date_id, assignment_text")
-        .in("period_date_id", periodDateIds);
-
-      const dateById = (periodDatesForCourse || []).reduce(
-        (acc: Record<string, string>, p: any) => {
-          acc[p.id] = p.date;
-          return acc;
-        },
-        {}
-      );
-
-      groupAssignmentsList.push(
-        ...(groupAssData || []).map((g: any) => {
-          const date = dateById[g.period_date_id] ?? "";
-          return {
-            id: g.id,
-            date,
-            dateFormatted: date ? formatDate(date) : "",
-            assignmentText: g.assignment_text,
-            isGroup: true as const,
-          };
-        })
-      );
-      groupAssignmentsList.sort((a, b) =>
-        (b.date || "").localeCompare(a.date || "")
-      );
-    }
-
     return NextResponse.json({
+      registration: {
+        id: reg.id,
+        subject: reg.subject,
+        period: reg.period,
+        status: reg.status,
+      },
       evaluations,
       comments: commentsList,
       assignments: assignmentsList,
@@ -270,7 +340,10 @@ export async function GET(
       badges: badgesList,
     });
   } catch (e) {
-    console.error("GET /api/course-registrations/[id]/expediente-history:", e);
+    console.error(
+      "GET /api/guardian/students/[studentId]/courses/[registrationId]/progress:",
+      e
+    );
     return NextResponse.json(
       {
         error: "An unexpected error occurred",
