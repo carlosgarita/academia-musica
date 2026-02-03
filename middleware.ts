@@ -15,18 +15,12 @@ export async function middleware(request: NextRequest) {
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
-    // Get user session - use getUser() for more reliable authentication
+    // Single call: getUser() validates session from cookies
     const {
       data: { user },
       error: userError,
     } = await supabase.auth.getUser();
 
-    // Get session separately for compatibility
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    // Handle authentication
     const path = new URL(request.url).pathname;
 
     // Auth pages and student info page are public
@@ -40,7 +34,7 @@ export async function middleware(request: NextRequest) {
       path === "/student-info"
     ) {
       // If user is already logged in, redirect to appropriate dashboard
-      if (user && session) {
+      if (user) {
         const { data: profile, error: profileError } = await supabase
           .from("profiles")
           .select("role")
@@ -74,7 +68,7 @@ export async function middleware(request: NextRequest) {
     }
 
     // Protected routes require authentication
-    if (!user || !session) {
+    if (!user) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
 

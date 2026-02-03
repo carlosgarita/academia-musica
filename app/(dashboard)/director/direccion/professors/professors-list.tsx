@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronUp, Pencil, Trash2 } from "lucide-react";
+import { useApi, mutate } from "@/lib/hooks/useApi";
 
 type Professor = {
   id: string; // Now this is profile.id directly
@@ -45,9 +46,10 @@ interface ProfessorsListProps {
 }
 
 export function ProfessorsList({ academyId }: ProfessorsListProps) {
-  const [professors, setProfessors] = useState<Professor[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data, error, isLoading, revalidate } = useApi<{
+    professors: Professor[];
+  }>("/api/professors");
+  const professors = data?.professors ?? [];
   const [statusFilter, setStatusFilter] = useState<
     "all" | "active" | "inactive"
   >("active");
@@ -61,30 +63,6 @@ export function ProfessorsList({ academyId }: ProfessorsListProps) {
       return next;
     });
   };
-
-  useEffect(() => {
-    loadProfessors();
-  }, []);
-
-  async function loadProfessors() {
-    try {
-      setIsLoading(true);
-      const response = await fetch("/api/professors");
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to load professors");
-      }
-
-      setProfessors(data.professors || []);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Error al cargar los profesores"
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }
 
   async function handleDelete(id: string, name: string) {
     if (
@@ -105,8 +83,7 @@ export function ProfessorsList({ academyId }: ProfessorsListProps) {
         throw new Error(data.error || "Failed to delete professor");
       }
 
-      // Reload professors
-      loadProfessors();
+      mutate("/api/professors");
     } catch (err) {
       alert(err instanceof Error ? err.message : "Error deleting professor");
     }
@@ -129,8 +106,7 @@ export function ProfessorsList({ academyId }: ProfessorsListProps) {
         throw new Error(data.error || "Failed to update status");
       }
 
-      // Reload professors
-      loadProfessors();
+      revalidate();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Error updating status");
     }

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { Pencil, Trash2 } from "lucide-react";
+import { useApi, mutate } from "@/lib/hooks/useApi";
 
 type Period = { id: string; year: number; period: string; academy_id: string };
 
@@ -24,50 +25,22 @@ type Course = {
 };
 
 export default function CoursesPage() {
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [periods, setPeriods] = useState<Period[]>([]);
   const [periodFilter, setPeriodFilter] = useState<string>("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadPeriods();
-  }, []);
+  const { data: periodsData } = useApi<{ periods: Period[] }>("/api/periods");
+  const periods = periodsData?.periods ?? [];
 
-  useEffect(() => {
-    loadCourses();
-  }, [periodFilter]);
-
-  async function loadPeriods() {
-    try {
-      const r = await fetch("/api/periods");
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || "Error al cargar periodos");
-      setPeriods(d.periods || []);
-    } catch (e) {
-      console.error("loadPeriods", e);
-    }
-  }
-
-  async function loadCourses() {
-    try {
-      setLoading(true);
-      const url = periodFilter
-        ? `/api/courses?period_id=${encodeURIComponent(periodFilter)}`
-        : "/api/courses";
-      const r = await fetch(url);
-      const d = await r.json();
-      if (!r.ok)
-        throw new Error(d.error || d.details || "Error al cargar cursos");
-      setCourses(d.courses || []);
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Error al cargar cursos");
-      setCourses([]);
-    } finally {
-      setLoading(false);
-    }
-  }
+  const coursesUrl = periodFilter
+    ? `/api/courses?period_id=${encodeURIComponent(periodFilter)}`
+    : "/api/courses";
+  const {
+    data: coursesData,
+    error,
+    isLoading: loading,
+  } = useApi<{
+    courses: Course[];
+  }>(coursesUrl);
+  const courses = coursesData?.courses ?? [];
 
   const professorName = (c: Course) =>
     c.profile
@@ -190,7 +163,7 @@ export default function CoursesPage() {
                             throw new Error(
                               d.error || d.details || "Error al eliminar"
                             );
-                          loadCourses();
+                          mutate(coursesUrl);
                         } catch (e) {
                           alert(
                             e instanceof Error ? e.message : "Error al eliminar"

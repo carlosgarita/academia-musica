@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Pencil, Trash2 } from "lucide-react";
+import { useApi, mutate } from "@/lib/hooks/useApi";
 
 type Song = {
   id: string;
@@ -17,31 +18,10 @@ type Song = {
 
 export default function SongsPage() {
   const router = useRouter();
-  const [songs, setSongs] = useState<Song[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    loadSongs();
-  }, []);
-
-  async function loadSongs() {
-    try {
-      setLoading(true);
-      const response = await fetch("/api/songs");
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to load songs");
-      }
-
-      setSongs(data.songs || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error loading songs");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const { data, error, isLoading, revalidate } = useApi<{ songs: Song[] }>(
+    "/api/songs"
+  );
+  const songs = data?.songs ?? [];
 
   async function handleDelete(id: string, name: string) {
     if (
@@ -62,8 +42,7 @@ export default function SongsPage() {
         throw new Error(data.error || "Failed to delete song");
       }
 
-      // Reload songs
-      loadSongs();
+      mutate("/api/songs");
     } catch (err) {
       alert(err instanceof Error ? err.message : "Error deleting song");
     }
@@ -85,7 +64,7 @@ export default function SongsPage() {
     (a.name || "").localeCompare(b.name || "", "es")
   );
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-gray-600">Cargando canciones...</div>
