@@ -654,9 +654,12 @@ export function AulaSessionStudents({
                   }
                   disabled={savingAttendanceId === reg.id}
                   onClick={(e) => e.stopPropagation()}
-                  className="shrink-0 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm px-2 py-1.5 border bg-white min-w-[120px] disabled:opacity-60"
+                  className="shrink-0 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm px-2 py-1.5 border bg-white min-w-[140px] disabled:opacity-60"
                   title="Asistencia (se guarda al cambiar)"
                 >
+                  <option value="" disabled hidden>
+                    Control de Asistencia
+                  </option>
                   {ATTENDANCE_OPTIONS.map((opt) => (
                     <option key={opt.value || "empty"} value={opt.value}>
                       {opt.label}
@@ -695,7 +698,7 @@ export function AulaSessionStudents({
                               <button
                                 type="button"
                                 onClick={() => setEditingCommentFor(reg.id)}
-                                className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800"
+                                className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 font-normal"
                               >
                                 <Pencil className="h-3.5 w-3.5" /> Editar
                               </button>
@@ -703,7 +706,7 @@ export function AulaSessionStudents({
                                 type="button"
                                 onClick={() => handleDeleteComment(reg.id)}
                                 disabled={deletingCommentFor === reg.id}
-                                className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 font-normal disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 <Trash2 className="h-3.5 w-3.5" /> Eliminar
                               </button>
@@ -768,7 +771,7 @@ export function AulaSessionStudents({
                               <button
                                 type="button"
                                 onClick={() => setEditingAssignmentFor(reg.id)}
-                                className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800"
+                                className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 font-normal"
                               >
                                 <Pencil className="h-3.5 w-3.5" /> Editar
                               </button>
@@ -776,7 +779,7 @@ export function AulaSessionStudents({
                                 type="button"
                                 onClick={() => handleDeleteAssignment(reg.id)}
                                 disabled={deletingAssignmentFor === reg.id}
-                                className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 font-normal disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 <Trash2 className="h-3.5 w-3.5" /> Eliminar
                               </button>
@@ -856,7 +859,7 @@ export function AulaSessionStudents({
               <button
                 type="button"
                 onClick={() => setEditingGroupAssignment(true)}
-                className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800"
+                className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 font-normal"
               >
                 <Pencil className="h-3.5 w-3.5" /> Editar
               </button>
@@ -864,7 +867,7 @@ export function AulaSessionStudents({
                 type="button"
                 onClick={handleDeleteGroupAssignment}
                 disabled={deletingGroupAssignment}
-                className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 font-normal disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Trash2 className="h-3.5 w-3.5" /> Eliminar
               </button>

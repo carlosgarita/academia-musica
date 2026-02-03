@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Pencil } from "lucide-react";
 
 type Professor = {
   id: string; // Now this is profile.id directly
@@ -227,8 +228,9 @@ export default function ProfessorsList() {
                     <div className="ml-4">
                       <Link
                         href={`/director/professors/${professor.id}/edit`}
-                        className="text-gray-600 hover:text-gray-900 text-sm font-medium"
+                        className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-700 text-sm font-normal"
                       >
+                        <Pencil className="h-4 w-4" />
                         Editar
                       </Link>
                     </div>

@@ -498,7 +498,7 @@ export default function NewSchedulePage() {
                         <button
                           type="button"
                           onClick={() => editTimeSlot(slot.id)}
-                          className="rounded-md bg-white px-2 py-1 text-xs font-medium text-gray-600 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                          className="rounded-md bg-white px-2 py-1 text-xs font-normal text-gray-500 shadow-sm ring-1 ring-inset ring-gray-200 hover:bg-gray-50"
                           title="Editar turno"
                         >
                           ✏️ Editar
@@ -506,7 +506,7 @@ export default function NewSchedulePage() {
                         <button
                           type="button"
                           onClick={() => removeTimeSlot(slot.id)}
-                          className="rounded-md bg-white px-2 py-1 text-xs font-medium text-gray-600 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                          className="rounded-md bg-white px-2 py-1 text-xs font-normal text-gray-500 shadow-sm ring-1 ring-inset ring-gray-200 hover:bg-gray-50"
                           title="Eliminar turno"
                         >
                           🗑️ Eliminar

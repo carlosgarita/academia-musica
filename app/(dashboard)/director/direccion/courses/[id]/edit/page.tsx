@@ -504,7 +504,7 @@ export default function EditCoursePage() {
                     <button
                       type="button"
                       onClick={() => removeSessionDate(i)}
-                      className="text-gray-600 hover:text-gray-900 text-sm"
+                      className="text-gray-500 hover:text-gray-700 text-sm font-normal"
                     >
                       Eliminar
                     </button>

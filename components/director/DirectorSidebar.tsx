@@ -38,13 +38,33 @@ const navigation: NavigationItem[] = [
     icon: Home,
     children: [
       { name: "Dashboard", href: "/director/direccion", icon: Home },
-      { name: "Profesores", href: "/director/direccion/professors", icon: Users },
-      { name: "Estudiantes", href: "/director/direccion/students", icon: GraduationCap },
-      { name: "Encargados", href: "/director/direccion/guardians", icon: UserCheck },
-      { name: "Materias", href: "/director/direccion/subjects", icon: BookOpen },
+      {
+        name: "Profesores",
+        href: "/director/direccion/professors",
+        icon: Users,
+      },
+      {
+        name: "Estudiantes",
+        href: "/director/direccion/students",
+        icon: GraduationCap,
+      },
+      {
+        name: "Encargados",
+        href: "/director/direccion/guardians",
+        icon: UserCheck,
+      },
+      {
+        name: "Materias",
+        href: "/director/direccion/subjects",
+        icon: BookOpen,
+      },
       { name: "Cursos", href: "/director/direccion/courses", icon: BookMarked },
       { name: "Canciones", href: "/director/direccion/songs", icon: Music },
-      { name: "Matrículas", href: "/director/direccion/course-registrations", icon: ClipboardList },
+      {
+        name: "Matrículas",
+        href: "/director/direccion/course-registrations",
+        icon: ClipboardList,
+      },
     ],
   },
   {
@@ -89,8 +109,6 @@ export function DirectorSidebar() {
         : [...prev, sectionName]
     );
   };
-
-
 
   const isActive = (href: string) => {
     if (href === "/director/direccion") {
@@ -183,13 +201,12 @@ export function DirectorSidebar() {
                           <section.icon className="h-5 w-5 flex-shrink-0" />
                           {!isCollapsed && <span>{section.name}</span>}
                         </div>
-                        {!isCollapsed && (
-                          sectionExpanded ? (
+                        {!isCollapsed &&
+                          (sectionExpanded ? (
                             <ChevronDown className="h-4 w-4" />
                           ) : (
                             <ChevronRight className="h-4 w-4" />
-                          )
-                        )}
+                          ))}
                       </button>
                       {sectionExpanded && !isCollapsed && (
                         <div className="ml-4 mt-1 space-y-1">

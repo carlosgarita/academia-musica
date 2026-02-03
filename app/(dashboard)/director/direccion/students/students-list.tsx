@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ChevronDown, ChevronUp, Pencil, Trash2 } from "lucide-react";
 import { useDatabase } from "@/lib/hooks/useDatabase";
 import type { Database } from "@/lib/database.types";
 
@@ -33,6 +34,16 @@ export function StudentsList({ academyId }: StudentsListProps) {
   const [enrollmentFilter, setEnrollmentFilter] = useState<
     "all" | "inscrito" | "retirado" | "graduado"
   >("inscrito");
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   // Cargar estudiantes
   useEffect(() => {
@@ -361,15 +372,52 @@ export function StudentsList({ academyId }: StudentsListProps) {
                     student.first_name,
                     student.last_name
                   );
+                  const isExpanded = expandedIds.has(student.id);
 
                   return (
-                    <li key={student.id} className="p-6">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <h3 className="text-lg font-medium text-gray-900">
+                    <li
+                      key={student.id}
+                      className="border-b border-gray-200 last:border-b-0"
+                    >
+                      <div className="flex justify-between items-center px-4 py-3 hover:bg-gray-50">
+                        <button
+                          type="button"
+                          onClick={() => toggleExpanded(student.id)}
+                          className="flex items-center gap-2 flex-1 text-left min-w-0"
+                        >
+                          {isExpanded ? (
+                            <ChevronUp className="h-4 w-4 text-gray-500 shrink-0" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4 text-gray-500 shrink-0" />
+                          )}
+                          <h3 className="text-lg font-medium text-gray-900 truncate">
                             {fullName}
                           </h3>
-                          <div className="mt-2 space-y-1 text-sm text-gray-600">
+                        </button>
+                        <div className="ml-4 flex items-center gap-4 shrink-0">
+                          <Link
+                            href={`/director/students/${student.id}/edit`}
+                            className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-700 text-sm font-normal"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Pencil className="h-4 w-4" />
+                            Editar
+                          </Link>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(student.id, fullName);
+                            }}
+                            className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-700 text-sm font-normal"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Eliminar
+                          </button>
+                        </div>
+                      </div>
+                      {isExpanded && (
+                        <div className="px-4 pb-4 pt-0 pl-12 bg-gray-50/50">
+                          <div className="space-y-1 text-sm text-gray-600">
                             {student.date_of_birth && (
                               <div>
                                 <span className="font-medium">
@@ -388,20 +436,6 @@ export function StudentsList({ academyId }: StudentsListProps) {
                                 {student.additional_info}
                               </div>
                             )}
-                            <div>
-                              <span className="font-medium">Estado:</span>{" "}
-                              <span
-                                className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                                  student.enrollment_status === "inscrito"
-                                    ? "bg-green-100 text-green-800"
-                                    : student.enrollment_status === "retirado"
-                                    ? "bg-red-100 text-red-800"
-                                    : "bg-gray-100 text-gray-800"
-                                }`}
-                              >
-                                {student.enrollment_status || "inscrito"}
-                              </span>
-                            </div>
                             {/* Cursos matriculados */}
                             {coursesByStudent[student.id] &&
                             coursesByStudent[student.id].length > 0 ? (
@@ -417,7 +451,7 @@ export function StudentsList({ academyId }: StudentsListProps) {
                                     .map((course) => (
                                       <li
                                         key={course.id}
-                                        className="text-xs text-gray-600 pl-2 border-l-2 border-indigo-300"
+                                        className="text-xs text-gray-600 pl-2 border-l-2 border-gray-300"
                                       >
                                         <span className="font-medium">
                                           {course.subject?.name ||
@@ -454,21 +488,7 @@ export function StudentsList({ academyId }: StudentsListProps) {
                             )}
                           </div>
                         </div>
-                        <div className="ml-4 flex flex-col space-y-2">
-                          <Link
-                            href={`/director/students/${student.id}/edit`}
-                            className="text-gray-600 hover:text-gray-900 text-sm font-medium"
-                          >
-                            Editar
-                          </Link>
-                          <button
-                            onClick={() => handleDelete(student.id, fullName)}
-                            className="text-gray-600 hover:text-gray-900 text-sm font-medium text-left"
-                          >
-                            Eliminar
-                          </button>
-                        </div>
-                      </div>
+                      )}
                     </li>
                   );
                 })}

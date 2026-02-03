@@ -144,7 +144,7 @@ export default function CoursesPage() {
         <div className="bg-white shadow overflow-hidden sm:rounded-lg">
           <ul className="divide-y divide-gray-200">
             {courses.map((c) => (
-              <li key={c.id} className="px-4 py-4 sm:px-6 hover:bg-gray-50">
+              <li key={c.id} className="px-4 py-4 sm:px-6">
                 <div className="flex flex-nowrap items-start sm:items-center gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
@@ -159,19 +159,15 @@ export default function CoursesPage() {
                         </span>
                       )}
                     </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700">
-                        {c.sessions_count ?? 0} sesiones
-                      </span>
-                      <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
-                        {c.turnos_count ?? 0} turnos
-                      </span>
-                    </div>
+                    <p className="mt-1 text-sm text-gray-500">
+                      {c.sessions_count ?? 0} sesiones · {c.turnos_count ?? 0}{" "}
+                      turnos
+                    </p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-4">
                     <Link
                       href={`/director/direccion/courses/${c.id}/edit`}
-                      className="inline-flex items-center gap-1.5 rounded-md bg-white px-2.5 py-1.5 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                      className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-700 text-sm font-normal"
                     >
                       <Pencil className="h-4 w-4" />
                       Editar
@@ -201,7 +197,7 @@ export default function CoursesPage() {
                           );
                         }
                       }}
-                      className="inline-flex items-center gap-1.5 rounded-md bg-white px-2.5 py-1.5 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                      className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-700 text-sm font-normal"
                     >
                       <Trash2 className="h-4 w-4" />
                       Eliminar

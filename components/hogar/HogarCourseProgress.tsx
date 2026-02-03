@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState, useRef } from "react";
 import {
   Music,
@@ -548,10 +549,13 @@ export function HogarCourseProgress({
                   className="flex flex-col items-center text-center rounded-lg border border-gray-200 bg-white p-3"
                 >
                   {badge.imageUrl ? (
-                    <img
+                    <Image
                       src={badge.imageUrl}
                       alt={badge.name}
+                      width={48}
+                      height={48}
                       className="h-12 w-12 object-contain mb-2"
+                      unoptimized
                     />
                   ) : (
                     <div className="h-12 w-12 rounded-full bg-indigo-100 flex items-center justify-center mb-2">

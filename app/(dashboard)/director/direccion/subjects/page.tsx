@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Pencil, Trash2 } from "lucide-react";
 
 type Subject = {
   id: string;
@@ -135,17 +136,19 @@ export default function SubjectsPage() {
                       )}
                     </p>
                   </div>
-                  <div className="ml-4 flex space-x-2">
+                  <div className="ml-4 flex space-x-4">
                     <Link
                       href={`/director/subjects/${subject.id}/edit`}
-                      className="text-gray-600 hover:text-gray-900 text-sm font-medium"
+                      className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-700 text-sm font-normal"
                     >
+                      <Pencil className="h-4 w-4" />
                       Editar
                     </Link>
                     <button
                       onClick={() => handleDelete(subject.id, subject.name)}
-                      className="text-gray-600 hover:text-gray-900 text-sm font-medium"
+                      className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-700 text-sm font-normal"
                     >
+                      <Trash2 className="h-4 w-4" />
                       Eliminar
                     </button>
                   </div>

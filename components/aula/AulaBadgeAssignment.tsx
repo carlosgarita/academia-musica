@@ -194,7 +194,7 @@ export function AulaBadgeAssignment({
                       type="button"
                       onClick={() => handleRemove(b.badge_id)}
                       disabled={removingBadgeId !== null}
-                      className="ml-1 text-gray-500 hover:text-gray-600 disabled:opacity-50 p-0.5"
+                      className="ml-1 text-gray-500 hover:text-gray-700 disabled:opacity-50 p-0.5"
                       title="Quitar badge"
                     >
                       <X className="h-4 w-4" />

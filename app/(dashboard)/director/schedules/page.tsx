@@ -169,7 +169,7 @@ export default function SchedulesPage() {
                     <div className="ml-4 flex space-x-2">
                       <Link
                         href={`/director/schedules/${classSchedules[0].id}/edit`}
-                        className="text-gray-600 hover:text-gray-900 text-sm font-medium"
+                        className="text-gray-500 hover:text-gray-700 text-sm font-normal"
                       >
                         Editar
                       </Link>
@@ -178,7 +178,7 @@ export default function SchedulesPage() {
                           // Delete all schedules with this name
                           classSchedules.forEach((s) => handleDelete(s.id));
                         }}
-                        className="text-gray-600 hover:text-gray-900 text-sm font-medium"
+                        className="text-gray-500 hover:text-gray-700 text-sm font-normal"
                       >
                         Eliminar
                       </button>

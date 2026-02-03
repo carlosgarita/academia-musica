@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ChevronDown, ChevronUp, Pencil, Trash2 } from "lucide-react";
 
 type Professor = {
   id: string; // Now this is profile.id directly
@@ -50,6 +51,16 @@ export function ProfessorsList({ academyId }: ProfessorsListProps) {
   const [statusFilter, setStatusFilter] = useState<
     "all" | "active" | "inactive"
   >("active");
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   useEffect(() => {
     loadProfessors();
@@ -264,35 +275,52 @@ export function ProfessorsList({ academyId }: ProfessorsListProps) {
                   const subjectsList = professor.subjects
                     .map((ps) => ps.subject.name)
                     .join(", ");
-                  const statusColor =
-                    professor.status === "active"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-red-100 text-red-800";
+                  const isExpanded = expandedIds.has(professor.id);
 
                   return (
-                    <li key={professor.id} className="p-6">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-3">
-                            <h3 className="text-lg font-medium text-gray-900">
-                              {fullName}
-                            </h3>
-                            <button
-                              onClick={() =>
-                                handleToggleStatus(
-                                  professor.id,
-                                  professor.status || "active"
-                                )
-                              }
-                              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium cursor-pointer hover:opacity-80 ${statusColor}`}
-                              title="Click para cambiar estado"
-                            >
-                              {professor.status === "active"
-                                ? "Activo"
-                                : "Inactivo"}
-                            </button>
-                          </div>
-                          <div className="mt-2 space-y-1 text-sm text-gray-600">
+                    <li
+                      key={professor.id}
+                      className="border-b border-gray-200 last:border-b-0"
+                    >
+                      <div className="flex justify-between items-center px-4 py-3 hover:bg-gray-50">
+                        <button
+                          type="button"
+                          onClick={() => toggleExpanded(professor.id)}
+                          className="flex items-center gap-2 flex-1 text-left min-w-0"
+                        >
+                          {isExpanded ? (
+                            <ChevronUp className="h-4 w-4 text-gray-500 shrink-0" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4 text-gray-500 shrink-0" />
+                          )}
+                          <h3 className="text-lg font-medium text-gray-900 truncate">
+                            {fullName}
+                          </h3>
+                        </button>
+                        <div className="ml-4 flex items-center gap-4 shrink-0">
+                          <Link
+                            href={`/director/professors/${professor.id}/edit`}
+                            className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-700 text-sm font-normal"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Pencil className="h-4 w-4" />
+                            Editar
+                          </Link>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(professor.id, fullName);
+                            }}
+                            className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-700 text-sm font-normal"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Eliminar
+                          </button>
+                        </div>
+                      </div>
+                      {isExpanded && (
+                        <div className="px-4 pb-4 pt-0 pl-12 bg-gray-50/50">
+                          <div className="space-y-1 text-sm text-gray-600">
                             <div>
                               <span className="font-medium">Email:</span>{" "}
                               {professor.email || "N/A"}
@@ -333,7 +361,7 @@ export function ProfessorsList({ academyId }: ProfessorsListProps) {
                                   {professor.schedules.map((schedule) => (
                                     <div
                                       key={schedule.id}
-                                      className="text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded"
+                                      className="text-sm text-gray-600 bg-gray-100 px-3 py-2 rounded"
                                     >
                                       <span className="font-medium">
                                         {schedule.name}
@@ -350,21 +378,7 @@ export function ProfessorsList({ academyId }: ProfessorsListProps) {
                               </div>
                             )}
                         </div>
-                        <div className="ml-4 flex flex-col space-y-2">
-                          <Link
-                            href={`/director/professors/${professor.id}/edit`}
-                            className="text-gray-600 hover:text-gray-900 text-sm font-medium"
-                          >
-                            Editar
-                          </Link>
-                          <button
-                            onClick={() => handleDelete(professor.id, fullName)}
-                            className="text-gray-600 hover:text-gray-900 text-sm font-medium text-left"
-                          >
-                            Eliminar
-                          </button>
-                        </div>
-                      </div>
+                      )}
                     </li>
                   );
                 })}

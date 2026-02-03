@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ChevronDown, ChevronUp, Pencil, Trash2 } from "lucide-react";
 
 type Guardian = {
   id: string;
@@ -34,6 +35,16 @@ export function GuardiansList({ academyId }: GuardiansListProps) {
   const [statusFilter, setStatusFilter] = useState<
     "all" | "active" | "inactive"
   >("active");
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   useEffect(() => {
     loadGuardians();
@@ -246,39 +257,70 @@ export function GuardiansList({ academyId }: GuardiansListProps) {
                     guardian.email
                   );
                   const studentsList = guardian.students
-                    .map((gs) =>
-                      formatName(
-                        gs.student.first_name || null,
-                        gs.student.last_name || null
-                      )
-                    )
+                    .map((gs) => {
+                      const s = gs.student as
+                        | {
+                            first_name?: string;
+                            last_name?: string;
+                            name?: string;
+                          }
+                        | undefined;
+                      if (!s) return "—";
+                      return (
+                        formatName(
+                          s.first_name ?? null,
+                          s.last_name ?? null,
+                          s.name ?? undefined
+                        ) || "—"
+                      );
+                    })
                     .join(", ");
-                  const statusColor =
-                    guardian.status === "active"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-red-100 text-red-800";
+                  const isExpanded = expandedIds.has(guardian.id);
 
                   return (
-                    <li key={guardian.id} className="p-6">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-3">
-                            <h3 className="text-lg font-medium text-gray-900">
-                              {fullName}
-                            </h3>
-                            <button
-                              onClick={() =>
-                                handleToggleStatus(guardian.id, guardian.status)
-                              }
-                              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium cursor-pointer hover:opacity-80 ${statusColor}`}
-                              title="Click para cambiar estado"
-                            >
-                              {guardian.status === "active"
-                                ? "Activo"
-                                : "Inactivo"}
-                            </button>
-                          </div>
-                          <div className="mt-2 space-y-1 text-sm text-gray-600">
+                    <li
+                      key={guardian.id}
+                      className="border-b border-gray-200 last:border-b-0"
+                    >
+                      <div className="flex justify-between items-center px-4 py-3 hover:bg-gray-50">
+                        <button
+                          type="button"
+                          onClick={() => toggleExpanded(guardian.id)}
+                          className="flex items-center gap-2 flex-1 text-left min-w-0"
+                        >
+                          {isExpanded ? (
+                            <ChevronUp className="h-4 w-4 text-gray-500 shrink-0" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4 text-gray-500 shrink-0" />
+                          )}
+                          <h3 className="text-lg font-medium text-gray-900 truncate">
+                            {fullName}
+                          </h3>
+                        </button>
+                        <div className="ml-4 flex items-center gap-4 shrink-0">
+                          <Link
+                            href={`/director/guardians/${guardian.id}/edit`}
+                            className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-700 text-sm font-normal"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Pencil className="h-4 w-4" />
+                            Editar
+                          </Link>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(guardian.id, fullName);
+                            }}
+                            className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-700 text-sm font-normal"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Eliminar
+                          </button>
+                        </div>
+                      </div>
+                      {isExpanded && (
+                        <div className="px-4 pb-4 pt-0 pl-12 bg-gray-50/50">
+                          <div className="space-y-1 text-sm text-gray-600">
                             <div>
                               <span className="font-medium">Email:</span>{" "}
                               {guardian.email || "N/A"}
@@ -312,21 +354,7 @@ export function GuardiansList({ academyId }: GuardiansListProps) {
                             )}
                           </div>
                         </div>
-                        <div className="ml-4 flex flex-col space-y-2">
-                          <Link
-                            href={`/director/guardians/${guardian.id}/edit`}
-                            className="text-gray-600 hover:text-gray-900 text-sm font-medium"
-                          >
-                            Editar
-                          </Link>
-                          <button
-                            onClick={() => handleDelete(guardian.id, fullName)}
-                            className="text-gray-600 hover:text-gray-900 text-sm font-medium text-left"
-                          >
-                            Eliminar
-                          </button>
-                        </div>
-                      </div>
+                      )}
                     </li>
                   );
                 })}

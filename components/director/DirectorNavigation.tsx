@@ -30,10 +30,26 @@ const navigation: NavigationItem[] = [
     icon: Home,
     children: [
       { name: "Dashboard", href: "/director/direccion", icon: Home },
-      { name: "Profesores", href: "/director/direccion/professors", icon: Users },
-      { name: "Estudiantes", href: "/director/direccion/students", icon: GraduationCap },
-      { name: "Encargados", href: "/director/direccion/guardians", icon: UserCheck },
-      { name: "Materias", href: "/director/direccion/subjects", icon: BookOpen },
+      {
+        name: "Profesores",
+        href: "/director/direccion/professors",
+        icon: Users,
+      },
+      {
+        name: "Estudiantes",
+        href: "/director/direccion/students",
+        icon: GraduationCap,
+      },
+      {
+        name: "Encargados",
+        href: "/director/direccion/guardians",
+        icon: UserCheck,
+      },
+      {
+        name: "Materias",
+        href: "/director/direccion/subjects",
+        icon: BookOpen,
+      },
     ],
   },
   {
@@ -137,7 +153,9 @@ export function DirectorNavigation() {
           {navigation
             .find((section) => {
               const sectionActive = isSectionActive(section);
-              return sectionActive && section.children && section.children.length > 0;
+              return (
+                sectionActive && section.children && section.children.length > 0
+              );
             })
             ?.children?.map((child) => {
               const childActive = isActive(child.href);

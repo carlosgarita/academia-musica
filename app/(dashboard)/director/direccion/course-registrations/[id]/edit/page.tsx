@@ -214,7 +214,7 @@ export default function EditCourseRegistrationPage() {
                 <button
                   type="button"
                   onClick={() => removeSong(s.id)}
-                  className="text-gray-600 hover:text-gray-900 text-sm"
+                  className="text-gray-500 hover:text-gray-700 text-sm font-normal"
                 >
                   Quitar
                 </button>

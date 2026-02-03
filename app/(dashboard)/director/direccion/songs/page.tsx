@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Pencil, Trash2 } from "lucide-react";
 
 type Song = {
   id: string;
@@ -80,17 +81,9 @@ export default function SongsPage() {
     return labels[level] || level.toString();
   };
 
-  const getDifficultyColor = (level: number) => {
-    const colors = [
-      "",
-      "bg-green-100 text-green-800",
-      "bg-blue-100 text-blue-800",
-      "bg-yellow-100 text-yellow-800",
-      "bg-orange-100 text-orange-800",
-      "bg-red-100 text-red-800",
-    ];
-    return colors[level] || "bg-gray-100 text-gray-800";
-  };
+  const sortedSongs = [...songs].sort((a, b) =>
+    (a.name || "").localeCompare(b.name || "", "es")
+  );
 
   if (loading) {
     return (
@@ -136,48 +129,33 @@ export default function SongsPage() {
       ) : (
         <div className="bg-white shadow overflow-hidden sm:rounded-md">
           <ul className="divide-y divide-gray-200">
-            {songs.map((song) => (
+            {sortedSongs.map((song) => (
               <li key={song.id} className="p-6">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <h3 className="text-lg font-medium text-gray-900">
-                        {song.name}
-                      </h3>
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getDifficultyColor(
-                          song.difficulty_level
-                        )}`}
-                      >
-                        Nivel {song.difficulty_level}:{" "}
-                        {getDifficultyLabel(song.difficulty_level)}
-                      </span>
-                    </div>
-                    {song.author && (
-                      <p className="mt-2 text-sm text-gray-600">
-                        Autor: {song.author}
-                      </p>
-                    )}
-                    <p className="mt-2 text-xs text-gray-500">
-                      Creada:{" "}
-                      {new Date(song.created_at).toLocaleDateString("es-ES", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })}
+                    <h3 className="text-lg font-medium text-gray-900">
+                      {song.name}
+                    </h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      {song.author ? `${song.author} · ` : ""}
+                      Nivel:{" "}
+                      {getDifficultyLabel(song.difficulty_level) ||
+                        song.difficulty_level}
                     </p>
                   </div>
-                  <div className="ml-4 flex space-x-2">
+                  <div className="ml-4 flex space-x-4">
                     <Link
                       href={`/director/direccion/songs/${song.id}/edit`}
-                      className="text-gray-600 hover:text-gray-900 text-sm font-medium"
+                      className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-700 text-sm font-normal"
                     >
+                      <Pencil className="h-4 w-4" />
                       Editar
                     </Link>
                     <button
                       onClick={() => handleDelete(song.id, song.name)}
-                      className="text-gray-600 hover:text-gray-900 text-sm font-medium"
+                      className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-700 text-sm font-normal"
                     >
+                      <Trash2 className="h-4 w-4" />
                       Eliminar
                     </button>
                   </div>

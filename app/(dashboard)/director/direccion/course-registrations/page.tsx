@@ -2,7 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronRight, UserPlus } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Pencil,
+  Trash2,
+  UserPlus,
+} from "lucide-react";
 
 type Period = { id: string; year: number; period: string };
 type Course = {
@@ -266,10 +272,10 @@ function CourseBlock({
           <span className="text-sm text-gray-500">{pd}</span>
         </div>
         <div className="mt-1 flex flex-wrap gap-2">
-          <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700">
+          <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
             {course.sessions_count ?? 0} sesiones
           </span>
-          <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+          <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
             {course.turnos_count ?? 0} turnos
           </span>
         </div>
@@ -291,11 +297,12 @@ function CourseBlock({
                     <span className="text-sm font-medium text-gray-900">
                       {sn}
                     </span>
-                    <div className="flex gap-2">
+                    <div className="flex gap-4">
                       <Link
                         href={`/director/direccion/course-registrations/${r.id}/edit`}
-                        className="text-gray-600 hover:text-gray-900 text-sm font-medium"
+                        className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-700 text-sm font-normal"
                       >
+                        <Pencil className="h-4 w-4" />
                         Editar
                       </Link>
                       <button
@@ -304,8 +311,9 @@ function CourseBlock({
                           if (confirm(`¿Quitar a ${sn} de este curso?`))
                             onRemove(r.id);
                         }}
-                        className="text-gray-600 hover:text-gray-900 text-sm font-medium"
+                        className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-700 text-sm font-normal"
                       >
+                        <Trash2 className="h-4 w-4" />
                         Eliminar
                       </button>
                     </div>
