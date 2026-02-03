@@ -11,7 +11,10 @@ import {
   Users,
   ChevronDown,
   ChevronUp,
+  BarChart3,
+  TrendingUp,
 } from "lucide-react";
+import { GaugeChart } from "./GaugeChart";
 
 type Evaluation = {
   id: string;
@@ -58,6 +61,23 @@ type Badge = {
   dateFormatted: string;
 };
 
+type SongChart = {
+  songId: string;
+  songName: string;
+  hasEvaluations: boolean;
+  gaugeData: {
+    rubricId: string;
+    rubricName: string;
+    percent: number;
+    scaleName: string;
+  }[];
+  timelineData: {
+    date: string;
+    dateFormatted: string;
+    values: Record<string, number>;
+  }[];
+};
+
 type ProgressData = {
   registration: {
     id: string;
@@ -66,6 +86,9 @@ type ProgressData = {
     status: string | null;
   };
   evaluations: Evaluation[];
+  assignedSongs?: { id: string; name: string }[];
+  rubrics?: { id: string; name: string }[];
+  songCharts?: SongChart[];
   comments: Comment[];
   assignments: Assignment[];
   groupAssignments: GroupAssignment[];
@@ -86,6 +109,9 @@ export function HogarCourseProgress({
   const [error, setError] = useState<string | null>(null);
   const [togglingTaskId, setTogglingTaskId] = useState<string | null>(null);
   const [evaluationsExpanded, setEvaluationsExpanded] = useState(false);
+  const [songChartTab, setSongChartTab] = useState<
+    Record<string, "gauge" | "timeline">
+  >({});
   const [snackbar, setSnackbar] = useState<{ show: boolean; message: string }>({
     show: false,
     message: "",
@@ -247,7 +273,19 @@ export function HogarCourseProgress({
     return <p className="text-gray-500 text-sm">No hay datos disponibles.</p>;
   }
 
-  const { evaluations, comments, assignments, groupAssignments, badges } = data;
+  const {
+    evaluations,
+    comments,
+    assignments,
+    groupAssignments,
+    badges,
+    songCharts = [],
+  } = data;
+
+  const getSongTab = (songId: string) => songChartTab[songId] ?? "gauge";
+
+  const setSongTab = (songId: string, tab: "gauge" | "timeline") =>
+    setSongChartTab((prev) => ({ ...prev, [songId]: tab }));
 
   // Combine individual and group assignments for display
   const allTasks = [
@@ -258,7 +296,85 @@ export function HogarCourseProgress({
   return (
     <>
       <div className="space-y-6">
-        {/* Evaluaciones (colapsable) */}
+        {/* Evaluación de Canciones (charts - arriba de todo) */}
+        {songCharts.length > 0 && (
+          <section>
+            <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-gray-500" />
+              Evaluación de Canciones
+            </h4>
+            <div className="space-y-4">
+              {songCharts.map((chart) => (
+                <div
+                  key={chart.songId}
+                  className="rounded-lg border border-gray-200 bg-white overflow-hidden"
+                >
+                  <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                    <p className="font-medium text-gray-900">
+                      {chart.songName}
+                    </p>
+                  </div>
+                  <div className="p-4">
+                    <div className="flex gap-2 mb-4 border-b border-gray-200">
+                      <button
+                        type="button"
+                        onClick={() => setSongTab(chart.songId, "gauge")}
+                        className={`flex items-center gap-2 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                          getSongTab(chart.songId) === "gauge"
+                            ? "border-indigo-600 text-indigo-600"
+                            : "border-transparent text-gray-500 hover:text-gray-700"
+                        }`}
+                      >
+                        <BarChart3 className="h-4 w-4" />
+                        Estado actual
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSongTab(chart.songId, "timeline")}
+                        className={`flex items-center gap-2 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                          getSongTab(chart.songId) === "timeline"
+                            ? "border-indigo-600 text-indigo-600"
+                            : "border-transparent text-gray-500 hover:text-gray-700"
+                        }`}
+                      >
+                        <TrendingUp className="h-4 w-4" />
+                        Progreso en el tiempo
+                      </button>
+                    </div>
+                    {chart.hasEvaluations ? (
+                      getSongTab(chart.songId) === "gauge" ? (
+                        <div className="flex items-center justify-center gap-4 flex-wrap py-4">
+                          {chart.gaugeData.map((g) => (
+                            <GaugeChart
+                              key={g.rubricId}
+                              value={g.percent}
+                              label={g.rubricName}
+                              scaleName={g.scaleName}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="min-h-[120px] flex items-center justify-center rounded-lg bg-gray-50 border border-dashed border-gray-200">
+                          <p className="text-sm text-gray-500">
+                            Gráfico de progreso en el tiempo (próximamente)
+                          </p>
+                        </div>
+                      )
+                    ) : (
+                      <div className="min-h-[100px] flex items-center justify-center rounded-lg bg-gray-50 border border-dashed border-gray-200">
+                        <p className="text-sm text-gray-500 font-medium">
+                          Sin evaluar
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Historial de Calificaciones (colapsable) */}
         <section>
           <button
             type="button"
@@ -267,7 +383,7 @@ export function HogarCourseProgress({
           >
             <Music className="h-4 w-4 text-gray-500 shrink-0" />
             <h4 className="text-sm font-semibold text-gray-900 flex-1">
-              Evaluaciones de canciones
+              Historial de Calificaciones
               {evaluations.length > 0 && (
                 <span className="ml-2 text-gray-400 font-normal">
                   ({evaluations.length})
@@ -283,7 +399,7 @@ export function HogarCourseProgress({
           {evaluationsExpanded &&
             (evaluations.length === 0 ? (
               <p className="text-gray-500 text-sm">
-                No hay evaluaciones registradas.
+                Sin evaluar. No hay calificaciones registradas aún.
               </p>
             ) : (
               <ul className="space-y-2">

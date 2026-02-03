@@ -144,6 +144,44 @@ export async function GET(
         .map((c: any) => c.session_group_assignment_id)
     );
 
+    // numeric_value -> gauge percentage (user-specified mapping)
+    const numericValueToPercent = (n: number | null): number => {
+      if (n === null || n === undefined) return 0;
+      const map: Record<number, number> = {
+        0: 10,
+        1: 20,
+        2: 50,
+        3: 100,
+      };
+      return map[n] ?? 0;
+    };
+
+    // Assigned songs for this registration
+    const { data: crSongs } = await supabaseAdmin
+      .from("course_registration_songs")
+      .select("song_id, song:songs(id, name, deleted_at)")
+      .eq("course_registration_id", registrationId);
+
+    const assignedSongs = (crSongs || [])
+      .filter((s: any) => s.song && !s.song.deleted_at)
+      .map((s: any) => ({
+        id: s.song.id,
+        name: s.song.name ?? "—",
+      }));
+
+    // Rubrics for the academy (dynamic)
+    const { data: rubricsData } = await supabaseAdmin
+      .from("evaluation_rubrics")
+      .select("id, name, display_order")
+      .eq("academy_id", reg.academy_id)
+      .is("deleted_at", null)
+      .order("display_order", { ascending: true });
+
+    const rubrics = (rubricsData || []).map((r: any) => ({
+      id: r.id,
+      name: r.name ?? "—",
+    }));
+
     // Evaluaciones de canciones
     const { data: evals } = await supabaseAdmin
       .from("song_evaluations")
@@ -181,6 +219,73 @@ export async function GET(
         };
       })
       .sort((a: any, b: any) => (b.date || "").localeCompare(a.date || ""));
+
+    // Song charts data: gauge (latest per rubric) + timeline (all evals over time)
+    const evalsRaw = (evals || []).filter(
+      (e: any) => e.period_dates && e.songs
+    );
+    const songCharts = assignedSongs.map((song) => {
+      const songEvals = evalsRaw.filter((e: any) => e.song_id === song.id);
+      const hasEvaluations = songEvals.length > 0;
+
+      // Gauge: latest evaluation per rubric (include scale name for display)
+      const latestByRubric: Record<
+        string,
+        {
+          rubricId: string;
+          rubricName: string;
+          percent: number;
+          scaleName: string;
+        }
+      > = {};
+      for (const e of songEvals) {
+        const rubricId = e.rubric_id;
+        if (!rubricId || latestByRubric[rubricId]) continue; // keep first (most recent, evals sorted desc)
+        const scale = e.evaluation_scales;
+        const percent = numericValueToPercent(scale?.numeric_value ?? null);
+        latestByRubric[rubricId] = {
+          rubricId,
+          rubricName: e.evaluation_rubrics?.name ?? "—",
+          percent,
+          scaleName: scale?.name ?? "Sin calificar",
+        };
+      }
+      const gaugeData = rubrics.map((r) => ({
+        rubricId: r.id,
+        rubricName: r.name,
+        percent: latestByRubric[r.id]?.percent ?? 0,
+        scaleName: latestByRubric[r.id]?.scaleName ?? "Sin calificar",
+      }));
+
+      // Timeline: all evals by date; each date has values per rubric
+      const byDate: Record<
+        string,
+        { date: string; dateFormatted: string; values: Record<string, number> }
+      > = {};
+      for (const e of [...songEvals].reverse()) {
+        const pd = e.period_dates;
+        const date = pd?.date ?? "";
+        if (!date) continue;
+        const dateFormatted = formatDate(date);
+        if (!byDate[date]) {
+          byDate[date] = { date, dateFormatted, values: {} };
+        }
+        const scale = e.evaluation_scales;
+        const percent = numericValueToPercent(scale?.numeric_value ?? null);
+        byDate[date].values[e.rubric_id] = percent;
+      }
+      const timelineData = Object.values(byDate).sort((a, b) =>
+        a.date.localeCompare(b.date)
+      );
+
+      return {
+        songId: song.id,
+        songName: song.name,
+        hasEvaluations,
+        gaugeData,
+        timelineData,
+      };
+    });
 
     // Comentarios del profesor
     const { data: comments } = await supabaseAdmin
@@ -334,6 +439,9 @@ export async function GET(
         status: reg.status,
       },
       evaluations,
+      assignedSongs,
+      rubrics,
+      songCharts,
       comments: commentsList,
       assignments: assignmentsList,
       groupAssignments: groupAssignmentsList,
