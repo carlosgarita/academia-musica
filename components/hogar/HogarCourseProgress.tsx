@@ -9,6 +9,8 @@ import {
   CheckCircle2,
   Circle,
   Users,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 type Evaluation = {
@@ -83,6 +85,7 @@ export function HogarCourseProgress({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [togglingTaskId, setTogglingTaskId] = useState<string | null>(null);
+  const [evaluationsExpanded, setEvaluationsExpanded] = useState(false);
   const [snackbar, setSnackbar] = useState<{ show: boolean; message: string }>({
     show: false,
     message: "",
@@ -255,44 +258,61 @@ export function HogarCourseProgress({
   return (
     <>
       <div className="space-y-6">
-        {/* Evaluaciones */}
+        {/* Evaluaciones (colapsable) */}
         <section>
-          <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-            <Music className="h-4 w-4 text-gray-500" />
-            Evaluaciones de canciones
-          </h4>
-          {evaluations.length === 0 ? (
-            <p className="text-gray-500 text-sm">
-              No hay evaluaciones registradas.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {evaluations.map((e) => (
-                <li
-                  key={e.id}
-                  className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2"
-                >
-                  <div>
-                    <p className="font-medium text-gray-900">{e.songName}</p>
-                    <p className="text-xs text-gray-500">
-                      {e.rubricName} • {e.dateFormatted}
-                    </p>
-                  </div>
-                  <span
-                    className={`text-sm font-medium px-2 py-0.5 rounded ${
-                      e.scaleValue !== null && e.scaleValue >= 4
-                        ? "bg-green-100 text-green-800"
-                        : e.scaleValue !== null && e.scaleValue >= 3
-                        ? "bg-yellow-100 text-yellow-800"
-                        : "bg-gray-100 text-gray-700"
-                    }`}
+          <button
+            type="button"
+            onClick={() => setEvaluationsExpanded((prev) => !prev)}
+            className="flex items-center gap-2 w-full text-left mb-3 group"
+          >
+            <Music className="h-4 w-4 text-gray-500 shrink-0" />
+            <h4 className="text-sm font-semibold text-gray-900 flex-1">
+              Evaluaciones de canciones
+              {evaluations.length > 0 && (
+                <span className="ml-2 text-gray-400 font-normal">
+                  ({evaluations.length})
+                </span>
+              )}
+            </h4>
+            {evaluationsExpanded ? (
+              <ChevronUp className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
+            )}
+          </button>
+          {evaluationsExpanded &&
+            (evaluations.length === 0 ? (
+              <p className="text-gray-500 text-sm">
+                No hay evaluaciones registradas.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {evaluations.map((e) => (
+                  <li
+                    key={e.id}
+                    className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2"
                   >
-                    {e.scaleName}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
+                    <div>
+                      <p className="font-medium text-gray-900">{e.songName}</p>
+                      <p className="text-xs text-gray-500">
+                        {e.rubricName} • {e.dateFormatted}
+                      </p>
+                    </div>
+                    <span
+                      className={`text-sm font-medium px-2 py-0.5 rounded ${
+                        e.scaleValue !== null && e.scaleValue >= 4
+                          ? "bg-green-100 text-green-800"
+                          : e.scaleValue !== null && e.scaleValue >= 3
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-gray-100 text-gray-700"
+                      }`}
+                    >
+                      {e.scaleName}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ))}
         </section>
 
         {/* Comentarios del profesor */}
