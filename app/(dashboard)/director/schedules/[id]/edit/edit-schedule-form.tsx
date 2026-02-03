@@ -85,7 +85,7 @@ export function EditScheduleForm({
       if (allSchedulesResponse.ok) {
         const allData = await allSchedulesResponse.json();
         const allSchedules = allData.schedules || [];
-        
+
         // Filter schedules with same name and profile_id
         const relatedSchedules = allSchedules.filter(
           (s: { name: string; profile_id: string }) =>
@@ -181,7 +181,9 @@ export function EditScheduleForm({
 
     if (hasOverlap) {
       setError(
-        `Ya existe un turno en ${DAY_NAMES[newSlotDay - 1]} que se solapa con este horario`
+        `Ya existe un turno en ${
+          DAY_NAMES[newSlotDay - 1]
+        } que se solapa con este horario`
       );
       return;
     }
@@ -242,7 +244,9 @@ export function EditScheduleForm({
   }
 
   function formatTimeSlot(slot: ScheduleSlot): string {
-    return `${DAY_NAMES[slot.day_of_week - 1]} ${slot.start_time} - ${slot.end_time}`;
+    return `${DAY_NAMES[slot.day_of_week - 1]} ${slot.start_time} - ${
+      slot.end_time
+    }`;
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -278,8 +282,12 @@ export function EditScheduleForm({
       }
 
       // Separate existing slots (with real IDs) from new slots (with temp IDs)
-      const existingSlots = scheduleSlots.filter((slot) => !slot.id.startsWith("new-"));
-      const newSlots = scheduleSlots.filter((slot) => slot.id.startsWith("new-"));
+      const existingSlots = scheduleSlots.filter(
+        (slot) => !slot.id.startsWith("new-")
+      );
+      const newSlots = scheduleSlots.filter((slot) =>
+        slot.id.startsWith("new-")
+      );
 
       // Get original schedule to find all related schedules
       const originalResponse = await fetch(`/api/schedules/${scheduleId}`);
@@ -390,7 +398,9 @@ export function EditScheduleForm({
             className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           >
             <option value="">
-              {loadingSubjects ? "Cargando materias..." : "Selecciona una materia"}
+              {loadingSubjects
+                ? "Cargando materias..."
+                : "Selecciona una materia"}
             </option>
             {!loadingSubjects &&
               subjects.map((s) => (
@@ -518,7 +528,8 @@ export function EditScheduleForm({
           </div>
         </div>
         <p className="mt-2 text-xs text-gray-500">
-          Selecciona el día y las horas del turno, luego haz clic en "Agregar Turno"
+          Selecciona el día y las horas del turno, luego haz clic en "Agregar
+          Turno"
         </p>
       </div>
 
@@ -557,7 +568,7 @@ export function EditScheduleForm({
                     <button
                       type="button"
                       onClick={() => editTimeSlot(slot.id)}
-                      className="rounded-md bg-white px-2 py-1 text-xs font-medium text-indigo-600 shadow-sm ring-1 ring-inset ring-indigo-300 hover:bg-indigo-50"
+                      className="rounded-md bg-white px-2 py-1 text-xs font-medium text-gray-600 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
                       title="Editar turno"
                     >
                       ✏️ Editar
@@ -565,7 +576,7 @@ export function EditScheduleForm({
                     <button
                       type="button"
                       onClick={() => removeTimeSlot(slot.id)}
-                      className="rounded-md bg-white px-2 py-1 text-xs font-medium text-red-600 shadow-sm ring-1 ring-inset ring-red-300 hover:bg-red-50"
+                      className="rounded-md bg-white px-2 py-1 text-xs font-medium text-gray-600 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
                       title="Eliminar turno"
                     >
                       🗑️ Eliminar

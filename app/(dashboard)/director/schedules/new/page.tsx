@@ -125,7 +125,9 @@ export default function NewSchedulePage() {
 
     if (hasOverlap) {
       setError(
-        `Ya existe un turno en ${DAY_NAMES[newSlotDay - 1]} que se solapa con este horario`
+        `Ya existe un turno en ${
+          DAY_NAMES[newSlotDay - 1]
+        } que se solapa con este horario`
       );
       return;
     }
@@ -186,7 +188,9 @@ export default function NewSchedulePage() {
   }
 
   function formatTimeSlot(slot: TimeSlot): string {
-    return `${DAY_NAMES[slot.day_of_week - 1]} ${slot.start_time} - ${slot.end_time}`;
+    return `${DAY_NAMES[slot.day_of_week - 1]} ${slot.start_time} - ${
+      slot.end_time
+    }`;
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -246,9 +250,10 @@ export default function NewSchedulePage() {
             setError(data.message || "Error al crear horarios");
           }
         } else {
-          const errorMsg = data.message || data.error || "Error al crear horarios";
-          const details = Array.isArray(data.details) 
-            ? data.details.join(". ") 
+          const errorMsg =
+            data.message || data.error || "Error al crear horarios";
+          const details = Array.isArray(data.details)
+            ? data.details.join(". ")
             : data.details || "";
           setError(details ? `${errorMsg}: ${details}` : errorMsg);
         }
@@ -260,7 +265,9 @@ export default function NewSchedulePage() {
       router.push("/director/schedules");
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Error inesperado al crear horarios"
+        err instanceof Error
+          ? err.message
+          : "Error inesperado al crear horarios"
       );
       setLoading(false);
     }
@@ -302,7 +309,8 @@ export default function NewSchedulePage() {
               htmlFor="subjectId"
               className="block text-sm font-medium text-gray-700"
             >
-              Nombre de la Clase (Materia) <span className="text-red-500">*</span>
+              Nombre de la Clase (Materia){" "}
+              <span className="text-red-500">*</span>
             </label>
             <select
               id="subjectId"
@@ -315,7 +323,9 @@ export default function NewSchedulePage() {
               aria-label="Seleccione la materia"
             >
               <option value="">
-                {loadingSubjects ? "Cargando materias..." : "Selecciona una materia"}
+                {loadingSubjects
+                  ? "Cargando materias..."
+                  : "Selecciona una materia"}
               </option>
               {!loadingSubjects &&
                 subjects.map((s) => (
@@ -447,7 +457,8 @@ export default function NewSchedulePage() {
               </div>
             </div>
             <p className="mt-2 text-xs text-gray-500">
-              Selecciona el día y las horas del turno, luego haz clic en "Agregar Turno"
+              Selecciona el día y las horas del turno, luego haz clic en
+              "Agregar Turno"
             </p>
           </div>
 
@@ -463,7 +474,8 @@ export default function NewSchedulePage() {
             </h3>
             {timeSlots.length === 0 ? (
               <p className="text-sm text-gray-400 italic">
-                No hay turnos agregados. Agrega al menos un turno para crear el horario.
+                No hay turnos agregados. Agrega al menos un turno para crear el
+                horario.
               </p>
             ) : (
               <div className="space-y-2">
@@ -486,7 +498,7 @@ export default function NewSchedulePage() {
                         <button
                           type="button"
                           onClick={() => editTimeSlot(slot.id)}
-                          className="rounded-md bg-white px-2 py-1 text-xs font-medium text-indigo-600 shadow-sm ring-1 ring-inset ring-indigo-300 hover:bg-indigo-50"
+                          className="rounded-md bg-white px-2 py-1 text-xs font-medium text-gray-600 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
                           title="Editar turno"
                         >
                           ✏️ Editar
@@ -494,7 +506,7 @@ export default function NewSchedulePage() {
                         <button
                           type="button"
                           onClick={() => removeTimeSlot(slot.id)}
-                          className="rounded-md bg-white px-2 py-1 text-xs font-medium text-red-600 shadow-sm ring-1 ring-inset ring-red-300 hover:bg-red-50"
+                          className="rounded-md bg-white px-2 py-1 text-xs font-medium text-gray-600 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
                           title="Eliminar turno"
                         >
                           🗑️ Eliminar

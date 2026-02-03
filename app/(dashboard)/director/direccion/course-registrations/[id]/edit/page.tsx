@@ -4,7 +4,12 @@ import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 
-type Song = { id: string; name: string; author: string | null; difficulty_level: number };
+type Song = {
+  id: string;
+  name: string;
+  author: string | null;
+  difficulty_level: number;
+};
 
 export default function EditCourseRegistrationPage() {
   const params = useParams();
@@ -37,7 +42,8 @@ export default function EditCourseRegistrationPage() {
         ]);
         const rData = await rRes.json();
         const sData = await sRes.json();
-        if (!rRes.ok) throw new Error(rData.error || "No se encontró la matrícula");
+        if (!rRes.ok)
+          throw new Error(rData.error || "No se encontró la matrícula");
         setReg(rData.courseRegistration);
         setStatus(rData.courseRegistration?.status || "active");
         if (sRes.ok) setAllSongs(sData.songs || []);
@@ -59,7 +65,7 @@ export default function EditCourseRegistrationPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Error al agregar canciones");
-      setReg((r) => r ? { ...r, songs: data.songs || r.songs } : null);
+      setReg((r) => (r ? { ...r, songs: data.songs || r.songs } : null));
     } catch (e) {
       alert(e instanceof Error ? e.message : "Error");
     }
@@ -67,12 +73,17 @@ export default function EditCourseRegistrationPage() {
 
   async function removeSong(songId: string) {
     try {
-      const res = await fetch(`/api/course-registrations/${id}/songs/${songId}`, { method: "DELETE" });
+      const res = await fetch(
+        `/api/course-registrations/${id}/songs/${songId}`,
+        { method: "DELETE" }
+      );
       if (!res.ok) {
         const d = await res.json();
         throw new Error(d.error || "Error al quitar la canción");
       }
-      setReg((r) => r ? { ...r, songs: r.songs.filter((s) => s.id !== songId) } : null);
+      setReg((r) =>
+        r ? { ...r, songs: r.songs.filter((s) => s.id !== songId) } : null
+      );
     } catch (e) {
       alert(e instanceof Error ? e.message : "Error");
     }
@@ -104,7 +115,9 @@ export default function EditCourseRegistrationPage() {
   const [selectedToAdd, setSelectedToAdd] = useState<string[]>([]);
 
   function toggleToAdd(songId: string) {
-    setSelectedToAdd((p) => (p.includes(songId) ? p.filter((x) => x !== songId) : [...p, songId]));
+    setSelectedToAdd((p) =>
+      p.includes(songId) ? p.filter((x) => x !== songId) : [...p, songId]
+    );
   }
 
   if (loading) {
@@ -121,7 +134,10 @@ export default function EditCourseRegistrationPage() {
         <div className="bg-red-50 border-l-4 border-red-400 p-4">
           <p className="text-sm text-red-700">{error}</p>
         </div>
-        <Link href="/director/direccion/course-registrations" className="text-indigo-600 hover:text-indigo-900">
+        <Link
+          href="/director/direccion/course-registrations"
+          className="text-indigo-600 hover:text-indigo-900"
+        >
           Volver a matrículas
         </Link>
       </div>
@@ -130,7 +146,9 @@ export default function EditCourseRegistrationPage() {
 
   if (!reg) return null;
 
-  const sn = reg.student ? `${reg.student.first_name} ${reg.student.last_name}`.trim() : "—";
+  const sn = reg.student
+    ? `${reg.student.first_name} ${reg.student.last_name}`.trim()
+    : "—";
   const cl = reg.subject?.name || "—";
   const pd = reg.period ? `${reg.period.year}-${reg.period.period}` : "—";
 
@@ -138,10 +156,15 @@ export default function EditCourseRegistrationPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Editar matrícula</h1>
-        <p className="mt-1 text-sm text-gray-500">{sn} · {cl} · {pd}</p>
+        <p className="mt-1 text-sm text-gray-500">
+          {sn} · {cl} · {pd}
+        </p>
       </div>
 
-      <form onSubmit={handleStatusSubmit} className="bg-white shadow rounded-lg p-6">
+      <form
+        onSubmit={handleStatusSubmit}
+        className="bg-white shadow rounded-lg p-6"
+      >
         {error && (
           <div className="mb-6 bg-red-50 border-l-4 border-red-400 p-4">
             <p className="text-sm text-red-700">{error}</p>
@@ -149,7 +172,9 @@ export default function EditCourseRegistrationPage() {
         )}
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">Estado</label>
+          <label className="block text-sm font-medium text-gray-700">
+            Estado
+          </label>
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
@@ -173,17 +198,23 @@ export default function EditCourseRegistrationPage() {
       </form>
 
       <div className="bg-white shadow rounded-lg p-6">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Canciones asignadas</h2>
+        <h2 className="text-lg font-medium text-gray-900 mb-4">
+          Canciones asignadas
+        </h2>
 
         {reg.songs.length > 0 && (
           <ul className="divide-y divide-gray-200 mb-6">
             {reg.songs.map((s) => (
               <li key={s.id} className="py-2 flex justify-between items-center">
-                <span className="text-sm">{s.name}{s.author ? ` — ${s.author}` : ""} (nivel {s.difficulty_level})</span>
+                <span className="text-sm">
+                  {s.name}
+                  {s.author ? ` — ${s.author}` : ""} (nivel {s.difficulty_level}
+                  )
+                </span>
                 <button
                   type="button"
                   onClick={() => removeSong(s.id)}
-                  className="text-red-600 hover:text-red-900 text-sm"
+                  className="text-gray-600 hover:text-gray-900 text-sm"
                 >
                   Quitar
                 </button>
@@ -194,7 +225,9 @@ export default function EditCourseRegistrationPage() {
 
         {toAdd.length > 0 && (
           <div>
-            <p className="text-sm font-medium text-gray-700 mb-2">Agregar canciones</p>
+            <p className="text-sm font-medium text-gray-700 mb-2">
+              Agregar canciones
+            </p>
             <div className="max-h-40 overflow-y-auto border rounded-md p-3 space-y-2 mb-4">
               {toAdd.map((s) => (
                 <label key={s.id} className="flex items-center gap-2">
@@ -204,7 +237,10 @@ export default function EditCourseRegistrationPage() {
                     onChange={() => toggleToAdd(s.id)}
                     className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                   />
-                  <span className="text-sm">{s.name}{s.author ? ` — ${s.author}` : ""}</span>
+                  <span className="text-sm">
+                    {s.name}
+                    {s.author ? ` — ${s.author}` : ""}
+                  </span>
                 </label>
               ))}
             </div>
@@ -223,12 +259,17 @@ export default function EditCourseRegistrationPage() {
         )}
 
         {reg.songs.length === 0 && toAdd.length === 0 && (
-          <p className="text-sm text-gray-500">No hay canciones disponibles para agregar.</p>
+          <p className="text-sm text-gray-500">
+            No hay canciones disponibles para agregar.
+          </p>
         )}
       </div>
 
       <div>
-        <Link href="/director/direccion/course-registrations" className="text-indigo-600 hover:text-indigo-900 text-sm">
+        <Link
+          href="/director/direccion/course-registrations"
+          className="text-indigo-600 hover:text-indigo-900 text-sm"
+        >
           ← Volver a matrículas
         </Link>
       </div>

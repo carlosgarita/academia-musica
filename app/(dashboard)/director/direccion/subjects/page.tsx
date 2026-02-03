@@ -125,23 +125,26 @@ export default function SubjectsPage() {
                     )}
                     <p className="mt-2 text-xs text-gray-500">
                       Creada:{" "}
-                      {new Date(subject.created_at).toLocaleDateString("es-ES", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })}
+                      {new Date(subject.created_at).toLocaleDateString(
+                        "es-ES",
+                        {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        }
+                      )}
                     </p>
                   </div>
                   <div className="ml-4 flex space-x-2">
                     <Link
                       href={`/director/subjects/${subject.id}/edit`}
-                      className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
+                      className="text-gray-600 hover:text-gray-900 text-sm font-medium"
                     >
                       Editar
                     </Link>
                     <button
                       onClick={() => handleDelete(subject.id, subject.name)}
-                      className="text-red-600 hover:text-red-900 text-sm font-medium"
+                      className="text-gray-600 hover:text-gray-900 text-sm font-medium"
                     >
                       Eliminar
                     </button>

@@ -89,7 +89,10 @@ export function StudentsList({ academyId }: StudentsListProps) {
   }
 
   // Helper function to format name as "Apellido Nombre"
-  const formatName = (firstName: string | null, lastName: string | null): string => {
+  const formatName = (
+    firstName: string | null,
+    lastName: string | null
+  ): string => {
     const first = firstName || "";
     const last = lastName || "";
     if (last && first) {
@@ -207,7 +210,10 @@ export function StudentsList({ academyId }: StudentsListProps) {
             <div className="bg-white shadow overflow-hidden sm:rounded-md">
               <ul className="divide-y divide-gray-200">
                 {filteredStudents.map((student) => {
-                  const fullName = formatName(student.first_name, student.last_name);
+                  const fullName = formatName(
+                    student.first_name,
+                    student.last_name
+                  );
 
                   return (
                     <li key={student.id} className="p-6">
@@ -254,13 +260,13 @@ export function StudentsList({ academyId }: StudentsListProps) {
                         <div className="ml-4 flex flex-col space-y-2">
                           <Link
                             href={`/director/students/${student.id}/edit`}
-                            className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
+                            className="text-gray-600 hover:text-gray-900 text-sm font-medium"
                           >
                             Editar
                           </Link>
                           <button
                             onClick={() => handleDelete(student.id, fullName)}
-                            className="text-red-600 hover:text-red-900 text-sm font-medium text-left"
+                            className="text-gray-600 hover:text-gray-900 text-sm font-medium text-left"
                           >
                             Eliminar
                           </button>

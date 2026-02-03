@@ -142,7 +142,11 @@ export function ProfessorsList({ academyId }: ProfessorsListProps) {
   }
 
   // Helper function to format name as "Apellido Nombre"
-  const formatName = (firstName: string | null, lastName: string | null, email?: string): string => {
+  const formatName = (
+    firstName: string | null,
+    lastName: string | null,
+    email?: string
+  ): string => {
     const first = firstName || "";
     const last = lastName || "";
     if (last && first) {
@@ -252,7 +256,11 @@ export function ProfessorsList({ academyId }: ProfessorsListProps) {
             <div className="bg-white shadow overflow-hidden sm:rounded-md">
               <ul className="divide-y divide-gray-200">
                 {filteredProfessors.map((professor) => {
-                  const fullName = formatName(professor.first_name, professor.last_name, professor.email);
+                  const fullName = formatName(
+                    professor.first_name,
+                    professor.last_name,
+                    professor.email
+                  );
                   const subjectsList = professor.subjects
                     .map((ps) => ps.subject.name)
                     .join(", ");
@@ -345,13 +353,13 @@ export function ProfessorsList({ academyId }: ProfessorsListProps) {
                         <div className="ml-4 flex flex-col space-y-2">
                           <Link
                             href={`/director/professors/${professor.id}/edit`}
-                            className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
+                            className="text-gray-600 hover:text-gray-900 text-sm font-medium"
                           >
                             Editar
                           </Link>
                           <button
                             onClick={() => handleDelete(professor.id, fullName)}
-                            className="text-red-600 hover:text-red-900 text-sm font-medium text-left"
+                            className="text-gray-600 hover:text-gray-900 text-sm font-medium text-left"
                           >
                             Eliminar
                           </button>

@@ -70,20 +70,20 @@ export function HogarContent({
           <h2 className="text-xl font-semibold text-gray-900">
             {guardianName || "Portal Hogar"}
           </h2>
-          <p className="text-sm text-gray-500">Revisa tu progreso académico</p>
+          <p className="text-sm text-gray-600">Revisa tu progreso académico</p>
         </div>
       </div>
 
       {/* Error state */}
       {error && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
-          <p className="text-amber-800 text-sm">{error}</p>
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+          <p className="text-red-600 text-sm">{error}</p>
         </div>
       )}
 
       {/* Student selector */}
       <div>
-        <p className="text-xs font-medium text-gray-500 uppercase mb-2">
+        <p className="text-xs font-medium text-gray-600 uppercase mb-2">
           Estudiantes a cargo
         </p>
         <HogarStudentList
@@ -103,12 +103,12 @@ export function HogarContent({
 
       {/* No students state */}
       {!loading && students.length === 0 && !error && (
-        <div className="text-center py-12 rounded-lg border border-dashed border-gray-300 bg-gray-50">
-          <Home className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500">
+        <div className="text-center py-12 rounded-lg border border-dashed border-gray-200 bg-gray-50">
+          <Home className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+          <p className="text-gray-600">
             No hay estudiantes asignados a este encargado.
           </p>
-          <p className="text-sm text-gray-400 mt-1">
+          <p className="text-sm text-gray-500 mt-1">
             Contacta al administrador de la academia para asignar estudiantes.
           </p>
         </div>

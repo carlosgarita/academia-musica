@@ -31,7 +31,9 @@ export function GuardiansList({ academyId }: GuardiansListProps) {
   const [guardians, setGuardians] = useState<Guardian[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("active");
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "active" | "inactive"
+  >("active");
 
   useEffect(() => {
     loadGuardians();
@@ -124,7 +126,11 @@ export function GuardiansList({ academyId }: GuardiansListProps) {
   }
 
   // Helper function to format name as "Apellido Nombre"
-  const formatName = (firstName: string | null, lastName: string | null, email?: string): string => {
+  const formatName = (
+    firstName: string | null,
+    lastName: string | null,
+    email?: string
+  ): string => {
     const first = firstName || "";
     const last = lastName || "";
     if (last && first) {
@@ -198,7 +204,9 @@ export function GuardiansList({ academyId }: GuardiansListProps) {
                 id="statusFilter"
                 value={statusFilter}
                 onChange={(e) =>
-                  setStatusFilter(e.target.value as "all" | "active" | "inactive")
+                  setStatusFilter(
+                    e.target.value as "all" | "active" | "inactive"
+                  )
                 }
                 className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               >
@@ -218,7 +226,8 @@ export function GuardiansList({ academyId }: GuardiansListProps) {
           {filteredGuardians.length === 0 ? (
             <div className="text-center py-12 bg-white rounded-lg shadow">
               <p className="text-gray-500">
-                No hay encargados {statusFilter === "active" ? "activos" : "inactivos"}.
+                No hay encargados{" "}
+                {statusFilter === "active" ? "activos" : "inactivos"}.
               </p>
               <button
                 onClick={() => setStatusFilter("all")}
@@ -231,79 +240,95 @@ export function GuardiansList({ academyId }: GuardiansListProps) {
             <div className="bg-white shadow overflow-hidden sm:rounded-md">
               <ul className="divide-y divide-gray-200">
                 {filteredGuardians.map((guardian) => {
-              const fullName = formatName(guardian.first_name, guardian.last_name, guardian.email);
-              const studentsList = guardian.students
-                .map((gs) => formatName(gs.student.first_name || null, gs.student.last_name || null))
-                .join(", ");
-              const statusColor =
-                guardian.status === "active"
-                  ? "bg-green-100 text-green-800"
-                  : "bg-red-100 text-red-800";
+                  const fullName = formatName(
+                    guardian.first_name,
+                    guardian.last_name,
+                    guardian.email
+                  );
+                  const studentsList = guardian.students
+                    .map((gs) =>
+                      formatName(
+                        gs.student.first_name || null,
+                        gs.student.last_name || null
+                      )
+                    )
+                    .join(", ");
+                  const statusColor =
+                    guardian.status === "active"
+                      ? "bg-green-100 text-green-800"
+                      : "bg-red-100 text-red-800";
 
-              return (
-                <li key={guardian.id} className="p-6">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3">
-                        <h3 className="text-lg font-medium text-gray-900">
-                          {fullName}
-                        </h3>
-                        <button
-                          onClick={() =>
-                            handleToggleStatus(guardian.id, guardian.status)
-                          }
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium cursor-pointer hover:opacity-80 ${statusColor}`}
-                          title="Click para cambiar estado"
-                        >
-                          {guardian.status === "active" ? "Activo" : "Inactivo"}
-                        </button>
-                      </div>
-                      <div className="mt-2 space-y-1 text-sm text-gray-600">
-                        <div>
-                          <span className="font-medium">Email:</span>{" "}
-                          {guardian.email || "N/A"}
+                  return (
+                    <li key={guardian.id} className="p-6">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-3">
+                            <h3 className="text-lg font-medium text-gray-900">
+                              {fullName}
+                            </h3>
+                            <button
+                              onClick={() =>
+                                handleToggleStatus(guardian.id, guardian.status)
+                              }
+                              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium cursor-pointer hover:opacity-80 ${statusColor}`}
+                              title="Click para cambiar estado"
+                            >
+                              {guardian.status === "active"
+                                ? "Activo"
+                                : "Inactivo"}
+                            </button>
+                          </div>
+                          <div className="mt-2 space-y-1 text-sm text-gray-600">
+                            <div>
+                              <span className="font-medium">Email:</span>{" "}
+                              {guardian.email || "N/A"}
+                            </div>
+                            {guardian.phone && (
+                              <div>
+                                <span className="font-medium">Teléfono:</span>{" "}
+                                {guardian.phone}
+                              </div>
+                            )}
+                            {guardian.additional_info && (
+                              <div>
+                                <span className="font-medium">
+                                  Info adicional:
+                                </span>{" "}
+                                {guardian.additional_info}
+                              </div>
+                            )}
+                            {guardian.students &&
+                            guardian.students.length > 0 ? (
+                              <div>
+                                <span className="font-medium">
+                                  Estudiantes:
+                                </span>{" "}
+                                {studentsList}
+                              </div>
+                            ) : (
+                              <div className="text-gray-400 italic">
+                                Sin estudiantes asignados
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        {guardian.phone && (
-                          <div>
-                            <span className="font-medium">Teléfono:</span>{" "}
-                            {guardian.phone}
-                          </div>
-                        )}
-                        {guardian.additional_info && (
-                          <div>
-                            <span className="font-medium">Info adicional:</span>{" "}
-                            {guardian.additional_info}
-                          </div>
-                        )}
-                        {guardian.students && guardian.students.length > 0 ? (
-                          <div>
-                            <span className="font-medium">Estudiantes:</span>{" "}
-                            {studentsList}
-                          </div>
-                        ) : (
-                          <div className="text-gray-400 italic">
-                            Sin estudiantes asignados
-                          </div>
-                        )}
+                        <div className="ml-4 flex flex-col space-y-2">
+                          <Link
+                            href={`/director/guardians/${guardian.id}/edit`}
+                            className="text-gray-600 hover:text-gray-900 text-sm font-medium"
+                          >
+                            Editar
+                          </Link>
+                          <button
+                            onClick={() => handleDelete(guardian.id, fullName)}
+                            className="text-gray-600 hover:text-gray-900 text-sm font-medium text-left"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                    <div className="ml-4 flex flex-col space-y-2">
-                      <Link
-                        href={`/director/guardians/${guardian.id}/edit`}
-                        className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
-                      >
-                        Editar
-                      </Link>
-                      <button
-                        onClick={() => handleDelete(guardian.id, fullName)}
-                        className="text-red-600 hover:text-red-900 text-sm font-medium text-left"
-                      >
-                        Eliminar
-                      </button>
-                    </div>
-                  </div>
-                </li>
-              );
+                    </li>
+                  );
                 })}
               </ul>
             </div>

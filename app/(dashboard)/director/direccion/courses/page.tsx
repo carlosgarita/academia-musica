@@ -13,7 +13,12 @@ type Course = {
   profile_id: string;
   period?: Period;
   subject?: { id: string; name: string };
-  profile?: { id: string; first_name: string | null; last_name: string | null; email?: string };
+  profile?: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    email?: string;
+  };
   sessions_count?: number;
   turnos_count?: number;
 };
@@ -52,7 +57,8 @@ export default function CoursesPage() {
         : "/api/courses";
       const r = await fetch(url);
       const d = await r.json();
-      if (!r.ok) throw new Error(d.error || d.details || "Error al cargar cursos");
+      if (!r.ok)
+        throw new Error(d.error || d.details || "Error al cargar cursos");
       setCourses(d.courses || []);
       setError(null);
     } catch (e) {
@@ -65,7 +71,12 @@ export default function CoursesPage() {
 
   const professorName = (c: Course) =>
     c.profile
-      ? [c.profile.first_name, c.profile.last_name].filter(Boolean).join(" ").trim() || c.profile.email || "—"
+      ? [c.profile.first_name, c.profile.last_name]
+          .filter(Boolean)
+          .join(" ")
+          .trim() ||
+        c.profile.email ||
+        "—"
       : "—";
 
   return (
@@ -74,7 +85,8 @@ export default function CoursesPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Cursos</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Crea cursos con sesiones y turnos (materia, profesor, periodo, fechas y horarios)
+            Crea cursos con sesiones y turnos (materia, profesor, periodo,
+            fechas y horarios)
           </p>
         </div>
         <Link
@@ -117,7 +129,9 @@ export default function CoursesPage() {
       ) : courses.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-lg shadow">
           <p className="text-gray-500">
-            {periodFilter ? "No hay cursos en este periodo." : "No hay cursos creados."}
+            {periodFilter
+              ? "No hay cursos en este periodo."
+              : "No hay cursos creados."}
           </p>
           <Link
             href="/director/direccion/courses/new"
@@ -165,17 +179,29 @@ export default function CoursesPage() {
                     <button
                       type="button"
                       onClick={async () => {
-                        if (!confirm("¿Eliminar este curso? Se borrarán sus sesiones y turnos.")) return;
+                        if (
+                          !confirm(
+                            "¿Eliminar este curso? Se borrarán sus sesiones y turnos."
+                          )
+                        )
+                          return;
                         try {
-                          const r = await fetch(`/api/courses/${c.id}`, { method: "DELETE" });
+                          const r = await fetch(`/api/courses/${c.id}`, {
+                            method: "DELETE",
+                          });
                           const d = await r.json();
-                          if (!r.ok) throw new Error(d.error || d.details || "Error al eliminar");
+                          if (!r.ok)
+                            throw new Error(
+                              d.error || d.details || "Error al eliminar"
+                            );
                           loadCourses();
                         } catch (e) {
-                          alert(e instanceof Error ? e.message : "Error al eliminar");
+                          alert(
+                            e instanceof Error ? e.message : "Error al eliminar"
+                          );
                         }
                       }}
-                      className="inline-flex items-center gap-1.5 rounded-md bg-white px-2.5 py-1.5 text-sm font-medium text-red-700 shadow-sm ring-1 ring-inset ring-red-300 hover:bg-red-50"
+                      className="inline-flex items-center gap-1.5 rounded-md bg-white px-2.5 py-1.5 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
                     >
                       <Trash2 className="h-4 w-4" />
                       Eliminar

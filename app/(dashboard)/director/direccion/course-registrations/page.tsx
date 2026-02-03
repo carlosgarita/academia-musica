@@ -11,14 +11,29 @@ type Course = {
   subject_id: string;
   period_id: string;
   subject?: { id: string; name: string };
-  profile?: { id: string; first_name: string | null; last_name: string | null; email?: string };
+  profile?: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    email?: string;
+  };
   period?: Period;
   sessions_count?: number;
   turnos_count?: number;
 };
 
-type Student = { id: string; first_name: string; last_name: string; enrollment_status?: string };
-type Song = { id: string; name: string; author: string | null; difficulty_level: number };
+type Student = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  enrollment_status?: string;
+};
+type Song = {
+  id: string;
+  name: string;
+  author: string | null;
+  difficulty_level: number;
+};
 
 type Reg = {
   id: string;
@@ -29,7 +44,11 @@ type Reg = {
   student: { id: string; first_name: string; last_name: string } | null;
 };
 
-function professorName(p: { first_name?: string | null; last_name?: string | null; email?: string } | undefined) {
+function professorName(
+  p:
+    | { first_name?: string | null; last_name?: string | null; email?: string }
+    | undefined
+) {
   if (!p) return "—";
   const n = [p.first_name, p.last_name].filter(Boolean).join(" ").trim();
   return n || p.email || "—";
@@ -64,10 +83,15 @@ export default function CourseRegistrationsPage() {
       const sData = await sRes.json();
       const soData = await soRes.json();
       if (!cRes.ok) throw new Error(cData.error || "Error al cargar cursos");
-      if (!rRes.ok) throw new Error(rData.error || "Error al cargar matrículas");
+      if (!rRes.ok)
+        throw new Error(rData.error || "Error al cargar matrículas");
       setCourses(cData.courses || []);
       setRegs(rData.courseRegistrations || []);
-      setStudents((sData.students || []).filter((s: Student) => s.enrollment_status !== "retirado"));
+      setStudents(
+        (sData.students || []).filter(
+          (s: Student) => s.enrollment_status !== "retirado"
+        )
+      );
       setSongs(soData.songs || []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error");
@@ -112,7 +136,9 @@ export default function CourseRegistrationsPage() {
       {courses.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-lg shadow">
           <p className="text-gray-500">No hay cursos creados.</p>
-          <p className="mt-1 text-sm text-gray-500">Crea cursos en la sección Cursos para poder matricular estudiantes.</p>
+          <p className="mt-1 text-sm text-gray-500">
+            Crea cursos en la sección Cursos para poder matricular estudiantes.
+          </p>
           <Link
             href="/director/direccion/courses"
             className="mt-4 inline-flex text-indigo-600 hover:text-indigo-500"
@@ -130,7 +156,9 @@ export default function CourseRegistrationsPage() {
               students={students}
               songs={songs}
               expandedAdd={expandedAdd === c.id}
-              onToggleAdd={() => setExpandedAdd((x) => (x === c.id ? null : c.id))}
+              onToggleAdd={() =>
+                setExpandedAdd((x) => (x === c.id ? null : c.id))
+              }
               onEnroll={async (studentId, songIds) => {
                 setSending(c.id);
                 try {
@@ -146,7 +174,10 @@ export default function CourseRegistrationsPage() {
                     }),
                   });
                   const d = await r.json();
-                  if (!r.ok) throw new Error(d.error || d.details || "Error al matricular");
+                  if (!r.ok)
+                    throw new Error(
+                      d.error || d.details || "Error al matricular"
+                    );
                   setExpandedAdd(null);
                   load();
                 } catch (e) {
@@ -157,7 +188,9 @@ export default function CourseRegistrationsPage() {
               }}
               onRemove={async (regId) => {
                 try {
-                  const r = await fetch(`/api/course-registrations/${regId}`, { method: "DELETE" });
+                  const r = await fetch(`/api/course-registrations/${regId}`, {
+                    method: "DELETE",
+                  });
                   const d = await r.json();
                   if (!r.ok) throw new Error(d.error || "Error al eliminar");
                   load();
@@ -204,7 +237,9 @@ function CourseBlock({
   const availableStudents = students.filter((s) => !enrolledIds.has(s.id));
 
   function toggleSong(id: string) {
-    setSongIds((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
+    setSongIds((p) =>
+      p.includes(id) ? p.filter((x) => x !== id) : [...p, id]
+    );
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -217,7 +252,9 @@ function CourseBlock({
 
   const cl = course.subject?.name ?? "—";
   const prof = professorName(course.profile);
-  const pd = course.period ? `${course.period.year} – ${course.period.period}` : "—";
+  const pd = course.period
+    ? `${course.period.year} – ${course.period.period}`
+    : "—";
 
   return (
     <div className="bg-white shadow overflow-hidden sm:rounded-lg">
@@ -242,23 +279,32 @@ function CourseBlock({
           {regs.length > 0 ? (
             <ul className="divide-y divide-gray-100">
               {regs.map((r) => {
-                const sn = r.student ? `${r.student.first_name} ${r.student.last_name}`.trim() || "—" : "—";
+                const sn = r.student
+                  ? `${r.student.first_name} ${r.student.last_name}`.trim() ||
+                    "—"
+                  : "—";
                 return (
-                  <li key={r.id} className="py-2 flex justify-between items-center">
-                    <span className="text-sm font-medium text-gray-900">{sn}</span>
+                  <li
+                    key={r.id}
+                    className="py-2 flex justify-between items-center"
+                  >
+                    <span className="text-sm font-medium text-gray-900">
+                      {sn}
+                    </span>
                     <div className="flex gap-2">
                       <Link
                         href={`/director/direccion/course-registrations/${r.id}/edit`}
-                        className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
+                        className="text-gray-600 hover:text-gray-900 text-sm font-medium"
                       >
                         Editar
                       </Link>
                       <button
                         type="button"
                         onClick={() => {
-                          if (confirm(`¿Quitar a ${sn} de este curso?`)) onRemove(r.id);
+                          if (confirm(`¿Quitar a ${sn} de este curso?`))
+                            onRemove(r.id);
                         }}
-                        className="text-red-600 hover:text-red-900 text-sm font-medium"
+                        className="text-gray-600 hover:text-gray-900 text-sm font-medium"
                       >
                         Eliminar
                       </button>
@@ -268,7 +314,9 @@ function CourseBlock({
               })}
             </ul>
           ) : (
-            <p className="text-sm text-gray-500">Ningún estudiante matriculado en este curso.</p>
+            <p className="text-sm text-gray-500">
+              Ningún estudiante matriculado en este curso.
+            </p>
           )}
 
           {/* Botón Agregar Estudiante */}
@@ -278,17 +326,26 @@ function CourseBlock({
               onClick={onToggleAdd}
               className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-900"
             >
-              {expandedAdd ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              {expandedAdd ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
               <UserPlus className="h-4 w-4" />
               Agregar Estudiante
             </button>
 
             {/* Formulario expandido: dropdown estudiantes + canciones */}
             {expandedAdd && (
-              <form onSubmit={handleSubmit} className="mt-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
+              <form
+                onSubmit={handleSubmit}
+                className="mt-4 p-4 border border-gray-200 rounded-lg bg-gray-50"
+              >
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Estudiante</label>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Estudiante
+                    </label>
                     <select
                       value={studentId}
                       onChange={(e) => setStudentId(e.target.value)}
@@ -308,15 +365,22 @@ function CourseBlock({
                       )}
                     </select>
                     {availableStudents.length === 0 && (
-                      <p className="mt-1 text-sm text-amber-600">Todos los estudiantes activos ya están matriculados en este curso o no hay estudiantes.</p>
+                      <p className="mt-1 text-sm text-amber-600">
+                        Todos los estudiantes activos ya están matriculados en
+                        este curso o no hay estudiantes.
+                      </p>
                     )}
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Canciones para este curso y periodo</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Canciones para este curso y periodo
+                    </label>
                     <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white p-3 space-y-2">
                       {songs.length === 0 ? (
-                        <p className="text-sm text-gray-500">No hay canciones en la academia.</p>
+                        <p className="text-sm text-gray-500">
+                          No hay canciones en la academia.
+                        </p>
                       ) : (
                         songs.map((s) => (
                           <label key={s.id} className="flex items-center gap-2">
@@ -328,7 +392,10 @@ function CourseBlock({
                             />
                             <span className="text-sm">
                               {s.name}
-                              {s.author ? ` — ${s.author}` : ""} <span className="text-gray-400">(nivel {s.difficulty_level})</span>
+                              {s.author ? ` — ${s.author}` : ""}{" "}
+                              <span className="text-gray-400">
+                                (nivel {s.difficulty_level})
+                              </span>
                             </span>
                           </label>
                         ))

@@ -86,13 +86,13 @@ export function HogarStudentView({
     <div className="space-y-6">
       {/* Student Header */}
       <div className="flex items-center gap-4 pb-4 border-b border-gray-200">
-        <div className="h-14 w-14 rounded-full bg-gray-200 flex items-center justify-center">
-          <User className="h-7 w-7 text-gray-500" />
+        <div className="h-14 w-14 rounded-full bg-gray-100 flex items-center justify-center">
+          <User className="h-7 w-7 text-gray-600" />
         </div>
         <div>
           <h3 className="text-lg font-semibold text-gray-900">{studentName}</h3>
           {student.relationship && (
-            <p className="text-sm text-gray-500">{student.relationship}</p>
+            <p className="text-sm text-gray-600">{student.relationship}</p>
           )}
         </div>
       </div>
@@ -105,7 +105,7 @@ export function HogarStudentView({
           className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
             activeTab === "current"
               ? "border-indigo-600 text-indigo-600"
-              : "border-transparent text-gray-500 hover:text-gray-700"
+              : "border-transparent text-gray-600 hover:text-gray-900"
           }`}
         >
           <BookOpen className="h-4 w-4" />
@@ -117,7 +117,7 @@ export function HogarStudentView({
           className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
             activeTab === "history"
               ? "border-indigo-600 text-indigo-600"
-              : "border-transparent text-gray-500 hover:text-gray-700"
+              : "border-transparent text-gray-600 hover:text-gray-900"
           }`}
         >
           <History className="h-4 w-4" />
@@ -135,8 +135,8 @@ export function HogarStudentView({
             </div>
           ) : currentCourses.length === 0 ? (
             <div className="text-center py-8">
-              <BookOpen className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">
+              <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-600">
                 No hay cursos activos en este período.
               </p>
             </div>
@@ -147,7 +147,7 @@ export function HogarStudentView({
                 <div>
                   <label
                     htmlFor="course-select"
-                    className="block text-xs font-medium text-gray-500 uppercase mb-1"
+                    className="block text-xs font-medium text-gray-600 uppercase mb-1"
                   >
                     Seleccionar curso
                   </label>
@@ -155,7 +155,7 @@ export function HogarStudentView({
                     id="course-select"
                     value={selectedCourseId || ""}
                     onChange={(e) => setSelectedCourseId(e.target.value)}
-                    className="block w-full max-w-xs rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
+                    className="block w-full max-w-xs rounded border border-gray-200 bg-white text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm"
                   >
                     {currentCourses.map((course) => (
                       <option key={course.id} value={course.id}>
@@ -169,11 +169,11 @@ export function HogarStudentView({
 
               {/* Single course info */}
               {currentCourses.length === 1 && (
-                <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3">
-                  <p className="font-medium text-indigo-900">
+                <div className="rounded-lg border border-gray-200 bg-indigo-50 px-4 py-3">
+                  <p className="font-medium text-indigo-800">
                     {currentCourses[0].subject?.name || "Curso sin nombre"}
                   </p>
-                  <p className="text-sm text-indigo-700">
+                  <p className="text-sm text-indigo-700/80">
                     {currentCourses[0].period?.period || ""}{" "}
                     {currentCourses[0].period?.year || ""}
                   </p>

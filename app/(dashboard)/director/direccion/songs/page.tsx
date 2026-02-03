@@ -69,7 +69,14 @@ export default function SongsPage() {
   }
 
   const getDifficultyLabel = (level: number) => {
-    const labels = ["", "Muy Fácil", "Fácil", "Intermedio", "Avanzado", "Experto"];
+    const labels = [
+      "",
+      "Muy Fácil",
+      "Fácil",
+      "Intermedio",
+      "Avanzado",
+      "Experto",
+    ];
     return labels[level] || level.toString();
   };
 
@@ -142,7 +149,8 @@ export default function SongsPage() {
                           song.difficulty_level
                         )}`}
                       >
-                        Nivel {song.difficulty_level}: {getDifficultyLabel(song.difficulty_level)}
+                        Nivel {song.difficulty_level}:{" "}
+                        {getDifficultyLabel(song.difficulty_level)}
                       </span>
                     </div>
                     {song.author && (
@@ -162,13 +170,13 @@ export default function SongsPage() {
                   <div className="ml-4 flex space-x-2">
                     <Link
                       href={`/director/direccion/songs/${song.id}/edit`}
-                      className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
+                      className="text-gray-600 hover:text-gray-900 text-sm font-medium"
                     >
                       Editar
                     </Link>
                     <button
                       onClick={() => handleDelete(song.id, song.name)}
-                      className="text-red-600 hover:text-red-900 text-sm font-medium"
+                      className="text-gray-600 hover:text-gray-900 text-sm font-medium"
                     >
                       Eliminar
                     </button>

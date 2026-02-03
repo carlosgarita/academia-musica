@@ -133,57 +133,60 @@ export default function SchedulesPage() {
       ) : (
         <div className="bg-white shadow overflow-hidden sm:rounded-md">
           <ul className="divide-y divide-gray-200">
-            {Object.entries(groupedSchedules).map(([className, classSchedules]) => (
-              <li key={className} className="p-6">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-medium text-gray-900">
-                      {className}
-                    </h3>
-                    <div className="mt-2 space-y-1">
-                      {classSchedules.map((schedule) => (
-                        <div
-                          key={schedule.id}
-                          className="flex items-center text-sm text-gray-600"
-                        >
-                          <span className="font-medium w-24">
-                            {DAY_NAMES[schedule.day_of_week - 1]}:
-                          </span>
-                          <span>
-                            {schedule.start_time.substring(0, 5)} -{" "}
-                            {schedule.end_time.substring(0, 5)}
-                          </span>
-                        </div>
-                      ))}
+            {Object.entries(groupedSchedules).map(
+              ([className, classSchedules]) => (
+                <li key={className} className="p-6">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-medium text-gray-900">
+                        {className}
+                      </h3>
+                      <div className="mt-2 space-y-1">
+                        {classSchedules.map((schedule) => (
+                          <div
+                            key={schedule.id}
+                            className="flex items-center text-sm text-gray-600"
+                          >
+                            <span className="font-medium w-24">
+                              {DAY_NAMES[schedule.day_of_week - 1]}:
+                            </span>
+                            <span>
+                              {schedule.start_time.substring(0, 5)} -{" "}
+                              {schedule.end_time.substring(0, 5)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-2 text-sm text-gray-500">
+                        Profesor:{" "}
+                        {classSchedules[0].profile
+                          ? `${classSchedules[0].profile.first_name || ""} ${
+                              classSchedules[0].profile.last_name || ""
+                            }`.trim() || classSchedules[0].profile.email
+                          : "Sin nombre"}
+                      </div>
                     </div>
-                    <div className="mt-2 text-sm text-gray-500">
-                      Profesor:{" "}
-                      {classSchedules[0].profile
-                        ? `${classSchedules[0].profile.first_name || ""} ${classSchedules[0].profile.last_name || ""}`.trim() ||
-                          classSchedules[0].profile.email
-                        : "Sin nombre"}
+                    <div className="ml-4 flex space-x-2">
+                      <Link
+                        href={`/director/schedules/${classSchedules[0].id}/edit`}
+                        className="text-gray-600 hover:text-gray-900 text-sm font-medium"
+                      >
+                        Editar
+                      </Link>
+                      <button
+                        onClick={() => {
+                          // Delete all schedules with this name
+                          classSchedules.forEach((s) => handleDelete(s.id));
+                        }}
+                        className="text-gray-600 hover:text-gray-900 text-sm font-medium"
+                      >
+                        Eliminar
+                      </button>
                     </div>
                   </div>
-                  <div className="ml-4 flex space-x-2">
-                    <Link
-                      href={`/director/schedules/${classSchedules[0].id}/edit`}
-                      className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
-                    >
-                      Editar
-                    </Link>
-                    <button
-                      onClick={() => {
-                        // Delete all schedules with this name
-                        classSchedules.forEach((s) => handleDelete(s.id));
-                      }}
-                      className="text-red-600 hover:text-red-900 text-sm font-medium"
-                    >
-                      Eliminar
-                    </button>
-                  </div>
-                </div>
-              </li>
-            ))}
+                </li>
+              )
+            )}
           </ul>
         </div>
       )}

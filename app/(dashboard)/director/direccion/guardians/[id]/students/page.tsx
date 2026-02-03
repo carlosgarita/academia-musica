@@ -140,7 +140,8 @@ export default function GuardianStudentsPage() {
       setSelectedStudentIds([]);
       alert("Estudiantes asignados exitosamente");
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Error al asignar estudiantes";
+      const errorMessage =
+        err instanceof Error ? err.message : "Error al asignar estudiantes";
       setError(errorMessage);
       // Mostrar alert para que el usuario vea el error claramente
       alert(errorMessage);
@@ -149,7 +150,10 @@ export default function GuardianStudentsPage() {
     }
   }
 
-  async function handleRemoveAssignment(assignmentId: string, studentName: string) {
+  async function handleRemoveAssignment(
+    assignmentId: string,
+    studentName: string
+  ) {
     if (!confirm(`¿Deseas remover a "${studentName}" de este encargado?`)) {
       return;
     }
@@ -224,13 +228,15 @@ export default function GuardianStudentsPage() {
                 >
                   <div>
                     <p className="text-sm font-medium text-gray-900">
-                      {`${assignment.student.first_name || ""} ${assignment.student.last_name || ""}`.trim() || "Sin nombre"}
+                      {`${assignment.student.first_name || ""} ${
+                        assignment.student.last_name || ""
+                      }`.trim() || "Sin nombre"}
                     </p>
                     {assignment.student.date_of_birth && (
                       <p className="text-xs text-gray-500">
-                        {new Date(assignment.student.date_of_birth).toLocaleDateString(
-                          "es-ES"
-                        )}
+                        {new Date(
+                          assignment.student.date_of_birth
+                        ).toLocaleDateString("es-ES")}
                       </p>
                     )}
                   </div>
@@ -238,10 +244,12 @@ export default function GuardianStudentsPage() {
                     onClick={() =>
                       handleRemoveAssignment(
                         assignment.id,
-                        `${assignment.student.first_name || ""} ${assignment.student.last_name || ""}`.trim() || "Sin nombre"
+                        `${assignment.student.first_name || ""} ${
+                          assignment.student.last_name || ""
+                        }`.trim() || "Sin nombre"
                       )
                     }
-                    className="text-red-600 hover:text-red-900 text-sm font-medium"
+                    className="text-gray-600 hover:text-gray-900 text-sm font-medium"
                   >
                     Remover
                   </button>
@@ -277,13 +285,17 @@ export default function GuardianStudentsPage() {
                       />
                       <div className="flex-1">
                         <span className="text-sm text-gray-700">
-                          {`${student.first_name || ""} ${student.last_name || ""}`.trim() || "Sin nombre"}
+                          {`${student.first_name || ""} ${
+                            student.last_name || ""
+                          }`.trim() || "Sin nombre"}
                         </span>
                         {student.date_of_birth && (
                           <span className="text-xs text-gray-500 ml-2">
-                            ({new Date(student.date_of_birth).toLocaleDateString(
+                            (
+                            {new Date(student.date_of_birth).toLocaleDateString(
                               "es-ES"
-                            )})
+                            )}
+                            )
                           </span>
                         )}
                       </div>

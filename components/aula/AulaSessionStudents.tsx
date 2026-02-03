@@ -58,7 +58,10 @@ export function AulaSessionStudents({
   const [comments, setComments] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [savingId, setSavingId] = useState<string | null>(null);
+  const [savingCommentId, setSavingCommentId] = useState<string | null>(null);
+  const [savingAssignmentId, setSavingAssignmentId] = useState<string | null>(
+    null
+  );
   const [savingAttendanceId, setSavingAttendanceId] = useState<string | null>(
     null
   );
@@ -339,12 +342,10 @@ export function AulaSessionStudents({
     }
   };
 
-  const handleSave = async (regId: string) => {
-    setSavingId(regId);
+  const handleSaveComment = async (regId: string) => {
+    setSavingCommentId(regId);
     try {
       const commentText = (comments[regId] ?? "").trim();
-      const assignmentText = (assignments[regId] ?? "").trim();
-
       if (!commentText) {
         const comDel = await fetch(
           `/api/session-comments?course_registration_id=${encodeURIComponent(
@@ -366,23 +367,41 @@ export function AulaSessionStudents({
           next.delete(regId);
           return next;
         });
-      } else {
-        const comRes = await fetch("/api/session-comments", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            course_registration_id: regId,
-            period_date_id: sessionId,
-            comment: commentText,
-          }),
-        });
-        if (!comRes.ok) {
-          const d = await comRes.json();
-          throw new Error(d.error || "Error al guardar comentario");
-        }
-        setSavedCommentIds((prev) => new Set(prev).add(regId));
+        setEditingCommentFor((prev) => (prev === regId ? null : prev));
+        showSnackbar("Comentario eliminado");
+        return;
       }
 
+      const comRes = await fetch("/api/session-comments", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          course_registration_id: regId,
+          period_date_id: sessionId,
+          comment: commentText,
+        }),
+      });
+      if (!comRes.ok) {
+        const d = await comRes.json();
+        throw new Error(d.error || "Error al guardar comentario");
+      }
+      setSavedCommentIds((prev) => new Set(prev).add(regId));
+      setEditingCommentFor((prev) => (prev === regId ? null : prev));
+      showSnackbar("Comentario guardado");
+    } catch (e) {
+      console.error("Error saving comment:", e);
+      showSnackbar(
+        e instanceof Error ? e.message : "No se pudo guardar el comentario"
+      );
+    } finally {
+      setSavingCommentId(null);
+    }
+  };
+
+  const handleSaveAssignment = async (regId: string) => {
+    setSavingAssignmentId(regId);
+    try {
+      const assignmentText = (assignments[regId] ?? "").trim();
       if (!assignmentText) {
         const assDel = await fetch(
           `/api/session-assignments?course_registration_id=${encodeURIComponent(
@@ -404,33 +423,34 @@ export function AulaSessionStudents({
           next.delete(regId);
           return next;
         });
-      } else {
-        const assRes = await fetch("/api/session-assignments", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            course_registration_id: regId,
-            period_date_id: sessionId,
-            assignment_text: assignmentText,
-          }),
-        });
-        if (!assRes.ok) {
-          const d = await assRes.json();
-          throw new Error(d.error || "Error al guardar tarea");
-        }
-        setSavedAssignmentIds((prev) => new Set(prev).add(regId));
+        setEditingAssignmentFor((prev) => (prev === regId ? null : prev));
+        showSnackbar("Tarea eliminada");
+        return;
       }
 
-      setEditingCommentFor((prev) => (prev === regId ? null : prev));
+      const assRes = await fetch("/api/session-assignments", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          course_registration_id: regId,
+          period_date_id: sessionId,
+          assignment_text: assignmentText,
+        }),
+      });
+      if (!assRes.ok) {
+        const d = await assRes.json();
+        throw new Error(d.error || "Error al guardar tarea");
+      }
+      setSavedAssignmentIds((prev) => new Set(prev).add(regId));
       setEditingAssignmentFor((prev) => (prev === regId ? null : prev));
-      showSnackbar("Datos del estudiante guardados");
+      showSnackbar("Tarea guardada");
     } catch (e) {
-      console.error("Error saving:", e);
+      console.error("Error saving assignment:", e);
       showSnackbar(
-        e instanceof Error ? e.message : "No se pudieron guardar los datos"
+        e instanceof Error ? e.message : "No se pudo guardar la tarea"
       );
     } finally {
-      setSavingId(null);
+      setSavingAssignmentId(null);
     }
   };
 
@@ -660,7 +680,7 @@ export function AulaSessionStudents({
                 <div className="border-t border-gray-200 bg-gray-50/50 px-3 py-4 pl-14">
                   <div className="space-y-4">
                     <div>
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                      <p className="text-sm font-bold text-black mb-1.5 flex items-center gap-1.5">
                         <MessageSquare className="h-3.5 w-3.5" />
                         Comentario del profesor
                       </p>
@@ -675,7 +695,7 @@ export function AulaSessionStudents({
                               <button
                                 type="button"
                                 onClick={() => setEditingCommentFor(reg.id)}
-                                className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700"
+                                className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800"
                               >
                                 <Pencil className="h-3.5 w-3.5" /> Editar
                               </button>
@@ -683,7 +703,7 @@ export function AulaSessionStudents({
                                 type="button"
                                 onClick={() => handleDeleteComment(reg.id)}
                                 disabled={deletingCommentFor === reg.id}
-                                className="inline-flex items-center gap-1 text-xs text-red-600 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 <Trash2 className="h-3.5 w-3.5" /> Eliminar
                               </button>
@@ -699,17 +719,29 @@ export function AulaSessionStudents({
                                 [reg.id]: e.target.value,
                               }))
                             }
-                            disabled={savingId === reg.id}
+                            disabled={savingCommentId === reg.id}
                             rows={2}
                             maxLength={1500}
                             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
                           />
                         )}
                       </div>
+                      <div className="mt-2">
+                        <button
+                          type="button"
+                          onClick={() => handleSaveComment(reg.id)}
+                          disabled={savingCommentId === reg.id}
+                          className="inline-flex items-center rounded-md bg-green-500/90 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-green-500 focus:outline-none focus:ring-2 focus:ring-green-300 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {savingCommentId === reg.id
+                            ? "Guardando..."
+                            : "Guardar"}
+                        </button>
+                      </div>
                     </div>
 
                     <div>
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                      <p className="text-sm font-bold text-black mb-1.5 flex items-center gap-1.5">
                         <ClipboardList className="h-3.5 w-3.5" />
                         Tarea individual
                         {assignmentIdByRegId[reg.id] &&
@@ -736,7 +768,7 @@ export function AulaSessionStudents({
                               <button
                                 type="button"
                                 onClick={() => setEditingAssignmentFor(reg.id)}
-                                className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700"
+                                className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800"
                               >
                                 <Pencil className="h-3.5 w-3.5" /> Editar
                               </button>
@@ -744,7 +776,7 @@ export function AulaSessionStudents({
                                 type="button"
                                 onClick={() => handleDeleteAssignment(reg.id)}
                                 disabled={deletingAssignmentFor === reg.id}
-                                className="inline-flex items-center gap-1 text-xs text-red-600 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 <Trash2 className="h-3.5 w-3.5" /> Eliminar
                               </button>
@@ -760,30 +792,25 @@ export function AulaSessionStudents({
                                 [reg.id]: e.target.value,
                               }))
                             }
-                            disabled={savingId === reg.id}
+                            disabled={savingAssignmentId === reg.id}
                             rows={2}
                             maxLength={1500}
                             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm"
                           />
                         )}
                       </div>
-                    </div>
-
-                    <div>
-                      <button
-                        onClick={() => handleSave(reg.id)}
-                        disabled={savingId === reg.id}
-                        className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {savingId === reg.id ? (
-                          "Guardando..."
-                        ) : (
-                          <>
-                            <Save className="h-4 w-4" /> Guardar comentario y
-                            tarea
-                          </>
-                        )}
-                      </button>
+                      <div className="mt-2">
+                        <button
+                          type="button"
+                          onClick={() => handleSaveAssignment(reg.id)}
+                          disabled={savingAssignmentId === reg.id}
+                          className="inline-flex items-center rounded-md bg-green-500/90 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-green-500 focus:outline-none focus:ring-2 focus:ring-green-300 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {savingAssignmentId === reg.id
+                            ? "Guardando..."
+                            : "Guardar"}
+                        </button>
+                      </div>
                     </div>
 
                     <div>
@@ -829,7 +856,7 @@ export function AulaSessionStudents({
               <button
                 type="button"
                 onClick={() => setEditingGroupAssignment(true)}
-                className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700"
+                className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800"
               >
                 <Pencil className="h-3.5 w-3.5" /> Editar
               </button>
@@ -837,7 +864,7 @@ export function AulaSessionStudents({
                 type="button"
                 onClick={handleDeleteGroupAssignment}
                 disabled={deletingGroupAssignment}
-                className="inline-flex items-center gap-1 text-xs text-red-600 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Trash2 className="h-3.5 w-3.5" /> Eliminar
               </button>

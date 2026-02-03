@@ -266,7 +266,7 @@ export function HogarCourseProgress({
   }
 
   if (error) {
-    return <p className="text-amber-600 text-sm">{error}</p>;
+    return <p className="text-red-600 text-sm">{error}</p>;
   }
 
   if (!data) {
@@ -300,7 +300,7 @@ export function HogarCourseProgress({
         {songCharts.length > 0 && (
           <section>
             <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-gray-500" />
+              <BarChart3 className="h-4 w-4 text-gray-600" />
               Evaluación de Canciones
             </h4>
             <div className="space-y-4">
@@ -322,7 +322,7 @@ export function HogarCourseProgress({
                         className={`flex items-center gap-2 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
                           getSongTab(chart.songId) === "gauge"
                             ? "border-indigo-600 text-indigo-600"
-                            : "border-transparent text-gray-500 hover:text-gray-700"
+                            : "border-transparent text-gray-600 hover:text-gray-900"
                         }`}
                       >
                         <BarChart3 className="h-4 w-4" />
@@ -334,7 +334,7 @@ export function HogarCourseProgress({
                         className={`flex items-center gap-2 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
                           getSongTab(chart.songId) === "timeline"
                             ? "border-indigo-600 text-indigo-600"
-                            : "border-transparent text-gray-500 hover:text-gray-700"
+                            : "border-transparent text-gray-600 hover:text-gray-900"
                         }`}
                       >
                         <TrendingUp className="h-4 w-4" />
@@ -362,7 +362,7 @@ export function HogarCourseProgress({
                       )
                     ) : (
                       <div className="min-h-[100px] flex items-center justify-center rounded-lg bg-gray-50 border border-dashed border-gray-200">
-                        <p className="text-sm text-gray-500 font-medium">
+                        <p className="text-sm text-gray-600 font-medium">
                           Sin evaluar
                         </p>
                       </div>
@@ -381,24 +381,24 @@ export function HogarCourseProgress({
             onClick={() => setEvaluationsExpanded((prev) => !prev)}
             className="flex items-center gap-2 w-full text-left mb-3 group"
           >
-            <Music className="h-4 w-4 text-gray-500 shrink-0" />
-            <h4 className="text-sm font-semibold text-gray-900 flex-1">
+            <Music className="h-4 w-4 text-gray-600 shrink-0" />
+            <h4 className="text-sm font-semibold text-gray-900">
               Historial de Calificaciones
               {evaluations.length > 0 && (
-                <span className="ml-2 text-gray-400 font-normal">
+                <span className="ml-2 text-gray-500 font-normal">
                   ({evaluations.length})
                 </span>
               )}
             </h4>
             {evaluationsExpanded ? (
-              <ChevronUp className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
+              <ChevronUp className="h-4 w-4 text-gray-600 group-hover:text-gray-900 shrink-0" />
             ) : (
-              <ChevronDown className="h-4 w-4 text-gray-500 group-hover:text-gray-700" />
+              <ChevronDown className="h-4 w-4 text-gray-600 group-hover:text-gray-900 shrink-0" />
             )}
           </button>
           {evaluationsExpanded &&
             (evaluations.length === 0 ? (
-              <p className="text-gray-500 text-sm">
+              <p className="text-gray-600 text-sm">
                 Sin evaluar. No hay calificaciones registradas aún.
               </p>
             ) : (
@@ -410,7 +410,7 @@ export function HogarCourseProgress({
                   >
                     <div>
                       <p className="font-medium text-gray-900">{e.songName}</p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-gray-600">
                         {e.rubricName} • {e.dateFormatted}
                       </p>
                     </div>
@@ -434,11 +434,11 @@ export function HogarCourseProgress({
         {/* Comentarios del profesor */}
         <section>
           <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-            <MessageSquare className="h-4 w-4 text-gray-500" />
+            <MessageSquare className="h-4 w-4 text-gray-600" />
             Comentarios del profesor
           </h4>
           {comments.length === 0 ? (
-            <p className="text-gray-500 text-sm">No hay comentarios.</p>
+            <p className="text-gray-600 text-sm">No hay comentarios.</p>
           ) : (
             <ul className="space-y-2">
               {comments.map((c) => (
@@ -446,10 +446,10 @@ export function HogarCourseProgress({
                   key={c.id}
                   className="rounded-lg border border-gray-200 bg-white px-3 py-2"
                 >
-                  <p className="text-xs text-gray-500 mb-1">
+                  <p className="text-xs text-gray-600 mb-1">
                     {c.dateFormatted}
                   </p>
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                  <p className="text-sm text-gray-900 whitespace-pre-wrap">
                     {c.comment}
                   </p>
                 </li>
@@ -461,11 +461,11 @@ export function HogarCourseProgress({
         {/* Tareas */}
         <section>
           <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-            <ClipboardList className="h-4 w-4 text-gray-500" />
+            <ClipboardList className="h-4 w-4 text-gray-600" />
             Tareas
           </h4>
           {allTasks.length === 0 ? (
-            <p className="text-gray-500 text-sm">No hay tareas asignadas.</p>
+            <p className="text-gray-600 text-sm">No hay tareas asignadas.</p>
           ) : (
             <ul className="space-y-2">
               {allTasks.map((task) => (
@@ -498,16 +498,16 @@ export function HogarCourseProgress({
                       {task.isCompleted ? (
                         <CheckCircle2 className="h-5 w-5 text-green-600" />
                       ) : (
-                        <Circle className="h-5 w-5 text-gray-400 hover:text-indigo-500" />
+                        <Circle className="h-5 w-5 text-gray-400 hover:text-indigo-600" />
                       )}
                     </button>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-gray-600">
                           {task.dateFormatted}
                         </p>
                         {task.isGroup && (
-                          <span className="inline-flex items-center gap-1 text-xs bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">
+                          <span className="inline-flex items-center gap-1 text-xs bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded-sm">
                             <Users className="h-3 w-3" />
                             Grupal
                           </span>
@@ -516,8 +516,8 @@ export function HogarCourseProgress({
                       <p
                         className={`text-sm whitespace-pre-wrap ${
                           task.isCompleted
-                            ? "text-gray-500 line-through"
-                            : "text-gray-700"
+                            ? "text-gray-600 line-through"
+                            : "text-gray-900"
                         }`}
                       >
                         {task.assignmentText}
@@ -533,11 +533,11 @@ export function HogarCourseProgress({
         {/* Badges */}
         <section>
           <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-            <Award className="h-4 w-4 text-gray-500" />
+            <Award className="h-4 w-4 text-gray-600" />
             Insignias ganadas
           </h4>
           {badges.length === 0 ? (
-            <p className="text-gray-500 text-sm">
+            <p className="text-gray-600 text-sm">
               No hay insignias ganadas en este curso.
             </p>
           ) : (
@@ -554,8 +554,8 @@ export function HogarCourseProgress({
                       className="h-12 w-12 object-contain mb-2"
                     />
                   ) : (
-                    <div className="h-12 w-12 rounded-full bg-amber-100 flex items-center justify-center mb-2">
-                      <Award className="h-6 w-6 text-amber-600" />
+                    <div className="h-12 w-12 rounded-full bg-indigo-100 flex items-center justify-center mb-2">
+                      <Award className="h-6 w-6 text-indigo-600" />
                     </div>
                   )}
                   <p className="font-medium text-sm text-gray-900">
@@ -564,7 +564,7 @@ export function HogarCourseProgress({
                   {badge.virtud && (
                     <p className="text-xs text-indigo-600">{badge.virtud}</p>
                   )}
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-gray-600 mt-1">
                     {badge.dateFormatted}
                   </p>
                 </div>

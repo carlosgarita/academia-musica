@@ -6,7 +6,8 @@ import { useDatabase } from "@/lib/hooks/useDatabase";
 import type { Database } from "@/lib/database.types";
 
 type Student = Database["public"]["Tables"]["students"]["Row"];
-type CourseRegistration = Database["public"]["Tables"]["course_registrations"]["Row"];
+type CourseRegistration =
+  Database["public"]["Tables"]["course_registrations"]["Row"];
 type Subject = Database["public"]["Tables"]["subjects"]["Row"];
 type Period = Database["public"]["Tables"]["periods"]["Row"];
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
@@ -24,7 +25,9 @@ interface StudentsListProps {
 export function StudentsList({ academyId }: StudentsListProps) {
   const db = useDatabase();
   const [students, setStudents] = useState<Student[]>([]);
-  const [coursesByStudent, setCoursesByStudent] = useState<Record<string, CourseRegistrationWithDetails[]>>({});
+  const [coursesByStudent, setCoursesByStudent] = useState<
+    Record<string, CourseRegistrationWithDetails[]>
+  >({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [enrollmentFilter, setEnrollmentFilter] = useState<
@@ -85,12 +88,16 @@ export function StudentsList({ academyId }: StudentsListProps) {
             "Content-Type": "application/json",
           },
         });
-        
+
         if (cancelled) return;
 
         if (!response.ok) {
           // Si falla, simplemente no mostrar cursos, pero no romper la UI
-          console.warn("Failed to load courses:", response.status, response.statusText);
+          console.warn(
+            "Failed to load courses:",
+            response.status,
+            response.statusText
+          );
           return;
         }
 
@@ -100,8 +107,12 @@ export function StudentsList({ academyId }: StudentsListProps) {
         if (cancelled) return;
 
         // Obtener información de profesores para cada registro
-        const profileIds = [...new Set(registrations.map((r: any) => r.profile_id).filter(Boolean))];
-        
+        const profileIds = [
+          ...new Set(
+            registrations.map((r: any) => r.profile_id).filter(Boolean)
+          ),
+        ];
+
         let professorsMap: Record<string, Profile> = {};
         if (profileIds.length > 0) {
           try {
@@ -112,20 +123,23 @@ export function StudentsList({ academyId }: StudentsListProps) {
                 "Content-Type": "application/json",
               },
             });
-            
+
             if (cancelled) return;
 
             if (profResponse.ok) {
               const profData = await profResponse.json();
               if (profData.professors) {
                 // Filtrar solo los profesores que están en nuestros profile_ids
-                const relevantProfessors = profData.professors.filter((p: Profile) => 
-                  profileIds.includes(p.id)
+                const relevantProfessors = profData.professors.filter(
+                  (p: Profile) => profileIds.includes(p.id)
                 );
-                professorsMap = relevantProfessors.reduce((acc: Record<string, Profile>, p: Profile) => {
-                  acc[p.id] = p;
-                  return acc;
-                }, {});
+                professorsMap = relevantProfessors.reduce(
+                  (acc: Record<string, Profile>, p: Profile) => {
+                    acc[p.id] = p;
+                    return acc;
+                  },
+                  {}
+                );
               }
             }
           } catch (profErr) {
@@ -143,7 +157,9 @@ export function StudentsList({ academyId }: StudentsListProps) {
             ...reg,
             subject: reg.subject as Subject | null,
             period: reg.period as Period | null,
-            professor: reg.profile_id ? (professorsMap[reg.profile_id] || null) : null,
+            professor: reg.profile_id
+              ? professorsMap[reg.profile_id] || null
+              : null,
           };
 
           if (!grouped[reg.student_id]) {
@@ -220,7 +236,10 @@ export function StudentsList({ academyId }: StudentsListProps) {
   }
 
   // Helper function to format name as "Apellido Nombre"
-  const formatName = (firstName: string | null, lastName: string | null): string => {
+  const formatName = (
+    firstName: string | null,
+    lastName: string | null
+  ): string => {
     const first = firstName || "";
     const last = lastName || "";
     if (last && first) {
@@ -338,7 +357,10 @@ export function StudentsList({ academyId }: StudentsListProps) {
             <div className="bg-white shadow overflow-hidden sm:rounded-md">
               <ul className="divide-y divide-gray-200">
                 {filteredStudents.map((student) => {
-                  const fullName = formatName(student.first_name, student.last_name);
+                  const fullName = formatName(
+                    student.first_name,
+                    student.last_name
+                  );
 
                   return (
                     <li key={student.id} className="p-6">
@@ -381,25 +403,44 @@ export function StudentsList({ academyId }: StudentsListProps) {
                               </span>
                             </div>
                             {/* Cursos matriculados */}
-                            {coursesByStudent[student.id] && coursesByStudent[student.id].length > 0 ? (
+                            {coursesByStudent[student.id] &&
+                            coursesByStudent[student.id].length > 0 ? (
                               <div className="mt-3">
-                                <span className="font-medium text-gray-700">Cursos matriculados:</span>
+                                <span className="font-medium text-gray-700">
+                                  Cursos matriculados:
+                                </span>
                                 <ul className="mt-1 space-y-1">
                                   {coursesByStudent[student.id]
-                                    .filter((course) => course.status === "active")
+                                    .filter(
+                                      (course) => course.status === "active"
+                                    )
                                     .map((course) => (
-                                      <li key={course.id} className="text-xs text-gray-600 pl-2 border-l-2 border-indigo-300">
+                                      <li
+                                        key={course.id}
+                                        className="text-xs text-gray-600 pl-2 border-l-2 border-indigo-300"
+                                      >
                                         <span className="font-medium">
-                                          {course.subject?.name || "Curso sin nombre"}
+                                          {course.subject?.name ||
+                                            "Curso sin nombre"}
                                         </span>
                                         {course.period && (
                                           <span className="text-gray-500">
-                                            {" "}• {course.period.year} – {course.period.period}
+                                            {" "}
+                                            • {course.period.year} –{" "}
+                                            {course.period.period}
                                           </span>
                                         )}
                                         {course.professor && (
                                           <span className="text-gray-500">
-                                            {" "}• Prof: {`${course.professor.first_name || ""} ${course.professor.last_name || ""}`.trim() || course.professor.email || "N/A"}
+                                            {" "}
+                                            • Prof:{" "}
+                                            {`${
+                                              course.professor.first_name || ""
+                                            } ${
+                                              course.professor.last_name || ""
+                                            }`.trim() ||
+                                              course.professor.email ||
+                                              "N/A"}
                                           </span>
                                         )}
                                       </li>
@@ -416,13 +457,13 @@ export function StudentsList({ academyId }: StudentsListProps) {
                         <div className="ml-4 flex flex-col space-y-2">
                           <Link
                             href={`/director/students/${student.id}/edit`}
-                            className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
+                            className="text-gray-600 hover:text-gray-900 text-sm font-medium"
                           >
                             Editar
                           </Link>
                           <button
                             onClick={() => handleDelete(student.id, fullName)}
-                            className="text-red-600 hover:text-red-900 text-sm font-medium text-left"
+                            className="text-gray-600 hover:text-gray-900 text-sm font-medium text-left"
                           >
                             Eliminar
                           </button>

@@ -12,7 +12,13 @@ type Turno = {
 };
 
 const DAY_NAMES = [
-  "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo",
+  "Lunes",
+  "Martes",
+  "Miércoles",
+  "Jueves",
+  "Viernes",
+  "Sábado",
+  "Domingo",
 ];
 
 export default function EditCoursePage() {
@@ -47,17 +53,42 @@ export default function EditCoursePage() {
         if (!r.ok) throw new Error(d.error || "Error al cargar el curso");
         const c = d.course;
         setSubjectName((c.subject?.name as string) ?? "");
-        const p = c.profile as { first_name?: string; last_name?: string; email?: string } | null;
-        setProfessorName(p ? [p.first_name, p.last_name].filter(Boolean).join(" ").trim() || p.email || "" : "");
+        const p = c.profile as {
+          first_name?: string;
+          last_name?: string;
+          email?: string;
+        } | null;
+        setProfessorName(
+          p
+            ? [p.first_name, p.last_name].filter(Boolean).join(" ").trim() ||
+                p.email ||
+                ""
+            : ""
+        );
         const per = c.period as { year?: number; period?: string } | null;
         setYearPeriod(per ? `${per.year} – ${per.period}` : "");
         setSessionDates(c.session_dates ?? []);
-        setTurnos((c.turnos ?? []).map((t: { id?: string; day_of_week: number; start_time: string; end_time: string }) => ({
-          id: t.id ?? `t-${Date.now()}-${Math.random()}`,
-          day_of_week: t.day_of_week,
-          start_time: typeof t.start_time === "string" ? t.start_time.slice(0, 5) : "09:00",
-          end_time: typeof t.end_time === "string" ? t.end_time.slice(0, 5) : "10:00",
-        })));
+        setTurnos(
+          (c.turnos ?? []).map(
+            (t: {
+              id?: string;
+              day_of_week: number;
+              start_time: string;
+              end_time: string;
+            }) => ({
+              id: t.id ?? `t-${Date.now()}-${Math.random()}`,
+              day_of_week: t.day_of_week,
+              start_time:
+                typeof t.start_time === "string"
+                  ? t.start_time.slice(0, 5)
+                  : "09:00",
+              end_time:
+                typeof t.end_time === "string"
+                  ? t.end_time.slice(0, 5)
+                  : "10:00",
+            })
+          )
+        );
         const dates = (c.session_dates ?? []) as string[];
         if (dates.length > 0) {
           const sorted = [...dates].sort();
@@ -77,7 +108,12 @@ export default function EditCoursePage() {
       setError("La hora de fin debe ser posterior a la de inicio");
       return;
     }
-    const dup = turnos.some((t) => t.day_of_week === newDay && t.start_time === newStart && t.end_time === newEnd);
+    const dup = turnos.some(
+      (t) =>
+        t.day_of_week === newDay &&
+        t.start_time === newStart &&
+        t.end_time === newEnd
+    );
     if (dup) {
       setError("Este turno ya está agregado");
       return;
@@ -91,7 +127,11 @@ export default function EditCoursePage() {
       return (x >= a && x < b) || (y > a && y <= b) || (x <= a && y >= b);
     });
     if (hasOverlap) {
-      setError(`Ya hay un turno en ${DAY_NAMES[newDay - 1]} que se solapa con este horario`);
+      setError(
+        `Ya hay un turno en ${
+          DAY_NAMES[newDay - 1]
+        } que se solapa con este horario`
+      );
       return;
     }
     setError(null);
@@ -147,7 +187,9 @@ export default function EditCoursePage() {
       return;
     }
     if (turnos.length === 0) {
-      setError("Agrega al menos un turno; sus días se usan para generar las fechas");
+      setError(
+        "Agrega al menos un turno; sus días se usan para generar las fechas"
+      );
       return;
     }
     const start = new Date(startDate);
@@ -163,7 +205,9 @@ export default function EditCoursePage() {
       if (daysSet.has(dow)) out.push(d.toISOString().split("T")[0]);
     }
     if (out.length === 0) {
-      setError("No hay fechas en ese rango para los días de los turnos. Revisa inicio, fin y turnos.");
+      setError(
+        "No hay fechas en ese rango para los días de los turnos. Revisa inicio, fin y turnos."
+      );
       return;
     }
     setSessionDates(out);
@@ -194,11 +238,18 @@ export default function EditCoursePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           session_dates: sessionDates,
-          turnos: turnos.map((t) => ({ day_of_week: t.day_of_week, start_time: t.start_time, end_time: t.end_time })),
+          turnos: turnos.map((t) => ({
+            day_of_week: t.day_of_week,
+            start_time: t.start_time,
+            end_time: t.end_time,
+          })),
         }),
       });
       const d = await r.json();
-      if (!r.ok) throw new Error(d.details ? `${d.error}: ${d.details}` : d.error || "Error al guardar");
+      if (!r.ok)
+        throw new Error(
+          d.details ? `${d.error}: ${d.details}` : d.error || "Error al guardar"
+        );
       router.push("/director/direccion/courses");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado al guardar");
@@ -219,11 +270,15 @@ export default function EditCoursePage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Editar curso</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Materia, profesor y periodo no se pueden cambiar. Puedes modificar sesiones y turnos.
+          Materia, profesor y periodo no se pueden cambiar. Puedes modificar
+          sesiones y turnos.
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white shadow rounded-lg p-6 space-y-6">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white shadow rounded-lg p-6 space-y-6"
+      >
         {error && (
           <div className="bg-red-50 border-l-4 border-red-400 p-4">
             <p className="text-sm text-red-700">{error}</p>
@@ -232,19 +287,25 @@ export default function EditCoursePage() {
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Año – Periodo</label>
+            <label className="block text-sm font-medium text-gray-700">
+              Año – Periodo
+            </label>
             <div className="mt-1 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
               {yearPeriod || "—"}
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Materia</label>
+            <label className="block text-sm font-medium text-gray-700">
+              Materia
+            </label>
             <div className="mt-1 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
               {subjectName || "—"}
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Profesor</label>
+            <label className="block text-sm font-medium text-gray-700">
+              Profesor
+            </label>
             <div className="mt-1 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
               {professorName || "—"}
             </div>
@@ -252,25 +313,34 @@ export default function EditCoursePage() {
         </div>
 
         <div className="border-t border-gray-200 pt-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Turnos (día y horario)</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-4">
+            Turnos (día y horario)
+          </h3>
           <p className="text-sm text-gray-500 mb-4">
-            La misma clase puede tener distintos horarios, por ejemplo: Martes 15:00 y Jueves 17:00.
+            La misma clase puede tener distintos horarios, por ejemplo: Martes
+            15:00 y Jueves 17:00.
           </p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Día</label>
+              <label className="block text-sm font-medium text-gray-700">
+                Día
+              </label>
               <select
                 value={newDay}
                 onChange={(e) => setNewDay(Number(e.target.value))}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               >
                 {DAY_NAMES.map((n, i) => (
-                  <option key={i} value={i + 1}>{n}</option>
+                  <option key={i} value={i + 1}>
+                    {n}
+                  </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Hora inicio</label>
+              <label className="block text-sm font-medium text-gray-700">
+                Hora inicio
+              </label>
               <input
                 type="time"
                 min="07:00"
@@ -281,7 +351,9 @@ export default function EditCoursePage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Hora fin</label>
+              <label className="block text-sm font-medium text-gray-700">
+                Hora fin
+              </label>
               <input
                 type="time"
                 min="07:00"
@@ -294,11 +366,29 @@ export default function EditCoursePage() {
             <div className="flex items-end gap-2">
               {editingId ? (
                 <>
-                  <button type="button" onClick={addTurno} className="flex-1 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">Guardar</button>
-                  <button type="button" onClick={cancelEdit} className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50">Cancelar</button>
+                  <button
+                    type="button"
+                    onClick={addTurno}
+                    className="flex-1 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+                  >
+                    Guardar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelEdit}
+                    className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                  >
+                    Cancelar
+                  </button>
                 </>
               ) : (
-                <button type="button" onClick={addTurno} className="w-full rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">Agregar turno</button>
+                <button
+                  type="button"
+                  onClick={addTurno}
+                  className="w-full rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+                >
+                  Agregar turno
+                </button>
               )}
             </div>
           </div>
@@ -306,16 +396,40 @@ export default function EditCoursePage() {
 
         {turnos.length > 0 && (
           <div className="border-t border-gray-200 pt-4">
-            <h4 className="text-sm font-medium text-gray-700 mb-2">Turnos agregados</h4>
+            <h4 className="text-sm font-medium text-gray-700 mb-2">
+              Turnos agregados
+            </h4>
             <ul className="space-y-2">
               {turnos
-                .sort((a, b) => (a.day_of_week !== b.day_of_week ? a.day_of_week - b.day_of_week : a.start_time.localeCompare(b.start_time)))
+                .sort((a, b) =>
+                  a.day_of_week !== b.day_of_week
+                    ? a.day_of_week - b.day_of_week
+                    : a.start_time.localeCompare(b.start_time)
+                )
                 .map((t) => (
-                  <li key={t.id} className="flex items-center justify-between rounded-md border border-gray-200 bg-gray-50 px-4 py-2">
-                    <span className="text-sm">{DAY_NAMES[t.day_of_week - 1]} {t.start_time.slice(0, 5)} – {t.end_time.slice(0, 5)}</span>
+                  <li
+                    key={t.id}
+                    className="flex items-center justify-between rounded-md border border-gray-200 bg-gray-50 px-4 py-2"
+                  >
+                    <span className="text-sm">
+                      {DAY_NAMES[t.day_of_week - 1]} {t.start_time.slice(0, 5)}{" "}
+                      – {t.end_time.slice(0, 5)}
+                    </span>
                     <div className="flex gap-2">
-                      <button type="button" onClick={() => editTurno(t.id)} className="text-xs text-indigo-600 hover:text-indigo-800">Editar</button>
-                      <button type="button" onClick={() => removeTurno(t.id)} className="text-xs text-red-600 hover:text-red-800">Eliminar</button>
+                      <button
+                        type="button"
+                        onClick={() => editTurno(t.id)}
+                        className="text-xs text-gray-600 hover:text-gray-800"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeTurno(t.id)}
+                        className="text-xs text-gray-600 hover:text-gray-800"
+                      >
+                        Eliminar
+                      </button>
                     </div>
                   </li>
                 ))}
@@ -324,11 +438,18 @@ export default function EditCoursePage() {
         )}
 
         <div className="border-t border-gray-200 pt-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Fechas de sesiones</h2>
+          <h2 className="text-lg font-medium text-gray-900 mb-4">
+            Fechas de sesiones
+          </h2>
           <div className="bg-gray-50 p-4 rounded-lg space-y-4 mb-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label htmlFor="start" className="block text-sm font-medium text-gray-700">Fecha de inicio</label>
+                <label
+                  htmlFor="start"
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  Fecha de inicio
+                </label>
                 <input
                   id="start"
                   type="date"
@@ -338,7 +459,12 @@ export default function EditCoursePage() {
                 />
               </div>
               <div>
-                <label htmlFor="end" className="block text-sm font-medium text-gray-700">Fecha de fin</label>
+                <label
+                  htmlFor="end"
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  Fecha de fin
+                </label>
                 <input
                   id="end"
                   type="date"
@@ -348,19 +474,40 @@ export default function EditCoursePage() {
                 />
               </div>
             </div>
-            <p className="text-sm text-gray-500">Se usan los días de la semana de los turnos agregados.</p>
-            <button type="button" onClick={generateSessionDates} className="w-full rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">Generar fechas</button>
+            <p className="text-sm text-gray-500">
+              Se usan los días de la semana de los turnos agregados.
+            </p>
+            <button
+              type="button"
+              onClick={generateSessionDates}
+              className="w-full rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+            >
+              Generar fechas
+            </button>
           </div>
 
           {sessionDates.length > 0 && (
             <div className="mt-4">
-              <h3 className="text-sm font-medium text-gray-700 mb-2">Fechas agregadas ({sessionDates.length})</h3>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">
+                Fechas agregadas ({sessionDates.length})
+              </h3>
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 {sessionDates.map((d, i) => (
-                  <div key={`${d}-${i}`} className="flex items-center justify-between bg-white p-3 rounded border border-gray-200">
-                    <span className="text-sm font-medium text-gray-900">{new Date(d).toLocaleDateString("es-ES")}</span>
+                  <div
+                    key={`${d}-${i}`}
+                    className="flex items-center justify-between bg-white p-3 rounded border border-gray-200"
+                  >
+                    <span className="text-sm font-medium text-gray-900">
+                      {new Date(d).toLocaleDateString("es-ES")}
+                    </span>
                     <span className="ml-2 text-sm text-gray-600">- Sesión</span>
-                    <button type="button" onClick={() => removeSessionDate(i)} className="text-red-600 hover:text-red-900 text-sm">Eliminar</button>
+                    <button
+                      type="button"
+                      onClick={() => removeSessionDate(i)}
+                      className="text-gray-600 hover:text-gray-900 text-sm"
+                    >
+                      Eliminar
+                    </button>
                   </div>
                 ))}
               </div>

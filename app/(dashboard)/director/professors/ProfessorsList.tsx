@@ -84,7 +84,11 @@ export default function ProfessorsList() {
   }
 
   // Helper function to format name as "Apellido Nombre"
-  const formatName = (firstName: string | null, lastName: string | null, email?: string): string => {
+  const formatName = (
+    firstName: string | null,
+    lastName: string | null,
+    email?: string
+  ): string => {
     const first = firstName || "";
     const last = lastName || "";
     if (last && first) {
@@ -140,7 +144,11 @@ export default function ProfessorsList() {
         <div className="bg-white shadow overflow-hidden sm:rounded-md">
           <ul className="divide-y divide-gray-200">
             {sortedProfessors.map((professor) => {
-              const fullName = formatName(professor.first_name, professor.last_name, professor.email);
+              const fullName = formatName(
+                professor.first_name,
+                professor.last_name,
+                professor.email
+              );
               const subjectsList = professor.subjects
                 .map((ps) => ps.subject.name)
                 .join(", ");
@@ -219,7 +227,7 @@ export default function ProfessorsList() {
                     <div className="ml-4">
                       <Link
                         href={`/director/professors/${professor.id}/edit`}
-                        className="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
+                        className="text-gray-600 hover:text-gray-900 text-sm font-medium"
                       >
                         Editar
                       </Link>

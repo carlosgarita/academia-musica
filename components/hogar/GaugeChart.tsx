@@ -9,8 +9,8 @@ import {
 
 function getGaugeColor(percent: number): string {
   if (percent >= 80) return "#22c55e"; // green
-  if (percent >= 50) return "#EFA244"; // orange
-  if (percent >= 20) return "#ef4444"; // orange lighter
+  if (percent >= 50) return "#ea580c"; // orange
+  if (percent >= 20) return "#f97316"; // orange lighter
   if (percent > 0) return "#ef4444"; // red
   return "#9ca3af"; // gray (sin evaluar)
 }
@@ -30,7 +30,7 @@ export function GaugeChart({
 
   return (
     <div className="flex flex-col items-center min-w-[120px]">
-      <ResponsiveContainer width={150} height={100}>
+      <ResponsiveContainer width={100} height={100}>
         <RadialBarChart
           data={data}
           startAngle={612}
@@ -46,10 +46,10 @@ export function GaugeChart({
           />
         </RadialBarChart>
       </ResponsiveContainer>
-      <p className="text-xs font-medium text-gray-600 mt-2 text-center w-full break-words px-1">
+      <p className="text-sm font-semibold text-gray-900 mt-1 text-center px-2">
         {label}
       </p>
-      <p className="text-sm font-semibold text-gray-900 mt-1 text-center px-2">
+      <p className="text-xs font-medium text-gray-600 mt-2 text-center w-full break-words px-1">
         {scaleName}
       </p>
     </div>
