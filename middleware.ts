@@ -1,27 +1,47 @@
-import { createServerClient } from "@/lib/supabase/server";
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { cookies } from "next/headers";
 import type { Database } from "@/lib/database.types";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 
 export async function middleware(request: NextRequest) {
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set("x-url", request.url);
+  let response = NextResponse.next({ request: { headers: request.headers } });
+  response.headers.set("x-url", request.url);
 
   try {
-    // Create supabase server client
-    const cookieStore = cookies();
-    const supabase = await createServerClient(cookieStore);
+    // Edge-compatible Supabase client (no cookies() from next/headers)
+    const supabase = createServerClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return request.cookies.get(name)?.value;
+          },
+          set(name: string, value: string, options: { path?: string }) {
+            request.cookies.set({ name, value, ...options });
+            response = NextResponse.next({ request: { headers: request.headers } });
+            response.cookies.set({ name, value, ...options });
+          },
+          remove(name: string, options: { path?: string }) {
+            request.cookies.set({ name, value: "", ...options });
+            response.cookies.set({ name, value: "", ...options });
+          },
+        },
+      }
+    );
 
-    // Single call: getUser() validates session from cookies
     const {
       data: { user },
-      error: userError,
     } = await supabase.auth.getUser();
 
     const path = new URL(request.url).pathname;
+
+    // API routes: only refresh session, skip profile fetch (each API validates its own auth)
+    if (path.startsWith("/api/")) {
+      return response;
+    }
 
     // Auth pages and student info page are public
     if (
@@ -33,7 +53,6 @@ export async function middleware(request: NextRequest) {
       path === "/auth/callback" ||
       path === "/student-info"
     ) {
-      // If user is already logged in, redirect to appropriate dashboard
       if (user) {
         const { data: profile, error: profileError } = await supabase
           .from("profiles")
@@ -53,7 +72,6 @@ export async function middleware(request: NextRequest) {
             case "professor":
               return NextResponse.redirect(new URL("/professor", request.url));
             case "student":
-              // Students don't have their own portal - redirect to info page
               return NextResponse.redirect(
                 new URL("/student-info", request.url)
               );
@@ -62,22 +80,18 @@ export async function middleware(request: NextRequest) {
           }
         }
       }
-      return NextResponse.next({
-        headers: requestHeaders,
-      });
+      return response;
     }
 
-    // Protected routes require authentication
     if (!user) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
 
-    // Get user's role
     const { data: profile, error: profileError } = (await supabase
       .from("profiles")
       .select("role")
       .eq("id", user.id)
-      .single()) as { data: Profile | null; error: any };
+      .single()) as { data: Profile | null; error: { code?: string; message?: string } | null };
 
     if (profileError) {
       // Log the error for debugging
@@ -90,7 +104,7 @@ export async function middleware(request: NextRequest) {
       // Check if it's a PGRST error (RLS issue) or not found
       if (
         profileError.code === "PGRST116" ||
-        profileError.message.includes("No rows")
+        (typeof profileError.message === "string" && profileError.message.includes("No rows"))
       ) {
         return NextResponse.redirect(
           new URL(
@@ -107,7 +121,7 @@ export async function middleware(request: NextRequest) {
         new URL(
           "/login?error=" +
             encodeURIComponent(
-              `Error al verificar tu perfil: ${profileError.message}. Por favor, intenta de nuevo.`
+              `Error al verificar tu perfil: ${profileError.message ?? "Unknown"}. Por favor, intenta de nuevo.`
             ),
           request.url
         )
@@ -173,9 +187,7 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    return NextResponse.next({
-      headers: requestHeaders,
-    });
+    return response;
   } catch {
     // If there's an error, force user to login
     return NextResponse.redirect(new URL("/login", request.url));

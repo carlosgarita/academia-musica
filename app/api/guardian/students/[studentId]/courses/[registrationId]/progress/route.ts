@@ -22,9 +22,11 @@ async function guardianCanAccessStudent(
 // Returns evaluations, comments, assignments (with completion status), badges
 export async function GET(
   request: NextRequest,
-  { params }: { params: { studentId: string; registrationId: string } }
+  { params }: { params: Promise<{ studentId: string; registrationId: string }> }
 ) {
   try {
+    const { studentId, registrationId } = await params;
+
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
@@ -46,8 +48,6 @@ export async function GET(
     if (!profile) {
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
-
-    const { studentId, registrationId } = params;
 
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
       return NextResponse.json(
