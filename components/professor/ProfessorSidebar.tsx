@@ -24,13 +24,13 @@ export function ProfessorSidebar() {
   return (
     <>
       {/* Mobile Menu Button */}
-      <a
+      <Link
         href="/professor/aula"
         className="lg:hidden fixed top-4 left-4 z-50 rounded-md p-2 bg-white shadow-md text-gray-600 hover:bg-gray-100"
         aria-label="Menú"
       >
         <School className="h-6 w-6" />
-      </a>
+      </Link>
 
       {/* Sidebar - Desktop */}
       <aside className="hidden lg:flex flex-col fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 z-30">

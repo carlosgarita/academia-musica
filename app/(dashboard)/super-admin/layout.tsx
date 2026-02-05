@@ -1,25 +1,24 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { CookieOptions } from "@supabase/ssr";
 import { PropsWithChildren } from "react";
 
 async function SuperAdminLayout({ children }: PropsWithChildren) {
-  const cookieStore = cookies();
-
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         async get(name: string) {
-          const cookieStore = await cookies();
-          return cookieStore.get(name)?.value;
+          const store = await cookies();
+          return store.get(name)?.value;
         },
-        set(name: string, value: string, options: CookieOptions) {
+        set(_name: string, _value: string, _options: CookieOptions) {
           // Not needed in server component
         },
-        remove(name: string, options: CookieOptions) {
+        remove(_name: string, _options: CookieOptions) {
           // Not needed in server component
         },
       },
@@ -54,18 +53,18 @@ async function SuperAdminLayout({ children }: PropsWithChildren) {
                 <h1 className="text-xl font-bold">Super Admin Portal</h1>
               </div>
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                <a
+                <Link
                   href="/super-admin"
                   className="border-indigo-500 text-gray-900 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
                 >
                   Dashboard
-                </a>
-                <a
+                </Link>
+                <Link
                   href="/super-admin/academies"
                   className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
                 >
                   Academias
-                </a>
+                </Link>
               </div>
             </div>
           </div>

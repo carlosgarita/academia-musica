@@ -403,7 +403,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 2) period_dates: usar session_dates o derivar de start_date, end_date y días de turnos
-    let dateInserts: { period_id: string; date_type: string; date: string; subject_id: string; comment: null }[] = [];
+    const dateInserts: { period_id: string; date_type: string; date: string; subject_id: string; comment: null }[] = [];
 
     if (useSessionDates) {
       for (const d of session_dates as string[]) {

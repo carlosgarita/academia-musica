@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useSupabase } from "@/lib/hooks/useSupabase";
 import type { Database } from "@/lib/database.types";
 import { useEffect, useState } from "react";
@@ -121,12 +122,12 @@ export default function DashboardStats() {
               </ul>
             </div>
             <div className="mt-6">
-              <a
+              <Link
                 href="/super-admin/academies"
                 className="w-full flex justify-center items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
               >
                 View all academies
-              </a>
+              </Link>
             </div>
           </div>
         </div>

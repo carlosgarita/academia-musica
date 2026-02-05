@@ -528,8 +528,8 @@ export function EditScheduleForm({
           </div>
         </div>
         <p className="mt-2 text-xs text-gray-500">
-          Selecciona el día y las horas del turno, luego haz clic en "Agregar
-          Turno"
+          Selecciona el día y las horas del turno, luego haz clic en &quot;Agregar
+          Turno&quot;
         </p>
       </div>
 

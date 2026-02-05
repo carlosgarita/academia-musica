@@ -19,14 +19,14 @@ export async function createServerClient(
         set(name: string, value: string, options: CookieOptions) {
           try {
             cookieData.set(name, value, options);
-          } catch (error) {
+          } catch {
             // Handle cookie setting error
           }
         },
         remove(name: string, options: CookieOptions) {
           try {
             cookieData.set(name, "", { ...options, maxAge: 0 });
-          } catch (error) {
+          } catch {
             // Handle cookie removal error
           }
         },

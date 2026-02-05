@@ -513,7 +513,7 @@ export function ExpedienteContent({
                   )}
                   {b.frase && (
                     <p className="text-xs text-gray-600 italic mt-1">
-                      "{b.frase}"
+                      &quot;{b.frase}&quot;
                     </p>
                   )}
                 </div>

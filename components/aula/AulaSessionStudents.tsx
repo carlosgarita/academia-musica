@@ -249,7 +249,7 @@ export function AulaSessionStudents({
             );
             if (tcRes.ok) {
               const tcData = await tcRes.json();
-              (tcData.completions || []).forEach((c: any) => {
+              (tcData.completions || []).forEach((c: { session_assignment_id?: string }) => {
                 if (c.session_assignment_id) {
                   completedAssignmentIds.add(c.session_assignment_id);
                 }

@@ -58,7 +58,7 @@ function ResetPasswordForm() {
             setIsProcessingToken(false);
             // Clean up the hash from URL
             window.history.replaceState(null, "", window.location.pathname);
-          } catch (err) {
+          } catch {
             setError("Error al procesar el enlace de recuperación");
             setIsProcessingToken(false);
           }
@@ -102,7 +102,7 @@ function ResetPasswordForm() {
           setError("Token de recuperación inválido o faltante. Por favor, usa el enlace del email.");
           setIsProcessingToken(false);
         }
-      } catch (err) {
+      } catch {
         setError("Error al verificar la sesión");
         setIsProcessingToken(false);
       }

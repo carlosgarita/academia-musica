@@ -458,7 +458,7 @@ export default function NewSchedulePage() {
             </div>
             <p className="mt-2 text-xs text-gray-500">
               Selecciona el día y las horas del turno, luego haz clic en
-              "Agregar Turno"
+              &quot;Agregar Turno&quot;
             </p>
           </div>
 

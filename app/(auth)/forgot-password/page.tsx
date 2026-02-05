@@ -2,11 +2,9 @@
 
 import { useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function ForgotPasswordPage() {
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -41,7 +39,7 @@ export default function ForgotPasswordPage() {
       let errorMessage = "Error al enviar el email de recuperación";
       
       if (err instanceof Error) {
-        const error = err as any;
+        const error = err as { message?: string; status?: number };
         const msg = error.message?.toLowerCase() || "";
         
         // Rate limiting

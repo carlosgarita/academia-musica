@@ -120,7 +120,7 @@ export function StudentsList({ academyId }: StudentsListProps) {
         // Obtener información de profesores para cada registro
         const profileIds = [
           ...new Set(
-            registrations.map((r: any) => r.profile_id).filter(Boolean)
+            registrations.map((r: { profile_id?: string }) => r.profile_id).filter(Boolean)
           ),
         ];
 
