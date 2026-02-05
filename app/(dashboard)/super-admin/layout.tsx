@@ -5,6 +5,9 @@ import { redirect } from "next/navigation";
 import type { CookieOptions } from "@supabase/ssr";
 import { PropsWithChildren } from "react";
 
+// Super-admin routes use cookies for auth; must be server-rendered, not statically generated
+export const dynamic = "force-dynamic";
+
 async function SuperAdminLayout({ children }: PropsWithChildren) {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
