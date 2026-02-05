@@ -6,9 +6,10 @@ import { cookies } from "next/headers";
 // GET: Get a single professor by ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
@@ -82,7 +83,7 @@ export async function GET(
         )
       `
       )
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("role", "professor")
       .is("deleted_at", null)
       .single();
@@ -104,10 +105,10 @@ export async function GET(
 
     // Filter out deleted subjects from professor_subjects relationships
     if (professor.subjects && Array.isArray(professor.subjects)) {
-      professor.subjects = professor.subjects.filter(
-        (ps: { subject: { deleted_at: string | null } | null }) =>
-          ps.subject && !ps.subject.deleted_at
-      );
+      professor.subjects = professor.subjects.filter((ps: { subject?: unknown }) => {
+        const s = Array.isArray(ps.subject) ? (ps.subject as { deleted_at?: string | null }[])[0] : (ps.subject as { deleted_at?: string | null } | null);
+        return s && !s.deleted_at;
+      });
     }
 
     // Filter out deleted schedules
@@ -133,9 +134,10 @@ export async function GET(
 // PATCH: Update a professor
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
@@ -198,7 +200,7 @@ export async function PATCH(
     const { data: professorRow, error: professorError } = await supabaseAdmin
       .from("profiles")
       .select("academy_id, role")
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("role", "professor")
       .is("deleted_at", null)
       .single();
@@ -227,7 +229,7 @@ export async function PATCH(
         additional_info: additional_info?.trim() || null,
         status: status || "active",
       })
-      .eq("id", params.id)
+      .eq("id", id)
       .select()
       .single();
 
@@ -243,11 +245,11 @@ export async function PATCH(
       await supabaseAdmin
         .from("professor_subjects")
         .delete()
-        .eq("profile_id", params.id);
+        .eq("profile_id", id);
 
       if (subject_ids.length > 0) {
         const rows = subject_ids.map((subject_id: string) => ({
-          profile_id: params.id,
+          profile_id: id,
           subject_id,
         }));
         const { error: insertErr } = await supabaseAdmin
@@ -285,9 +287,10 @@ export async function PATCH(
 // DELETE: Delete a professor
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
@@ -338,7 +341,7 @@ export async function DELETE(
     const { data: professorProfile, error: professorError } = await supabaseAdmin
       .from("profiles")
       .select("academy_id, role")
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("role", "professor")
       .is("deleted_at", null)
       .single();
@@ -361,7 +364,7 @@ export async function DELETE(
     const { error: deleteError } = await supabaseAdmin
       .from("profiles")
       .update({ deleted_at: new Date().toISOString() })
-      .eq("id", params.id);
+      .eq("id", id);
 
     if (deleteError) {
       console.error("Error soft deleting professor:", deleteError);

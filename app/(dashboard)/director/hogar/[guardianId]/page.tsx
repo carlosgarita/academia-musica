@@ -10,8 +10,9 @@ type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 export default async function HogarGuardianPage({
   params,
 }: {
-  params: { guardianId: string };
+  params: Promise<{ guardianId: string }>;
 }) {
+  const { guardianId } = await params;
   const cookieStore = cookies();
   const supabase = await createServerClient(cookieStore);
 
@@ -38,7 +39,7 @@ export default async function HogarGuardianPage({
   const { data: guardian } = await supabase
     .from("profiles")
     .select("first_name, last_name, email, academy_id")
-    .eq("id", params.guardianId)
+    .eq("id", guardianId)
     .eq("role", "guardian")
     .is("deleted_at", null)
     .single();
@@ -62,7 +63,7 @@ export default async function HogarGuardianPage({
       </div>
       <GuardianSelector academyId={profile.academy_id} />
       <HogarContent
-        guardianId={params.guardianId}
+        guardianId={guardianId}
         guardianName={guardianName}
       />
     </div>

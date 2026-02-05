@@ -41,7 +41,11 @@ export default async function AulaEstudiantePage({
     .eq("id", user.id)
     .single()) as { data: Profile | null };
 
-  if (!profile || profile.role !== "director" || !profile.academy_id) {
+  if (
+    !profile ||
+    (profile.role !== "director" && profile.role !== "super_admin") ||
+    (profile.role === "director" && !profile.academy_id)
+  ) {
     redirect("/");
   }
 
@@ -115,7 +119,7 @@ export default async function AulaEstudiantePage({
     redirect(`/director/aula/${professorId}/curso/${courseId}`);
   }
 
-  const student = reg.student as
+  const student = (reg.student as unknown) as
     | { id: string; first_name: string; last_name: string; deleted_at?: string | null }
     | null;
   if (!student || student.deleted_at) {
@@ -164,7 +168,7 @@ export default async function AulaEstudiantePage({
           Canciones asignadas, calificaciones y comentarios del curso.
         </p>
       </div>
-      <ProfessorSelector academyId={profile.academy_id} />
+      <ProfessorSelector academyId={profile.academy_id ?? ""} />
       <ExpedienteContent
         registrationId={registrationId}
         courseId={courseId}

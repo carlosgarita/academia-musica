@@ -6,9 +6,10 @@ import { cookies } from "next/headers";
 // GET: Get a single schedule by ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
@@ -56,7 +57,7 @@ export async function GET(
     const { data: schedule, error } = await supabaseAdmin
       .from("schedules")
       .select("*")
-      .eq("id", params.id)
+      .eq("id", id)
       .is("deleted_at", null)
       .single();
 
@@ -113,9 +114,10 @@ export async function GET(
 // PATCH: Update a schedule
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
@@ -170,7 +172,7 @@ export async function PATCH(
     const { data: existingSchedule, error: scheduleFetchError } = await supabaseAdmin
       .from("schedules")
       .select("*")
-      .eq("id", params.id)
+      .eq("id", id)
       .is("deleted_at", null)
       .single();
 
@@ -232,7 +234,7 @@ export async function PATCH(
       .eq("academy_id", existingSchedule.academy_id)
       .eq("profile_id", finalProfileId)
       .eq("day_of_week", finalDayOfWeek)
-      .neq("id", params.id) // exclude current schedule
+      .neq("id", id) // exclude current schedule
       .is("deleted_at", null)
       .or(
         `and(start_time.lte.${finalStartTime},end_time.gt.${finalStartTime}),and(start_time.lt.${finalEndTime},end_time.gte.${finalEndTime}),and(start_time.gte.${finalStartTime},end_time.lte.${finalEndTime})`
@@ -305,7 +307,7 @@ export async function PATCH(
     const { data: updatedSchedule, error: updateError } = await supabaseAdmin
       .from("schedules")
       .update(updateData)
-      .eq("id", params.id)
+      .eq("id", id)
       .select()
       .single();
 
@@ -330,12 +332,13 @@ export async function PATCH(
   }
 }
 
-// DELETE: Delete a schedule
+// DELETE: Soft delete a schedule Delete a schedule
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
@@ -367,7 +370,7 @@ export async function DELETE(
     const { data: currentSchedule, error: scheduleError } = await supabase
       .from("schedules")
       .select("academy_id")
-      .eq("id", params.id)
+      .eq("id", id)
       .is("deleted_at", null)
       .single();
 
@@ -408,7 +411,7 @@ export async function DELETE(
     const { error: deleteError } = await supabaseAdmin
       .from("schedules")
       .update({ deleted_at: new Date().toISOString() })
-      .eq("id", params.id);
+      .eq("id", id);
 
     if (deleteError) {
       console.error("Error deleting schedule:", deleteError);

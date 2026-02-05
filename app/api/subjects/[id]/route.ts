@@ -6,9 +6,10 @@ import { cookies } from "next/headers";
 // GET: Get a single subject by ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
@@ -24,7 +25,7 @@ export async function GET(
     const { data: subject, error } = await supabase
       .from("subjects")
       .select("*")
-      .eq("id", params.id)
+      .eq("id", id)
       .is("deleted_at", null)
       .single();
 
@@ -52,9 +53,10 @@ export async function GET(
 // PATCH: Update a subject
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
@@ -86,7 +88,7 @@ export async function PATCH(
     const { data: currentSubject, error: subjectError } = await supabase
       .from("subjects")
       .select("academy_id")
-      .eq("id", params.id)
+      .eq("id", id)
       .is("deleted_at", null)
       .single();
 
@@ -115,7 +117,7 @@ export async function PATCH(
     const { data: updatedSubject, error: updateError } = await supabase
       .from("subjects")
       .update(updateData)
-      .eq("id", params.id)
+      .eq("id", id)
       .select()
       .single();
 
@@ -145,7 +147,7 @@ export async function PATCH(
         const { error: schedulesUpdateError } = await supabaseAdmin
           .from("schedules")
           .update({ name: updatedSubject.name })
-          .eq("subject_id", params.id)
+          .eq("subject_id", id)
           .is("deleted_at", null); // Only update non-deleted schedules
 
         if (schedulesUpdateError) {
@@ -154,7 +156,7 @@ export async function PATCH(
           // Don't fail the whole operation, just log the error
           // The subject update was successful, so we return success
         } else {
-          console.log(`Successfully updated schedules name for subject ${params.id}`);
+          console.log(`Successfully updated schedules name for subject ${id}`);
         }
       } else {
         console.warn("SUPABASE_SERVICE_ROLE_KEY not set, skipping schedules name update");
@@ -174,12 +176,13 @@ export async function PATCH(
   }
 }
 
-// DELETE: Delete a subject
+// DELETE: Soft delete a subject Delete a subject
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
@@ -211,7 +214,7 @@ export async function DELETE(
     const { data: currentSubject, error: subjectError } = await supabase
       .from("subjects")
       .select("academy_id")
-      .eq("id", params.id)
+      .eq("id", id)
       .is("deleted_at", null)
       .single();
 
@@ -233,7 +236,7 @@ export async function DELETE(
     const { error: deleteError } = await supabase
       .from("subjects")
       .update({ deleted_at: new Date().toISOString() })
-      .eq("id", params.id);
+      .eq("id", id);
 
     if (deleteError) {
       console.error("Error deleting subject:", deleteError);

@@ -6,9 +6,10 @@ import { cookies } from "next/headers";
 // GET: Get a single song by ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
@@ -54,7 +55,7 @@ export async function GET(
     const { data: song, error } = await supabaseAdmin
       .from("songs")
       .select("*")
-      .eq("id", params.id)
+      .eq("id", id)
       .is("deleted_at", null)
       .single();
 
@@ -86,9 +87,10 @@ export async function GET(
 // PATCH: Update a song
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
@@ -140,7 +142,7 @@ export async function PATCH(
     const { data: existingSong, error: fetchError } = await supabaseAdmin
       .from("songs")
       .select("academy_id")
-      .eq("id", params.id)
+      .eq("id", id)
       .is("deleted_at", null)
       .single();
 
@@ -217,7 +219,7 @@ export async function PATCH(
     const { data: song, error: updateError } = await supabaseAdmin
       .from("songs")
       .update(updates)
-      .eq("id", params.id)
+      .eq("id", id)
       .select()
       .single();
 
@@ -242,12 +244,13 @@ export async function PATCH(
   }
 }
 
-// DELETE: Soft delete a song
+// DELETE: Soft delete a song Soft delete a song
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
@@ -299,7 +302,7 @@ export async function DELETE(
     const { data: existingSong, error: fetchError } = await supabaseAdmin
       .from("songs")
       .select("academy_id")
-      .eq("id", params.id)
+      .eq("id", id)
       .is("deleted_at", null)
       .single();
 
@@ -319,7 +322,7 @@ export async function DELETE(
     const { error: deleteError } = await supabaseAdmin
       .from("songs")
       .update({ deleted_at: new Date().toISOString() })
-      .eq("id", params.id);
+      .eq("id", id);
 
     if (deleteError) {
       console.error("Error deleting song:", deleteError);

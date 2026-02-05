@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
       .is("deleted_at", null)
       .order("name", { ascending: true });
 
-    if (profile.role !== "super_admin") {
+    if (profile.role !== "super_admin" && academyId) {
       query = query.eq("academy_id", academyId);
     }
 
@@ -105,10 +105,10 @@ export async function POST(request: NextRequest) {
     }
 
     const academyId = profile.academy_id;
-    if (!academyId && profile.role !== "super_admin") {
+    if (!academyId) {
       return NextResponse.json(
-        { error: "Academy not found" },
-        { status: 404 }
+        { error: "Academy is required to create subjects" },
+        { status: 400 }
       );
     }
 

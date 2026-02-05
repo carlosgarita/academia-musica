@@ -3,9 +3,13 @@ import { createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
+// Helper: unwrap Supabase relation (can be object or array)
+const unwrap = (x: unknown): unknown => (Array.isArray(x) ? x[0] : x);
+
 // Helper: Verify guardian has access to a student
 async function guardianCanAccessStudent(
-  supabaseAdmin: ReturnType<typeof createClient>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabaseAdmin: any,
   guardianId: string,
   studentId: string
 ): Promise<boolean> {
@@ -202,12 +206,12 @@ export async function GET(
       .order("created_at", { ascending: false });
 
     const evaluations = (evals || [])
-      .filter((e: any) => e.period_dates)
-      .map((e: any) => {
-        const pd = e.period_dates;
-        const song = e.songs;
-        const rubric = e.evaluation_rubrics;
-        const scale = e.evaluation_scales;
+      .filter((e: Record<string, unknown>) => unwrap(e.period_dates))
+      .map((e: Record<string, unknown>) => {
+        const pd = unwrap(e.period_dates) as { date?: string } | null;
+        const song = unwrap(e.songs) as { name?: string } | null;
+        const rubric = unwrap(e.evaluation_rubrics) as { name?: string } | null;
+        const scale = unwrap(e.evaluation_scales) as { name?: string; numeric_value?: number } | null;
         return {
           id: e.id,
           date: pd?.date,
@@ -241,11 +245,12 @@ export async function GET(
       for (const e of songEvals) {
         const rubricId = e.rubric_id;
         if (!rubricId || latestByRubric[rubricId]) continue; // keep first (most recent, evals sorted desc)
-        const scale = e.evaluation_scales;
+        const scale = unwrap(e.evaluation_scales) as { name?: string; numeric_value?: number } | null;
+        const evalRubric = unwrap(e.evaluation_rubrics) as { name?: string } | null;
         const percent = numericValueToPercent(scale?.numeric_value ?? null);
         latestByRubric[rubricId] = {
           rubricId,
-          rubricName: e.evaluation_rubrics?.name ?? "—",
+          rubricName: evalRubric?.name ?? "—",
           percent,
           scaleName: scale?.name ?? "Sin calificar",
         };
@@ -263,14 +268,14 @@ export async function GET(
         { date: string; dateFormatted: string; values: Record<string, number> }
       > = {};
       for (const e of [...songEvals].reverse()) {
-        const pd = e.period_dates;
+        const pd = unwrap(e.period_dates) as { date?: string } | null;
         const date = pd?.date ?? "";
         if (!date) continue;
         const dateFormatted = formatDate(date);
         if (!byDate[date]) {
           byDate[date] = { date, dateFormatted, values: {} };
         }
-        const scale = e.evaluation_scales;
+        const scale = unwrap(e.evaluation_scales) as { numeric_value?: number } | null;
         const percent = numericValueToPercent(scale?.numeric_value ?? null);
         byDate[date].values[e.rubric_id] = percent;
       }

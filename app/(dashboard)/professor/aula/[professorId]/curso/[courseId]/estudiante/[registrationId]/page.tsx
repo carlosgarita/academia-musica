@@ -102,7 +102,7 @@ export default async function ProfessorAulaEstudiantePage({
     redirect(`/professor/aula/${professorId}/curso/${courseId}`);
   }
 
-  const student = reg.student as
+  const student = (reg.student as unknown) as
     | { id: string; first_name: string; last_name: string; deleted_at?: string | null }
     | null;
   if (!student || student.deleted_at) {

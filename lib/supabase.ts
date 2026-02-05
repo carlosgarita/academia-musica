@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { Database } from "./database.types";
 
 export async function createClient() {
-  const cookieStore = cookies();
+  const store = await cookies();
 
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,7 +11,7 @@ export async function createClient() {
     {
       cookies: {
         get(name: string) {
-          return cookieStore.get(name)?.value ?? "";
+          return store.get(name)?.value ?? "";
         },
         set() {
           // Server components don't need to set cookies

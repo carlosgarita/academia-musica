@@ -9,8 +9,9 @@ type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 export default async function EditSchedulePage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
   const cookieStore = cookies();
   const supabase = await createServerClient(cookieStore);
 
@@ -42,7 +43,7 @@ export default async function EditSchedulePage({
         </p>
       </div>
       <div className="bg-white shadow rounded-lg p-6">
-        <EditScheduleForm scheduleId={params.id} academyId={profile.academy_id} />
+        <EditScheduleForm scheduleId={id} academyId={profile.academy_id} />
       </div>
     </div>
   );

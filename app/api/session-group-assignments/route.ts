@@ -7,7 +7,8 @@ const MAX_ASSIGNMENT_LENGTH = 1500;
 
 /** Verifica que el usuario tenga permiso sobre la sesión (period_date_id). Devuelve false si no. */
 async function canAccessPeriodDate(
-  supabaseAdmin: ReturnType<typeof createClient>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabaseAdmin: any,
   userId: string,
   role: string,
   academyId: string | null,
@@ -20,21 +21,25 @@ async function canAccessPeriodDate(
     .maybeSingle();
 
   if (!pd) return false;
+  type PdRow = { id?: string; period_id?: string; subject_id?: string; date_type?: string; period?: { academy_id?: string } | { academy_id?: string }[] | null };
+  const row = pd as PdRow;
+  if (!row.period_id || !row.subject_id) return false;
   // Solo sesiones de clase pueden tener tarea grupal
-  if ((pd as { date_type?: string }).date_type !== "clase") return false;
+  if (row.date_type !== "clase") return false;
   if (role === "super_admin") return true;
+  const periodRel = Array.isArray(row.period) ? row.period[0] : row.period;
   if (
     role === "director" &&
     academyId &&
-    (pd.period as { academy_id?: string } | null)?.academy_id === academyId
+    periodRel?.academy_id === academyId
   )
     return true;
   if (role === "professor") {
     const { data: psp } = await supabaseAdmin
       .from("professor_subject_periods")
       .select("id")
-      .eq("period_id", pd.period_id)
-      .eq("subject_id", pd.subject_id)
+      .eq("period_id", row.period_id)
+      .eq("subject_id", row.subject_id)
       .eq("profile_id", userId)
       .maybeSingle();
     if (psp) return true;
@@ -49,9 +54,9 @@ async function canAccessPeriodDate(
     const { data: reg } = await supabaseAdmin
       .from("course_registrations")
       .select("id")
-      .eq("student_id", cr.id)
-      .eq("period_id", pd.period_id)
-      .eq("subject_id", pd.subject_id)
+      .eq("student_id", (cr as { id: string }).id)
+      .eq("period_id", row.period_id)
+      .eq("subject_id", row.subject_id)
       .is("deleted_at", null)
       .maybeSingle();
     if (reg) return true;
@@ -69,8 +74,8 @@ async function canAccessPeriodDate(
       .from("course_registrations")
       .select("id")
       .in("student_id", studentIds)
-      .eq("period_id", pd.period_id)
-      .eq("subject_id", pd.subject_id)
+      .eq("period_id", row.period_id)
+      .eq("subject_id", row.subject_id)
       .is("deleted_at", null)
       .limit(1);
     if (crList && crList.length > 0) return true;

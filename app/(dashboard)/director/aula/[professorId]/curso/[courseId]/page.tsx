@@ -34,7 +34,11 @@ export default async function AulaCursoPage({
     .eq("id", user.id)
     .single()) as { data: Profile | null };
 
-  if (!profile || profile.role !== "director" || !profile.academy_id) {
+  if (
+    !profile ||
+    (profile.role !== "director" && profile.role !== "super_admin") ||
+    (profile.role === "director" && !profile.academy_id)
+  ) {
     redirect("/");
   }
 
@@ -99,8 +103,8 @@ export default async function AulaCursoPage({
     profile_id: psp.profile_id,
     subject_id: psp.subject_id,
     period_id: psp.period_id,
-    period: psp.period as { id: string; year: number; period: string } | undefined,
-    subject: psp.subject as { id: string; name: string } | undefined,
+    period: (psp.period as unknown) as { id: string; year: number; period: string } | undefined,
+    subject: (psp.subject as unknown) as { id: string; name: string } | undefined,
   };
 
   const professorName =
@@ -135,7 +139,7 @@ export default async function AulaCursoPage({
           Sesiones de clase. Selecciona una sesión para ver asistencia y expedientes.
         </p>
       </div>
-      <ProfessorSelector academyId={profile.academy_id} />
+      <ProfessorSelector academyId={profile.academy_id ?? ""} />
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">
           Sesiones

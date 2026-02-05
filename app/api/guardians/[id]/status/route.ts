@@ -5,9 +5,10 @@ import { cookies } from "next/headers";
 // PATCH: Update guardian status
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
@@ -39,7 +40,7 @@ export async function PATCH(
     const { data: guardianProfile, error: guardianError } = await supabase
       .from("profiles")
       .select("academy_id, role")
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("role", "guardian")
       .single();
 
@@ -72,7 +73,7 @@ export async function PATCH(
     const { error: updateError } = await supabase
       .from("profiles")
       .update({ status: newStatus })
-      .eq("id", params.id);
+      .eq("id", id);
 
     if (updateError) {
       console.error("Error updating guardian status:", updateError);

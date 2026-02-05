@@ -5,7 +5,8 @@ import { cookies } from "next/headers";
 
 // Helper: Verify guardian has access to a student
 async function guardianCanAccessStudent(
-  supabaseAdmin: ReturnType<typeof createClient>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabaseAdmin: any,
   guardianId: string,
   studentId: string
 ): Promise<boolean> {
@@ -278,9 +279,8 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const cr = assignment.course_registration as {
-        student_id: string;
-      } | null;
+      const crRaw = assignment.course_registration;
+      const cr = (Array.isArray(crRaw) ? crRaw[0] : crRaw) as { student_id: string } | null;
       if (!cr || cr.student_id !== student_id) {
         return NextResponse.json(
           { error: "Assignment does not belong to this student" },
@@ -312,7 +312,8 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const pd = groupAssignment.period_date as {
+      const pdRaw = groupAssignment.period_date;
+      const pd = (Array.isArray(pdRaw) ? pdRaw[0] : pdRaw) as {
         period_id: string;
         subject_id: string;
       } | null;

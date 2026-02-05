@@ -6,9 +6,10 @@ import { cookies } from "next/headers";
 // PATCH: Update a period date
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string; dateId: string } }
+  { params }: { params: Promise<{ id: string; dateId: string }> }
 ) {
   try {
+    const { id, dateId } = await params;
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
@@ -67,8 +68,8 @@ export async function PATCH(
         )
       `
       )
-      .eq("id", params.dateId)
-      .eq("period_id", params.id)
+      .eq("id", dateId)
+      .eq("period_id", id)
       .is("deleted_at", null)
       .single();
 
@@ -165,7 +166,7 @@ export async function PATCH(
     const { data: updatedDate, error: updateError } = await supabaseAdmin
       .from("period_dates")
       .update(updates)
-      .eq("id", params.dateId)
+      .eq("id", dateId)
       .select()
       .single();
 
@@ -193,9 +194,10 @@ export async function PATCH(
 // DELETE: Soft delete a period date
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; dateId: string } }
+  { params }: { params: Promise<{ id: string; dateId: string }> }
 ) {
   try {
+    const { id, dateId } = await params;
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
@@ -254,8 +256,8 @@ export async function DELETE(
         )
       `
       )
-      .eq("id", params.dateId)
-      .eq("period_id", params.id)
+      .eq("id", dateId)
+      .eq("period_id", id)
       .is("deleted_at", null)
       .single();
 
@@ -275,7 +277,7 @@ export async function DELETE(
     const { error: deleteError } = await supabaseAdmin
       .from("period_dates")
       .update({ deleted_at: new Date().toISOString() })
-      .eq("id", params.dateId);
+      .eq("id", dateId);
 
     if (deleteError) {
       console.error("Error deleting period date:", deleteError);

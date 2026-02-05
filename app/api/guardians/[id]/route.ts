@@ -6,9 +6,10 @@ import { cookies } from "next/headers";
 // GET: Get a single guardian by ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
@@ -77,7 +78,7 @@ export async function GET(
         )
       `
       )
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("role", "guardian")
       .is("deleted_at", null)
       .single();
@@ -92,10 +93,10 @@ export async function GET(
 
     // Filter out deleted students from guardian_students relationships
     if (guardian.students && Array.isArray(guardian.students)) {
-      guardian.students = guardian.students.filter(
-        (gs: { student: { deleted_at: string | null } | null }) =>
-          gs.student && !gs.student.deleted_at
-      );
+      guardian.students = guardian.students.filter((gs: { student?: unknown }) => {
+        const s = Array.isArray(gs.student) ? (gs.student as { deleted_at?: string | null }[])[0] : (gs.student as { deleted_at?: string | null } | null);
+        return s && !s.deleted_at;
+      });
     }
 
     if (
@@ -121,9 +122,10 @@ export async function GET(
 // DELETE: Delete a guardian
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
@@ -174,7 +176,7 @@ export async function DELETE(
     const { data: guardianProfile, error: guardianError } = await supabaseAdmin
       .from("profiles")
       .select("academy_id, role")
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("role", "guardian")
       .is("deleted_at", null)
       .single();
@@ -199,7 +201,7 @@ export async function DELETE(
     const { error: deleteError } = await supabaseAdmin
       .from("profiles")
       .update({ deleted_at: new Date().toISOString() })
-      .eq("id", params.id);
+      .eq("id", id);
 
     if (deleteError) {
       console.error("Error soft deleting guardian:", deleteError);
@@ -225,9 +227,10 @@ export async function DELETE(
 // PATCH: Update a guardian
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
@@ -307,7 +310,7 @@ export async function PATCH(
     const { data: guardianProfile, error: guardianError } = await supabaseAdmin
       .from("profiles")
       .select("academy_id, role")
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("role", "guardian")
       .is("deleted_at", null)
       .single();
@@ -337,7 +340,7 @@ export async function PATCH(
         additional_info: additional_info?.trim() || null,
         status: status || "active",
       })
-      .eq("id", params.id)
+      .eq("id", id)
       .select()
       .single();
 
@@ -358,7 +361,7 @@ export async function PATCH(
       const { data: currentAssignments } = await supabaseAdmin
         .from("guardian_students")
         .select("student_id")
-        .eq("guardian_id", params.id);
+        .eq("guardian_id", id);
 
       const currentStudentIds = (currentAssignments || []).map(
         (a: { student_id: string }) => a.student_id
@@ -379,7 +382,7 @@ export async function PATCH(
         await supabaseAdmin
           .from("guardian_students")
           .delete()
-          .eq("guardian_id", params.id)
+          .eq("guardian_id", id)
           .in("student_id", toRemove);
       }
 
@@ -392,7 +395,7 @@ export async function PATCH(
           .in("student_id", toAdd);
 
         const studentsWithGuardians = (existingGuardians || []).map(
-          (g: { student_id: string; student?: { first_name: string | null; last_name: string | null } | null }) => g.student_id
+          (g: { student_id: string }) => g.student_id
         );
 
         const studentsToAdd = toAdd.filter(
@@ -402,9 +405,10 @@ export async function PATCH(
         // If some students couldn't be added because they already have guardians, return error
         if (studentsWithGuardians.length > 0) {
           const studentNames = (existingGuardians || [])
-            .map((g: { student?: { first_name: string | null; last_name: string | null } | null }) => {
-              if (g.student) {
-                return `${g.student.first_name || ""} ${g.student.last_name || ""}`.trim();
+            .map((g: { student?: unknown }) => {
+              const s = Array.isArray(g.student) ? (g.student as { first_name?: string; last_name?: string }[])[0] : (g.student as { first_name?: string; last_name?: string } | null);
+              if (s) {
+                return `${s.first_name || ""} ${s.last_name || ""}`.trim();
               }
               return null;
             })
@@ -425,7 +429,7 @@ export async function PATCH(
 
         if (studentsToAdd.length > 0) {
           const newAssignments = studentsToAdd.map((studentId: string) => ({
-            guardian_id: params.id,
+            guardian_id: id,
             student_id: studentId,
             academy_id: academyId,
             relationship: null,

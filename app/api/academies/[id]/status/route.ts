@@ -7,9 +7,10 @@ type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     // Verify the user is a super admin
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
@@ -51,7 +52,7 @@ export async function PATCH(
     const { error: updateError } = await supabase
       .from("academies")
       .update({ status: newStatus })
-      .eq("id", params.id);
+      .eq("id", id);
 
     if (updateError) {
       console.error("Error updating academy status:", updateError);

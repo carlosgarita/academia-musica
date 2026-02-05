@@ -68,7 +68,10 @@ export async function GET(request: NextRequest) {
       schedules = result.data;
       error = result.error;
     } else {
-      // Director - filter by academy_id
+      // Director - filter by academy_id (academyId is defined after guard above)
+      if (!academyId) {
+        return NextResponse.json({ error: "Academy not found" }, { status: 404 });
+      }
       const result = await supabase
         .from("schedules")
         .select("*")
@@ -129,7 +132,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Now fetch profile data for each schedule using service role to bypass RLS
-    let supabaseAdmin;
+    let supabaseAdmin: ReturnType<typeof createClient> | undefined;
     if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
       supabaseAdmin = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -204,7 +207,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const academyId = profile.academy_id;
+    let academyId = profile.academy_id;
     if (!academyId && profile.role !== "super_admin") {
       return NextResponse.json(
         { error: "Academy not found" },
@@ -351,6 +354,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Server configuration error: missing service role key" },
         { status: 500 }
+      );
+    }
+
+    // Schedule creation requires academy_id (from profile or subject)
+    if (!academyId && resolvedSubjectId) {
+      const { data: subj } = await supabase
+        .from("subjects")
+        .select("academy_id")
+        .eq("id", resolvedSubjectId)
+        .single();
+      academyId = subj?.academy_id ?? null;
+    }
+    if (!academyId) {
+      return NextResponse.json(
+        { error: "Academy is required to create schedules" },
+        { status: 400 }
       );
     }
 

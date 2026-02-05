@@ -6,8 +6,9 @@ import { EditProfessorForm } from "./edit-professor-form";
 export default async function EditProfessorPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
   const cookieStore = cookies();
   const supabase = await createServerClient(cookieStore);
 
@@ -42,7 +43,7 @@ export default async function EditProfessorPage({
         </p>
       </div>
       <div className="bg-white shadow rounded-lg p-6">
-        <EditProfessorForm professorId={params.id} />
+        <EditProfessorForm professorId={id} />
       </div>
     </div>
   );

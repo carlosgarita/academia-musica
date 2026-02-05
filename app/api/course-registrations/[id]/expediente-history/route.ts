@@ -277,7 +277,7 @@ export async function GET(
         })
       );
       groupAssignmentsList.sort((a, b) =>
-        (b.date || "").localeCompare(a.date || "")
+        ((b as { date?: string }).date || "").localeCompare((a as { date?: string }).date || "")
       );
     }
 

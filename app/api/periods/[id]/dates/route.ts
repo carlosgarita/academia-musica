@@ -6,9 +6,10 @@ import { cookies } from "next/headers";
 // GET: Get all dates for a period
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
@@ -48,7 +49,7 @@ export async function GET(
         subject:subjects(id, name, deleted_at)
       `
       )
-      .eq("period_id", params.id)
+      .eq("period_id", id)
       .is("deleted_at", null)
       .order("date", { ascending: true });
 
@@ -76,9 +77,10 @@ export async function GET(
 // POST: Create one or multiple dates for a period
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
@@ -130,7 +132,7 @@ export async function POST(
     const { data: period, error: periodError } = await supabaseAdmin
       .from("periods")
       .select("academy_id")
-      .eq("id", params.id)
+      .eq("id", id)
       .is("deleted_at", null)
       .single();
 
@@ -261,7 +263,7 @@ export async function POST(
       }
 
       dateInserts.push({
-        period_id: params.id,
+        period_id: id,
         date_type,
         date,
         subject_id: subject_id || null,
@@ -291,7 +293,7 @@ export async function POST(
       seen.add(key);
       const { error: pspErr } = await supabaseAdmin
         .from("professor_subject_periods")
-        .insert({ profile_id: pid, subject_id: sid, period_id: params.id });
+        .insert({ profile_id: pid, subject_id: sid, period_id: id });
       if (pspErr && (pspErr as { code?: string }).code !== "23505") {
         console.error("Error inserting professor_subject_periods:", pspErr);
       }

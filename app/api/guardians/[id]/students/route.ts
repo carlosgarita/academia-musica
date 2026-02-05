@@ -5,9 +5,10 @@ import { cookies } from "next/headers";
 // GET: Get students assigned to a guardian
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
@@ -23,7 +24,7 @@ export async function GET(
     // Get user profile
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("role, academy_id")
+      .select("id, role, academy_id")
       .eq("id", user.id)
       .single();
 
@@ -34,7 +35,7 @@ export async function GET(
     if (
       profile.role !== "director" &&
       profile.role !== "super_admin" &&
-      profile.id !== params.id // Guardians can view their own assignments
+      profile.id !== id // Guardians can view their own assignments
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -56,7 +57,7 @@ export async function GET(
         )
       `
       )
-      .eq("guardian_id", params.id)
+      .eq("guardian_id", id)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -86,9 +87,10 @@ export async function GET(
 // POST: Assign students to a guardian
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
@@ -120,7 +122,7 @@ export async function POST(
     const { data: guardianProfile, error: guardianError } = await supabase
       .from("profiles")
       .select("academy_id, role")
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("role", "guardian")
       .single();
 
@@ -136,6 +138,13 @@ export async function POST(
       guardianProfile.academy_id !== profile.academy_id
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    if (!guardianProfile.academy_id) {
+      return NextResponse.json(
+        { error: "Guardian has no academy assigned" },
+        { status: 400 }
+      );
     }
 
     const body = await request.json();
@@ -212,10 +221,11 @@ export async function POST(
     }
 
     // Create guardian_students records (one-to-one: each student gets one guardian)
+    const academyId = guardianProfile.academy_id;
     const assignments = student_ids.map((studentId: string) => ({
-      guardian_id: params.id,
+      guardian_id: id,
       student_id: studentId,
-      academy_id: guardianProfile.academy_id,
+      academy_id: academyId,
       relationship: relationship || null,
     }));
 
@@ -260,9 +270,10 @@ export async function POST(
 // DELETE: Remove a student assignment from a guardian
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await params; // Required for Next.js 15+; id not used in this handler
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 

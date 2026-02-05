@@ -9,7 +9,9 @@ interface NewGuardianFormProps {
 
 type Student = {
   id: string;
-  name: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  name?: string;
   enrollment_status: string;
 };
 

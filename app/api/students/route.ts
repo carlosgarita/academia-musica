@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
       .order("first_name", { ascending: true })
       .order("last_name", { ascending: true });
 
-    if (profile.role !== "super_admin") {
+    if (profile.role !== "super_admin" && academyId) {
       query = query.eq("academy_id", academyId);
     }
 

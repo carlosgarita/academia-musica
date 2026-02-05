@@ -10,8 +10,9 @@ type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 export default async function SuperAdminHogarGuardianPage({
   params,
 }: {
-  params: { id: string; guardianId: string };
+  params: Promise<{ id: string; guardianId: string }>;
 }) {
+  const { id, guardianId } = await params;
   const cookieStore = cookies();
   const supabase = await createServerClient(cookieStore);
 
@@ -38,7 +39,7 @@ export default async function SuperAdminHogarGuardianPage({
   const { data: academy } = await supabase
     .from("academies")
     .select("id, name")
-    .eq("id", params.id)
+    .eq("id", id)
     .single();
 
   if (!academy) {
@@ -49,13 +50,13 @@ export default async function SuperAdminHogarGuardianPage({
   const { data: guardian } = await supabase
     .from("profiles")
     .select("first_name, last_name, email, academy_id")
-    .eq("id", params.guardianId)
+    .eq("id", guardianId)
     .eq("role", "guardian")
     .is("deleted_at", null)
     .single();
 
-  if (!guardian || guardian.academy_id !== params.id) {
-    redirect(`/super-admin/academies/${params.id}/hogar`);
+  if (!guardian || guardian.academy_id !== id) {
+    redirect(`/super-admin/academies/${id}/hogar`);
   }
 
   const guardianName =
@@ -74,7 +75,7 @@ export default async function SuperAdminHogarGuardianPage({
 
       <div className="flex gap-2">
         <Link
-          href={`/super-admin/academies/${params.id}/hogar`}
+          href={`/super-admin/academies/${id}/hogar`}
           className="inline-flex items-center text-sm text-indigo-600 hover:text-indigo-500"
         >
           ← Cambiar encargado
@@ -82,7 +83,7 @@ export default async function SuperAdminHogarGuardianPage({
       </div>
 
       <HogarContent
-        guardianId={params.guardianId}
+        guardianId={guardianId}
         guardianName={guardianName}
       />
     </div>

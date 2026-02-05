@@ -37,18 +37,18 @@ export async function createProfile(
 
 export async function createProfessor(
   client: DbClient,
-  professor: Tables["professors"]["Insert"]
-): Promise<DbResult<Tables["professors"]["Row"]>> {
+  professor: Tables["profiles"]["Insert"] & { role: "professor" }
+): Promise<DbResult<Tables["profiles"]["Row"]>> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = client as any;
   const { data, error } = await supabase
-    .from("professors")
-    .insert([professor])
+    .from("profiles")
+    .insert([{ ...professor, role: "professor" }])
     .select()
     .single();
 
   return {
-    data: data as Tables["professors"]["Row"] | null,
+    data: data as Tables["profiles"]["Row"] | null,
     error,
   };
 }

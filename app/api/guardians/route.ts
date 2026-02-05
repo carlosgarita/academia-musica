@@ -114,8 +114,10 @@ export async function GET(request: NextRequest) {
         return {
           ...guardian,
           students: guardian.students.filter(
-            (gs: { student: { deleted_at: string | null } | null }) =>
-              gs.student && !gs.student.deleted_at
+            (gs: { student?: unknown }) => {
+              const s = Array.isArray(gs.student) ? (gs.student as { deleted_at?: string | null }[])[0] : (gs.student as { deleted_at?: string | null } | null);
+              return s && !s.deleted_at;
+            }
           ),
         };
       }

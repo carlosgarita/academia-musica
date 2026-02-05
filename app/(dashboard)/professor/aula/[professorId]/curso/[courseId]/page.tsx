@@ -85,8 +85,8 @@ export default async function ProfessorAulaCursoPage({
     profile_id: psp.profile_id,
     subject_id: psp.subject_id,
     period_id: psp.period_id,
-    period: psp.period as { id: string; year: number; period: string } | undefined,
-    subject: psp.subject as { id: string; name: string } | undefined,
+    period: (psp.period as unknown) as { id: string; year: number; period: string } | undefined,
+    subject: (psp.subject as unknown) as { id: string; name: string } | undefined,
   };
 
   const professorName =

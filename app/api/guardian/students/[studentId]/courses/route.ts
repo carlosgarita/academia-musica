@@ -5,7 +5,8 @@ import { cookies } from "next/headers";
 
 // Helper: Verify guardian has access to a student
 async function guardianCanAccessStudent(
-  supabaseAdmin: ReturnType<typeof createClient>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabaseAdmin: any,
   guardianId: string,
   studentId: string
 ): Promise<boolean> {

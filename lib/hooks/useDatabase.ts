@@ -23,7 +23,7 @@ export function useDatabase() {
   );
 
   const handleCreateProfessor = useCallback(
-    async (data: Tables["professors"]["Insert"]) => {
+    async (data: Tables["profiles"]["Insert"] & { role: "professor" }) => {
       return createProfessor(client, data);
     },
     [client]

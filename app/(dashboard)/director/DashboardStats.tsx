@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useDatabase } from "@/lib/hooks/useDatabase";
 import type { Database } from "@/lib/database.types";
 
-type Professor = Database["public"]["Tables"]["professors"]["Row"];
+type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 type Student = Database["public"]["Tables"]["students"]["Row"];
 
 interface DashboardStatsProps {
@@ -35,7 +35,7 @@ export function DashboardStats({ academyId }: DashboardStatsProps) {
         if (studentsError) throw studentsError;
 
         setStats({
-          totalProfessors: professors.length || 0,
+          totalProfessors: professors?.length ?? 0,
           totalStudents: students?.length || 0,
         });
       } catch (err) {

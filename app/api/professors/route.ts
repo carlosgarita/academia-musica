@@ -127,10 +127,10 @@ export async function GET(request: NextRequest) {
           .eq("profile_id", prof.id);
 
         // Filter out soft-deleted subjects
-        const activeSubjects = (professorSubjects || []).filter(
-          (ps: { subject: { deleted_at: string | null } | null }) =>
-            ps.subject && !ps.subject.deleted_at
-        );
+        const activeSubjects = (professorSubjects || []).filter((ps: { subject?: unknown }) => {
+          const s = Array.isArray(ps.subject) ? (ps.subject as { deleted_at?: string | null }[])[0] : (ps.subject as { deleted_at?: string | null } | null);
+          return s && !s.deleted_at;
+        });
 
         // Fetch schedules (exclude soft deleted)
         const { data: schedules } = await supabaseAdmin
@@ -150,8 +150,11 @@ export async function GET(request: NextRequest) {
     // Si se pide subject_id, filtrar a profesores que imparten esa materia (professor_subjects)
     let result = professorsWithDetails;
     if (subjectId) {
-      result = (professorsWithDetails || []).filter((p: { subjects: { subject?: { id: string } }[] }) =>
-        p.subjects?.some((s: { subject?: { id: string } }) => s.subject?.id === subjectId)
+      result = (professorsWithDetails || []).filter((p: { subjects?: { subject?: unknown }[] }) =>
+        p.subjects?.some((s: { subject?: unknown }) => {
+          const subj = Array.isArray(s.subject) ? (s.subject as { id?: string }[])[0] : (s.subject as { id?: string } | null);
+          return subj?.id === subjectId;
+        })
       );
     }
 

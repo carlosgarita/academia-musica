@@ -9,8 +9,9 @@ type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 export default async function SuperAdminHogarPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
   const cookieStore = cookies();
   const supabase = await createServerClient(cookieStore);
 
@@ -37,7 +38,7 @@ export default async function SuperAdminHogarPage({
   const { data: academy } = await supabase
     .from("academies")
     .select("id, name")
-    .eq("id", params.id)
+    .eq("id", id)
     .single();
 
   if (!academy) {
@@ -48,7 +49,7 @@ export default async function SuperAdminHogarPage({
   const { data: guardians } = await supabase
     .from("profiles")
     .select("id, first_name, last_name, email")
-    .eq("academy_id", params.id)
+    .eq("academy_id", id)
     .eq("role", "guardian")
     .is("deleted_at", null)
     .order("first_name", { ascending: true });
@@ -78,7 +79,7 @@ export default async function SuperAdminHogarPage({
                 return (
                   <li key={g.id}>
                     <Link
-                      href={`/super-admin/academies/${params.id}/hogar/${g.id}`}
+                      href={`/super-admin/academies/${id}/hogar/${g.id}`}
                       className="block px-4 py-4 hover:bg-gray-50 -mx-4"
                     >
                       <p className="font-medium text-gray-900">{name}</p>

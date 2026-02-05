@@ -6,9 +6,10 @@ import { cookies } from "next/headers";
 // GET: Get a single period by ID with its dates
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
@@ -55,7 +56,7 @@ export async function GET(
     const { data: period, error: periodError } = await supabaseAdmin
       .from("periods")
       .select("*")
-      .eq("id", params.id)
+      .eq("id", id)
       .is("deleted_at", null)
       .single();
 
@@ -80,7 +81,7 @@ export async function GET(
         subject:subjects(id, name, deleted_at)
       `
       )
-      .eq("period_id", params.id)
+      .eq("period_id", id)
       .is("deleted_at", null)
       .order("date", { ascending: true });
 
@@ -109,9 +110,10 @@ export async function GET(
 // PATCH: Update a period
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
@@ -162,8 +164,8 @@ export async function PATCH(
     // Verify period exists and user has access
     const { data: existingPeriod, error: fetchError } = await supabaseAdmin
       .from("periods")
-      .select("academy_id")
-      .eq("id", params.id)
+      .select("academy_id, year, period")
+      .eq("id", id)
       .is("deleted_at", null)
       .single();
 
@@ -223,7 +225,7 @@ export async function PATCH(
         .eq("academy_id", existingPeriod.academy_id)
         .eq("year", finalYear)
         .eq("period", finalPeriod)
-        .neq("id", params.id)
+        .neq("id", id)
         .is("deleted_at", null)
         .single();
 
@@ -239,7 +241,7 @@ export async function PATCH(
     const { data: periodData, error: updateError } = await supabaseAdmin
       .from("periods")
       .update(updates)
-      .eq("id", params.id)
+      .eq("id", id)
       .select()
       .single();
 
@@ -267,9 +269,10 @@ export async function PATCH(
 // DELETE: Soft delete a period
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
@@ -321,7 +324,7 @@ export async function DELETE(
     const { data: existingPeriod, error: fetchError } = await supabaseAdmin
       .from("periods")
       .select("academy_id")
-      .eq("id", params.id)
+      .eq("id", id)
       .is("deleted_at", null)
       .single();
 
@@ -341,7 +344,7 @@ export async function DELETE(
     const { error: deleteError } = await supabaseAdmin
       .from("periods")
       .update({ deleted_at: new Date().toISOString() })
-      .eq("id", params.id);
+      .eq("id", id);
 
     if (deleteError) {
       console.error("Error deleting period:", deleteError);

@@ -5,8 +5,9 @@ import { cookies } from "next/headers";
 export default async function EditAcademyPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  await params; // satisfies Next.js 15+ Promise<params>
   const cookieStore = cookies();
   const supabase = await createServerClient(cookieStore);
 

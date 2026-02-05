@@ -97,31 +97,41 @@ export async function GET(request: NextRequest) {
     }
 
     // Filter by academy (unless super_admin) and exclude soft-deleted
-    const filtered = (psp || []).filter((c: { period?: { academy_id?: string; deleted_at?: string | null }; subject?: { deleted_at?: string | null }; profile?: { deleted_at?: string | null } }) => {
-      if (profile.role !== "super_admin" && c.period?.academy_id !== profile.academy_id) return false;
-      if (c.period?.deleted_at) return false;
-      if (c.subject?.deleted_at) return false;
-      if (c.profile?.deleted_at) return false;
+    // Supabase may return period/subject/profile as arrays for relations
+    const filtered = (psp || []).filter((c: Record<string, unknown>) => {
+      const period = Array.isArray(c.period) ? c.period[0] : c.period;
+      const subject = Array.isArray(c.subject) ? c.subject[0] : c.subject;
+      const profileRel = Array.isArray(c.profile) ? c.profile[0] : c.profile;
+      const p = period as { academy_id?: string; deleted_at?: string | null } | null;
+      const s = subject as { deleted_at?: string | null } | null;
+      const pr = profileRel as { deleted_at?: string | null } | null;
+      if (profile.role !== "super_admin" && p?.academy_id !== profile.academy_id) return false;
+      if (p?.deleted_at) return false;
+      if (s?.deleted_at) return false;
+      if (pr?.deleted_at) return false;
       return true;
     });
 
     // Enrich with session count and turnos count
     const courses = await Promise.all(
-      filtered.map(async (c: { id?: string; period_id?: string; subject_id?: string; profile_id?: string; period?: { id?: string; year?: number; period?: string }; subject?: { id?: string; name?: string }; profile?: { id?: string; first_name?: string | null; last_name?: string | null; email?: string } }) => {
+      filtered.map(async (c: Record<string, unknown>) => {
+        const periodId = c.period_id as string | undefined;
+        const subjectId = c.subject_id as string | undefined;
+        const profileId = c.profile_id as string | undefined;
         const [sessionsRes, turnosRes] = await Promise.all([
           supabaseAdmin
             .from("period_dates")
             .select("id", { count: "exact", head: true })
-            .eq("period_id", c.period_id)
-            .eq("subject_id", c.subject_id)
+            .eq("period_id", periodId)
+            .eq("subject_id", subjectId)
             .eq("date_type", "clase")
             .is("deleted_at", null),
           supabaseAdmin
             .from("schedules")
             .select("id", { count: "exact", head: true })
-            .eq("period_id", c.period_id)
-            .eq("subject_id", c.subject_id)
-            .eq("profile_id", c.profile_id)
+            .eq("period_id", periodId)
+            .eq("subject_id", subjectId)
+            .eq("profile_id", profileId)
             .is("deleted_at", null),
         ]);
         return {
