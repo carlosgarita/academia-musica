@@ -27,6 +27,14 @@ export function NewStudentForm({ academyId }: NewStudentFormProps) {
     const enrollmentStatusRaw = formData.get("enrollmentStatus") as string | null;
     const additionalInfo = formData.get("additionalInfo") as string;
 
+    // Guardian form data (when isOwnGuardian is checked)
+    const guardianEmail = formData.get("guardianEmail") as string;
+    const guardianPhone = formData.get("guardianPhone") as string;
+    const guardianPassword = formData.get("guardianPassword") as string;
+    const guardianAdditionalInfo = formData.get(
+      "guardianAdditionalInfo"
+    ) as string;
+
     // Validation
     if (!firstName || !lastName) {
       setError("Nombre y apellido son requeridos");
@@ -34,27 +42,70 @@ export function NewStudentForm({ academyId }: NewStudentFormProps) {
       return;
     }
 
+    if (isOwnGuardian) {
+      if (!guardianEmail?.trim()) {
+        setError("El email del encargado es requerido");
+        setIsLoading(false);
+        return;
+      }
+      if (!guardianPassword || guardianPassword.length < 6) {
+        setError("La contraseña del encargado debe tener al menos 6 caracteres");
+        setIsLoading(false);
+        return;
+      }
+    }
+
     // Validate and set enrollment_status
     const validStatuses = ["inscrito", "retirado", "graduado"] as const;
-    type EnrollmentStatus = typeof validStatuses[number];
-    const enrollmentStatus: EnrollmentStatus = 
-      enrollmentStatusRaw && validStatuses.includes(enrollmentStatusRaw as EnrollmentStatus)
+    type EnrollmentStatus = (typeof validStatuses)[number];
+    const enrollmentStatus: EnrollmentStatus =
+      enrollmentStatusRaw &&
+      validStatuses.includes(enrollmentStatusRaw as EnrollmentStatus)
         ? (enrollmentStatusRaw as EnrollmentStatus)
         : "inscrito";
 
     try {
-      // Create student record without user account
-      const { error: studentError } = await db.createStudent({
-        academy_id: academyId,
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        date_of_birth: dateOfBirth || null,
-        enrollment_status: enrollmentStatus,
-        additional_info: additionalInfo?.trim() || null,
-      });
+      // 1. Create student record
+      const { data: newStudent, error: studentError } =
+        await db.createStudent({
+          academy_id: academyId,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          date_of_birth: dateOfBirth || null,
+          enrollment_status: enrollmentStatus,
+          additional_info: additionalInfo?.trim() || null,
+          is_self_guardian: isOwnGuardian,
+        });
 
-      if (studentError) {
-        throw studentError;
+      if (studentError || !newStudent) {
+        throw studentError ?? new Error("Error al crear el estudiante");
+      }
+
+      // 2 & 3. If isOwnGuardian: create guardian and assign student to them
+      if (isOwnGuardian && guardianEmail && guardianPassword) {
+        const guardianResponse = await fetch("/api/guardians", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            first_name: firstName.trim(),
+            last_name: lastName.trim(),
+            email: guardianEmail.trim(),
+            phone: guardianPhone?.trim() || null,
+            password: guardianPassword,
+            additional_info: guardianAdditionalInfo?.trim() || null,
+            status: "active",
+            student_ids: [newStudent.id],
+          }),
+        });
+
+        const guardianData = await guardianResponse.json();
+
+        if (!guardianResponse.ok) {
+          const errorMsg = guardianData.details
+            ? `${guardianData.error || "Error"}: ${guardianData.details}`
+            : guardianData.error || "Error al crear el encargado";
+          throw new Error(errorMsg);
+        }
       }
 
       router.push("/director/students");

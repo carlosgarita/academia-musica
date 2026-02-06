@@ -100,6 +100,7 @@ export async function GET(
         status,
         enrollment_date,
         created_at,
+        profile_id,
         subject:subjects(
           id,
           name,
@@ -110,6 +111,11 @@ export async function GET(
           year,
           period,
           academy_id
+        ),
+        profile:profiles(
+          id,
+          first_name,
+          last_name
         )
       `
       )
@@ -128,34 +134,32 @@ export async function GET(
     // Determine current year to separate current vs historical
     const currentYear = new Date().getFullYear();
 
-    // Format and separate courses
-    const courses = (registrations || []).map((r: any) => ({
-      id: r.id,
-      student_id: r.student_id,
-      subject_id: r.subject_id,
-      period_id: r.period_id,
-      academy_id: r.academy_id,
-      status: r.status,
-      enrollment_date: r.enrollment_date,
-      subject: r.subject
-        ? {
-            id: r.subject.id,
-            name: r.subject.name,
-            description: r.subject.description,
-          }
-        : null,
-      period: r.period
-        ? {
-            id: r.period.id,
-            year: r.period.year,
-            period: r.period.period,
-          }
-        : null,
-      isCurrent: r.period ? r.period.year === currentYear : false,
-    }));
+    // Helper: Supabase relations can return arrays, unwrap to single object
+    const unwrap = <T>(v: T | T[] | null | undefined): T | null =>
+      Array.isArray(v) ? (v[0] as T) ?? null : v ?? null;
 
-    const currentCourses = courses.filter((c: any) => c.isCurrent);
-    const historicalCourses = courses.filter((c: any) => !c.isCurrent);
+    // Format and separate courses
+    const courses = (registrations || []).map((r: Record<string, unknown>) => {
+      const subj = unwrap(r.subject as { id: string; name: string; description?: string | null } | { id: string; name: string; description?: string | null }[] | null);
+      const per = unwrap(r.period as { id: string; year: number; period: string } | { id: string; year: number; period: string }[] | null);
+      const prof = unwrap(r.profile as { id: string; first_name: string; last_name: string } | { id: string; first_name: string; last_name: string }[] | null);
+      return {
+        id: r.id,
+        student_id: r.student_id,
+        subject_id: r.subject_id,
+        period_id: r.period_id,
+        academy_id: r.academy_id,
+        status: r.status,
+        enrollment_date: r.enrollment_date,
+        subject: subj ? { id: subj.id, name: subj.name, description: subj.description } : null,
+        period: per ? { id: per.id, year: per.year, period: per.period } : null,
+        profile: prof ? { id: prof.id, first_name: prof.first_name, last_name: prof.last_name } : null,
+        isCurrent: per ? per.year === currentYear : false,
+      };
+    });
+
+    const currentCourses = courses.filter((c: { isCurrent: boolean }) => c.isCurrent);
+    const historicalCourses = courses.filter((c: { isCurrent: boolean }) => !c.isCurrent);
 
     return NextResponse.json({
       currentCourses,

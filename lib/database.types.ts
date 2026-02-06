@@ -1076,6 +1076,7 @@ export type Database = {
           enrollment_status: string | null;
           first_name: string;
           id: string;
+          is_self_guardian: boolean;
           last_name: string;
           updated_at: string;
           user_id: string | null;
@@ -1089,6 +1090,7 @@ export type Database = {
           enrollment_status?: string | null;
           first_name: string;
           id?: string;
+          is_self_guardian?: boolean;
           last_name: string;
           updated_at?: string;
           user_id?: string | null;
@@ -1102,6 +1104,7 @@ export type Database = {
           enrollment_status?: string | null;
           first_name?: string;
           id?: string;
+          is_self_guardian?: boolean;
           last_name?: string;
           updated_at?: string;
           user_id?: string | null;

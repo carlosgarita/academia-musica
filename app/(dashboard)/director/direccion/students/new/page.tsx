@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
-import { NewStudentForm } from "./new-student-form";
+import { NewStudentForm } from "@/components/director/NewStudentForm";
 import type { Database } from "@/lib/database.types";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];

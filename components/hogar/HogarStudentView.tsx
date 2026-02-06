@@ -23,6 +23,7 @@ type Course = {
   status: string | null;
   subject: { id: string; name: string; description?: string | null } | null;
   period: { id: string; year: number; period: string } | null;
+  profile: { id: string; first_name: string; last_name: string } | null;
   isCurrent: boolean;
 };
 
@@ -31,9 +32,11 @@ type Tab = "current" | "history";
 export function HogarStudentView({
   student,
   guardianId,
+  hideStudentHeader = false,
 }: {
   student: Student;
   guardianId?: string;
+  hideStudentHeader?: boolean;
 }) {
   const [courses, setCourses] = useState<{
     currentCourses: Course[];
@@ -82,20 +85,30 @@ export function HogarStudentView({
 
   const { currentCourses, historicalCourses } = courses;
 
+  const selectedCourse = currentCourses.find((c) => c.id === selectedCourseId);
+  const professorName = selectedCourse?.profile
+    ? [selectedCourse.profile.first_name, selectedCourse.profile.last_name]
+        .filter(Boolean)
+        .join(" ")
+        .trim() || "Sin nombre"
+    : null;
+
   return (
     <div className="space-y-6">
-      {/* Student Header */}
-      <div className="flex items-center gap-4 pb-4 border-b border-gray-200">
-        <div className="h-14 w-14 rounded-full bg-gray-100 flex items-center justify-center">
-          <User className="h-7 w-7 text-gray-600" />
+      {/* Student Header - hidden when student is their own guardian */}
+      {!hideStudentHeader && (
+        <div className="flex items-center gap-4 pb-4 border-b border-gray-200">
+          <div className="h-14 w-14 rounded-full bg-gray-100 flex items-center justify-center">
+            <User className="h-7 w-7 text-gray-600" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">{studentName}</h3>
+            {student.relationship && (
+              <p className="text-sm text-gray-600">{student.relationship}</p>
+            )}
+          </div>
         </div>
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">{studentName}</h3>
-          {student.relationship && (
-            <p className="text-sm text-gray-600">{student.relationship}</p>
-          )}
-        </div>
-      </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-gray-200">
@@ -160,22 +173,40 @@ export function HogarStudentView({
                     {currentCourses.map((course) => (
                       <option key={course.id} value={course.id}>
                         {course.subject?.name || "Curso sin nombre"} -{" "}
+                        {course.period?.year || ""}
+                        {course.period?.year && course.period?.period ? ", " : ""}
                         {course.period?.period || ""}
                       </option>
                     ))}
                   </select>
+                  {/* Course name and professor (below dropdown when selected) */}
+                  {selectedCourse && (
+                    <div className="mt-4">
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        {selectedCourse.subject?.name || "Curso sin nombre"}
+                      </h3>
+                      <p className="text-sm text-gray-600 mt-0.5">
+                        Profesor: {professorName ?? "No asignado"}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Single course info */}
               {currentCourses.length === 1 && (
-                <div className="rounded-lg border border-gray-200 bg-indigo-50 px-4 py-3">
-                  <p className="font-medium text-indigo-800">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
                     {currentCourses[0].subject?.name || "Curso sin nombre"}
-                  </p>
-                  <p className="text-sm text-indigo-700/80">
-                    {currentCourses[0].period?.period || ""}{" "}
-                    {currentCourses[0].period?.year || ""}
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-0.5">
+                    Profesor:{" "}
+                    {currentCourses[0].profile
+                      ? [currentCourses[0].profile.first_name, currentCourses[0].profile.last_name]
+                          .filter(Boolean)
+                          .join(" ")
+                          .trim() || "Sin nombre"
+                      : "No asignado"}
                   </p>
                 </div>
               )}

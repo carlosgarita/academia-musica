@@ -85,7 +85,8 @@ export async function GET(request: NextRequest) {
           enrollment_status,
           date_of_birth,
           academy_id,
-          deleted_at
+          deleted_at,
+          is_self_guardian
         )
       `
       )
@@ -102,8 +103,19 @@ export async function GET(request: NextRequest) {
 
     // Filter out deleted students and format response
     const students = (assignments || [])
-      .filter((a: any) => a.student && !a.student.deleted_at)
-      .map((a: any) => ({
+      .filter((a: { student?: { deleted_at?: string | null } }) => a.student && !a.student.deleted_at)
+      .map((a: {
+        student: {
+          id: string;
+          first_name: string;
+          last_name: string;
+          enrollment_status?: string | null;
+          date_of_birth?: string | null;
+          is_self_guardian?: boolean;
+        };
+        relationship?: string | null;
+        id: string;
+      }) => ({
         id: a.student.id,
         first_name: a.student.first_name,
         last_name: a.student.last_name,
@@ -111,6 +123,7 @@ export async function GET(request: NextRequest) {
         date_of_birth: a.student.date_of_birth,
         relationship: a.relationship,
         assignment_id: a.id,
+        is_self_guardian: a.student.is_self_guardian ?? false,
       }));
 
     return NextResponse.json({ students });

@@ -12,6 +12,7 @@ type Student = {
   enrollment_status?: string | null;
   date_of_birth?: string | null;
   relationship?: string | null;
+  is_self_guardian?: boolean;
 };
 
 export function HogarContent({
@@ -81,23 +82,29 @@ export function HogarContent({
         </div>
       )}
 
-      {/* Student selector */}
-      <div>
-        <p className="text-xs font-medium text-gray-600 uppercase mb-2">
-          Estudiantes a cargo
-        </p>
-        <HogarStudentList
-          students={students}
-          selectedStudentId={selectedStudentId}
-          onSelectStudent={setSelectedStudentId}
-          loading={loading}
-        />
-      </div>
+      {/* Student selector - hidden when student is their own guardian */}
+      {!selectedStudent?.is_self_guardian && (
+        <div>
+          <p className="text-xs font-medium text-gray-600 uppercase mb-2">
+            Estudiantes a cargo
+          </p>
+          <HogarStudentList
+            students={students}
+            selectedStudentId={selectedStudentId}
+            onSelectStudent={setSelectedStudentId}
+            loading={loading}
+          />
+        </div>
+      )}
 
       {/* Selected student view */}
       {selectedStudent && (
         <div className="rounded-lg border border-gray-200 bg-white p-6">
-          <HogarStudentView student={selectedStudent} guardianId={guardianId} />
+          <HogarStudentView
+            student={selectedStudent}
+            guardianId={guardianId}
+            hideStudentHeader={selectedStudent.is_self_guardian === true}
+          />
         </div>
       )}
 
