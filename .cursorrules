@@ -1,3 +1,13 @@
+# Estándares para despliegue en Vercel
+
+- **TypeScript:** Evitar errores de tipo. Antes de dar por cerrado un cambio, ejecutar `npx tsc --noEmit` y corregir cualquier error.
+- **ESLint:** No introducir `any` explícito sin necesidad; usar tipos concretos o `unknown`. Variables no usadas: eliminar o prefijar con `_`. Respetar reglas de React (hooks, componentes durante el render, `Link` en lugar de `<a>` para rutas internas).
+- **Next.js:**
+  - Rutas dinámicas: `params` es `Promise<{ ... }>`; usar `await params` antes de acceder.
+  - Rutas que usan `cookies()` o auth: marcar con `export const dynamic = "force-dynamic"` si están bajo un layout que usa cookies.
+  - `useSearchParams()`: envolver en `<Suspense>`.
+- **Build:** El comando `npm run build` (sin flags) debe completar sin errores; es el que usa Vercel.
+
 # Reglas para Supabase y Base de Datos
 
 ## Creación de Migraciones
