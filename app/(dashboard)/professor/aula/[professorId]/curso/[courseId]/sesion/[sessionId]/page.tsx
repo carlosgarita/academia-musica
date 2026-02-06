@@ -87,6 +87,18 @@ export default async function ProfessorAulaSesionPage({
     redirect(`/professor/aula/${professorId}/curso/${courseId}`);
   }
 
+  const { data: courseSessions } = await supabaseAdmin
+    .from("period_dates")
+    .select("id, date")
+    .eq("period_id", psp.period_id)
+    .eq("subject_id", psp.subject_id)
+    .eq("date_type", "clase")
+    .is("deleted_at", null)
+    .order("date", { ascending: true });
+
+  const sessionIndex = (courseSessions ?? []).findIndex((s) => s.id === sessionId);
+  const sessionNumber = sessionIndex >= 0 ? sessionIndex + 1 : 1;
+
   const subject = psp.subject as { name?: string } | null;
   const professorName =
     professor.first_name || professor.last_name
@@ -129,7 +141,7 @@ export default async function ProfessorAulaSesionPage({
           </span>
         </nav>
         <h1 className="text-2xl font-bold text-gray-900">
-          Sesión — {formatDate(sessionRow.date)}
+          Sesión {sessionNumber} — {formatDate(sessionRow.date)}
         </h1>
         <p className="mt-1 text-sm text-gray-500">
           Estudiantes del curso. Abre el expediente para ver canciones, calificaciones y comentarios.

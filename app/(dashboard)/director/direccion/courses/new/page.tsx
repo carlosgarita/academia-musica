@@ -590,9 +590,13 @@ export default function NewCoursePage() {
                     className="flex items-center justify-between bg-white p-3 rounded border border-gray-200"
                   >
                     <span className="text-sm font-medium text-gray-900">
-                      {new Date(d).toLocaleDateString("es-ES")}
+                      Sesión {i + 1} –{" "}
+                      {new Date(d).toLocaleDateString("es-ES", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                      })}
                     </span>
-                    <span className="ml-2 text-sm text-gray-600">- Sesión</span>
                     <button
                       type="button"
                       onClick={() => removeSessionDate(i)}

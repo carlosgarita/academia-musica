@@ -67,9 +67,13 @@ export function AulaSessionList({
     );
   }
 
+  const sortedSessions = [...sessions].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+
   return (
     <ul className="divide-y divide-gray-200">
-      {sessions.map((session) => (
+      {sortedSessions.map((session, i) => (
         <li key={session.id}>
           <Link
             href={`${base}/sesion/${session.id}`}
@@ -78,7 +82,7 @@ export function AulaSessionList({
             <div className="flex-1 min-w-0">
               <p className="font-medium text-gray-900 flex items-center gap-2">
                 <Calendar className="h-4 w-4 shrink-0 text-gray-500" />
-                {formatDate(session.date)}
+                Sesión {i + 1} – {formatDate(session.date)}
               </p>
               {session.comment && (
                 <p className="text-sm text-gray-500 mt-0.5 truncate max-w-md">{session.comment}</p>
