@@ -14,6 +14,7 @@ import {
   X,
   ChevronDown,
   ChevronRight,
+  FileText,
 } from "lucide-react";
 
 interface NavigationItem {
@@ -49,6 +50,11 @@ const navigation: NavigationItem[] = [
         name: "Materias",
         href: "/director/direccion/subjects",
         icon: BookOpen,
+      },
+      {
+        name: "Contratos",
+        href: "/director/direccion/contracts",
+        icon: FileText,
       },
     ],
   },

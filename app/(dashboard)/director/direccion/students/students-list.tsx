@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronUp, Pencil, Trash2 } from "lucide-react";
-import { useDatabase } from "@/lib/hooks/useDatabase";
 import type { Database } from "@/lib/database.types";
 
-type Student = Database["public"]["Tables"]["students"]["Row"];
+type Student = Database["public"]["Tables"]["students"]["Row"] & {
+  guardian?: { first_name: string | null; last_name: string | null; email: string } | null;
+};
 type CourseRegistration =
   Database["public"]["Tables"]["course_registrations"]["Row"];
 type Subject = Database["public"]["Tables"]["subjects"]["Row"];
@@ -24,7 +25,6 @@ interface StudentsListProps {
 }
 
 export function StudentsList({ academyId }: StudentsListProps) {
-  const db = useDatabase();
   const [students, setStudents] = useState<Student[]>([]);
   const [coursesByStudent, setCoursesByStudent] = useState<
     Record<string, CourseRegistrationWithDetails[]>
@@ -45,7 +45,7 @@ export function StudentsList({ academyId }: StudentsListProps) {
     });
   };
 
-  // Cargar estudiantes
+  // Cargar estudiantes (con encargado desde guardian_students)
   useEffect(() => {
     if (!academyId) return;
 
@@ -55,15 +55,16 @@ export function StudentsList({ academyId }: StudentsListProps) {
 
     async function loadStudents() {
       try {
-        const { data, error } = await db.getStudents(academyId);
+        const response = await fetch("/api/students");
+        const data = await response.json();
 
         if (cancelled) return;
 
-        if (error) {
-          throw error;
+        if (!response.ok) {
+          throw new Error(data.error || "Error al cargar estudiantes");
         }
 
-        setStudents(data || []);
+        setStudents(data.students || []);
       } catch (err) {
         if (cancelled) return;
         setError(
@@ -81,8 +82,7 @@ export function StudentsList({ academyId }: StudentsListProps) {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [academyId]); // Removido 'db' de las dependencias para evitar loops infinitos
+  }, [academyId]);
 
   // Cargar cursos (separado para evitar loops)
   useEffect(() => {
@@ -220,11 +220,9 @@ export function StudentsList({ academyId }: StudentsListProps) {
       }
 
       // Reload students
-      const { data, error } = await db.getStudents(academyId);
-      if (error) {
-        throw error;
-      }
-      setStudents(data || []);
+      const res = await fetch("/api/students");
+      const data = await res.json();
+      if (res.ok) setStudents(data.students || []);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Error deleting student");
     }
@@ -418,6 +416,16 @@ export function StudentsList({ academyId }: StudentsListProps) {
                       {isExpanded && (
                         <div className="px-4 pb-4 pt-0 pl-12 bg-gray-50/50">
                           <div className="space-y-1 text-sm text-gray-600">
+                            {student.guardian && (
+                              <div>
+                                <span className="font-medium">
+                                  Encargado:
+                                </span>{" "}
+                                {`${student.guardian.first_name || ""} ${student.guardian.last_name || ""}`.trim() ||
+                                  student.guardian.email ||
+                                  "—"}
+                              </div>
+                            )}
                             {student.date_of_birth && (
                               <div>
                                 <span className="font-medium">

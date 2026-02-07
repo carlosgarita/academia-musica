@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
-// GET: List all students for the director's academy
+// GET: List all students for the director's academy (with guardian info from guardian_students)
 export async function GET(request: NextRequest) {
   try {
     const cookieStore = cookies();
@@ -40,8 +41,21 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Build query (exclude soft deleted)
-    let query = supabase
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return NextResponse.json(
+        { error: "Server configuration error" },
+        { status: 500 }
+      );
+    }
+
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+
+    // 1) Fetch students
+    let studentsQuery = supabaseAdmin
       .from("students")
       .select("*")
       .is("deleted_at", null)
@@ -49,10 +63,10 @@ export async function GET(request: NextRequest) {
       .order("last_name", { ascending: true });
 
     if (profile.role !== "super_admin" && academyId) {
-      query = query.eq("academy_id", academyId);
+      studentsQuery = studentsQuery.eq("academy_id", academyId);
     }
 
-    const { data: students, error } = await query;
+    const { data: students, error } = await studentsQuery;
 
     if (error) {
       console.error("Error fetching students:", error);
@@ -62,7 +76,54 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ students: students || [] });
+    const studentsList = students || [];
+    if (studentsList.length === 0) {
+      return NextResponse.json({ students: [] });
+    }
+
+    const studentIds = studentsList.map((s: { id: string }) => s.id);
+
+    // 2) Fetch guardian_students (student_id, guardian_id)
+    const { data: guardianAssignments } = await supabaseAdmin
+      .from("guardian_students")
+      .select("student_id, guardian_id")
+      .in("student_id", studentIds);
+
+    const guardianByStudentId: Record<string, { first_name: string | null; last_name: string | null; email: string }> = {};
+
+    if (guardianAssignments && guardianAssignments.length > 0) {
+      const guardianIds = [...new Set(guardianAssignments.map((gs: { guardian_id: string }) => gs.guardian_id))];
+
+      // 3) Fetch guardian profiles
+      const { data: guardians } = await supabaseAdmin
+        .from("profiles")
+        .select("id, first_name, last_name, email")
+        .in("id", guardianIds);
+
+      const guardianMap: Record<string, { first_name: string | null; last_name: string | null; email: string }> = {};
+      for (const g of guardians || []) {
+        guardianMap[g.id] = {
+          first_name: g.first_name,
+          last_name: g.last_name,
+          email: g.email,
+        };
+      }
+
+      for (const gs of guardianAssignments) {
+        const guardian = guardianMap[gs.guardian_id];
+        if (guardian) {
+          guardianByStudentId[gs.student_id] = guardian;
+        }
+      }
+    }
+
+    // 4) Merge guardian into each student
+    const studentsWithGuardian = studentsList.map((s: { id: string }) => ({
+      ...s,
+      guardian: guardianByStudentId[s.id] || null,
+    }));
+
+    return NextResponse.json({ students: studentsWithGuardian });
   } catch (error) {
     console.error("Unexpected error in GET /api/students:", error);
     return NextResponse.json(

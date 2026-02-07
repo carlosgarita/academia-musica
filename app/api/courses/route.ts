@@ -403,12 +403,12 @@ export async function POST(request: NextRequest) {
     }
 
     // 2) period_dates: usar session_dates o derivar de start_date, end_date y días de turnos
-    const dateInserts: { period_id: string; date_type: string; date: string; subject_id: string; comment: null }[] = [];
+    const dateInserts: { period_id: string; date_type: string; date: string; subject_id: string; profile_id: string; comment: null }[] = [];
 
     if (useSessionDates) {
       for (const d of session_dates as string[]) {
         if (typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
-          dateInserts.push({ period_id: periodId, date_type: "clase", date: d, subject_id, comment: null });
+          dateInserts.push({ period_id: periodId, date_type: "clase", date: d, subject_id, profile_id, comment: null });
         }
       }
     } else {
@@ -423,6 +423,7 @@ export async function POST(request: NextRequest) {
             date_type: "clase",
             date: d.toISOString().split("T")[0],
             subject_id,
+            profile_id,
             comment: null,
           });
         }

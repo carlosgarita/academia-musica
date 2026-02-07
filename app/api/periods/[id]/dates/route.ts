@@ -159,7 +159,7 @@ export async function POST(
     }
 
     // Validate and prepare dates for insertion
-    const dateInserts: { period_id: string; date_type: string; date: string; subject_id: string | null; comment: string | null }[] = [];
+    const dateInserts: { period_id: string; date_type: string; date: string; subject_id: string | null; profile_id: string | null; comment: string | null }[] = [];
     const clasePairs: { subject_id: string; profile_id: string }[] = [];
 
     for (const dateItem of dates) {
@@ -267,6 +267,7 @@ export async function POST(
         date_type,
         date,
         subject_id: subject_id || null,
+        profile_id: date_type === "clase" && profile_id ? profile_id : null,
         comment: comment || null,
       });
     }

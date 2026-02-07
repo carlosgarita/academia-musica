@@ -22,6 +22,7 @@ import {
   Power,
   Music,
   ClipboardList,
+  FileText,
 } from "lucide-react";
 
 interface NavigationItem {
@@ -64,6 +65,11 @@ const navigation: NavigationItem[] = [
         name: "Matrículas",
         href: "/director/direccion/course-registrations",
         icon: ClipboardList,
+      },
+      {
+        name: "Contratos",
+        href: "/director/direccion/contracts",
+        icon: FileText,
       },
     ],
   },

@@ -217,6 +217,131 @@ export type Database = {
           }
         ];
       };
+      contract_course_registrations: {
+        Row: {
+          id: string;
+          contract_id: string;
+          course_registration_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          contract_id: string;
+          course_registration_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          contract_id?: string;
+          course_registration_id?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "contract_course_registrations_contract_id_fkey";
+            columns: ["contract_id"];
+            isOneToOne: false;
+            referencedRelation: "contracts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "contract_course_registrations_course_registration_id_fkey";
+            columns: ["course_registration_id"];
+            isOneToOne: false;
+            referencedRelation: "course_registrations";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      contract_invoices: {
+        Row: {
+          id: string;
+          contract_id: string;
+          month: string;
+          amount: number;
+          status: "pendiente" | "pagado";
+          paid_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          contract_id: string;
+          month: string;
+          amount: number;
+          status?: "pendiente" | "pagado";
+          paid_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          contract_id?: string;
+          month?: string;
+          amount?: number;
+          status?: "pendiente" | "pagado";
+          paid_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "contract_invoices_contract_id_fkey";
+            columns: ["contract_id"];
+            isOneToOne: false;
+            referencedRelation: "contracts";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      contracts: {
+        Row: {
+          id: string;
+          academy_id: string;
+          guardian_id: string;
+          monthly_amount: number;
+          start_date: string;
+          end_date: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          academy_id: string;
+          guardian_id: string;
+          monthly_amount: number;
+          start_date: string;
+          end_date: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          academy_id?: string;
+          guardian_id?: string;
+          monthly_amount?: number;
+          start_date?: string;
+          end_date?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "contracts_academy_id_fkey";
+            columns: ["academy_id"];
+            isOneToOne: false;
+            referencedRelation: "academies";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "contracts_guardian_id_fkey";
+            columns: ["guardian_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       course_registrations: {
         Row: {
           academy_id: string;

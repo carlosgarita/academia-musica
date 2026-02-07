@@ -233,6 +233,7 @@ export async function PATCH(
           date_type: "clase",
           date: d,
           subject_id: psp.subject_id,
+          profile_id: psp.profile_id,
           comment: null,
         }))
       );
