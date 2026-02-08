@@ -217,56 +217,55 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const {
-      name,
-      subject_id,
-      profile_id,
+      course_id,
       time_slots,
       days_of_week,
       start_time,
       end_time,
     } = body;
 
-    if (!profile_id) {
+    if (!course_id) {
       return NextResponse.json(
-        { error: "profile_id is required" },
+        { error: "course_id is required" },
         { status: 400 }
       );
     }
 
-    // Resolve name: from subject_id (preferred) or from name (legacy)
-    let scheduleName: string;
-    let resolvedSubjectId: string | null = null;
-
-    if (subject_id) {
-      const { data: subject, error: subjectError } = await supabase
-        .from("subjects")
-        .select("id, name, academy_id")
-        .eq("id", subject_id)
-        .is("deleted_at", null)
-        .single();
-
-      if (subjectError || !subject) {
-        return NextResponse.json(
-          { error: "Materia no encontrada" },
-          { status: 400 }
-        );
-      }
-      if (subject.academy_id !== academyId) {
-        return NextResponse.json(
-          { error: "La materia no pertenece a esta academia" },
-          { status: 400 }
-        );
-      }
-      scheduleName = subject.name;
-      resolvedSubjectId = subject.id;
-    } else if (name && typeof name === "string" && name.trim()) {
-      scheduleName = name.trim();
-    } else {
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
       return NextResponse.json(
-        { error: "Se requiere subject_id (materia) o name" },
+        { error: "Server configuration error: missing service role key" },
+        { status: 500 }
+      );
+    }
+
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+
+    const { data: course, error: courseError } = await supabaseAdmin
+      .from("courses")
+      .select("id, name, profile_id, academy_id")
+      .eq("id", course_id)
+      .is("deleted_at", null)
+      .single();
+
+    if (courseError || !course) {
+      return NextResponse.json(
+        { error: "Curso no encontrado" },
         { status: 400 }
       );
     }
+    if (course.academy_id !== academyId) {
+      return NextResponse.json(
+        { error: "El curso no pertenece a esta academia" },
+        { status: 400 }
+      );
+    }
+
+    const scheduleName = course.name;
+    const profile_id = course.profile_id;
 
     // Support both new format (time_slots) and legacy format (days_of_week)
     let slots: Array<{ day_of_week: number; start_time: string; end_time: string }> = [];
@@ -345,44 +344,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check for conflicts before creating
     const createdSchedules = [];
     const errors = [];
-
-    // Use service role for RPC calls to avoid RLS issues
-    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      return NextResponse.json(
-        { error: "Server configuration error: missing service role key" },
-        { status: 500 }
-      );
-    }
-
-    // Schedule creation requires academy_id (from profile or subject)
-    if (!academyId && resolvedSubjectId) {
-      const { data: subj } = await supabase
-        .from("subjects")
-        .select("academy_id")
-        .eq("id", resolvedSubjectId)
-        .single();
-      academyId = subj?.academy_id ?? null;
-    }
-    if (!academyId) {
-      return NextResponse.json(
-        { error: "Academy is required to create schedules" },
-        { status: 400 }
-      );
-    }
-
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    );
 
     for (const slot of slots) {
       const { day_of_week, start_time: slotStartTime, end_time: slotEndTime } = slot;
@@ -434,29 +397,15 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      // Create schedule for this day - use service role to bypass RLS
-      // Build insert object conditionally - only include subject_id if it exists
-      const insertData: {
-        academy_id: string;
-        name: string;
-        profile_id: string;
-        day_of_week: number;
-        start_time: string;
-        end_time: string;
-        subject_id?: string | null;
-      } = {
+      const insertData = {
         academy_id: academyId,
         name: scheduleName,
         profile_id,
+        course_id: course_id,
         day_of_week: day_of_week,
         start_time: slotStartTime,
         end_time: slotEndTime,
       };
-
-      // Only add subject_id if we have it (column might not exist in older DBs)
-      if (resolvedSubjectId) {
-        insertData.subject_id = resolvedSubjectId;
-      }
 
       const { data: schedule, error: createError } = await supabaseAdmin
         .from("schedules")
@@ -466,27 +415,6 @@ export async function POST(request: NextRequest) {
 
       if (createError) {
         console.error("Error creating schedule:", createError);
-        console.error("Schedule data:", insertData);
-        
-        // Check if error is about missing subject_id column
-        const errorMessage = createError.message || "";
-        if (errorMessage.includes("subject_id") || errorMessage.includes("column")) {
-          return NextResponse.json(
-            {
-              error: "La columna 'subject_id' no existe en la tabla 'schedules'",
-              details: "Por favor ejecuta la migración SQL en Supabase SQL Editor para agregar la columna subject_id a la tabla schedules.",
-              migration_sql: `
--- Ejecuta este SQL en Supabase SQL Editor:
-ALTER TABLE public.schedules
-  ADD COLUMN IF NOT EXISTS subject_id uuid REFERENCES public.subjects ON DELETE SET NULL;
-
-CREATE INDEX IF NOT EXISTS idx_schedules_subject ON public.schedules(subject_id);
-              `.trim()
-            },
-            { status: 500 }
-          );
-        }
-        
         errors.push(
           `Error creando horario para el día ${day_of_week}: ${errorMessage || createError.code || "Error desconocido"}`
         );

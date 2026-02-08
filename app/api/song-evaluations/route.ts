@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
 // GET: Listar calificaciones de canciones para una sesión
-// Query: ?period_date_id=uuid&course_registration_id=uuid (opcional, si se omite retorna todas de la sesión)
+// Query: ?period_date_id=uuid OR ?course_session_id=uuid, &course_registration_id=uuid (opcional)
 export async function GET(request: NextRequest) {
   try {
     const cookieStore = cookies();
@@ -31,10 +31,20 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const periodDateId = searchParams.get("period_date_id");
+    const courseSessionId = searchParams.get("course_session_id");
     const courseRegistrationId = searchParams.get("course_registration_id");
 
-    if (!periodDateId) {
-      return NextResponse.json({ error: "period_date_id is required" }, { status: 400 });
+    if (!periodDateId && !courseSessionId) {
+      return NextResponse.json(
+        { error: "period_date_id or course_session_id is required" },
+        { status: 400 }
+      );
+    }
+    if (periodDateId && courseSessionId) {
+      return NextResponse.json(
+        { error: "Provide period_date_id OR course_session_id, not both" },
+        { status: 400 }
+      );
     }
 
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -49,9 +59,10 @@ export async function GET(request: NextRequest) {
 
     let query = supabaseAdmin
       .from("song_evaluations")
-      .select("course_registration_id, song_id, rubric_id, scale_id")
-      .eq("period_date_id", periodDateId);
-
+      .select("course_registration_id, song_id, rubric_id, scale_id");
+    query = courseSessionId
+      ? query.eq("course_session_id", courseSessionId)
+      : query.eq("period_date_id", periodDateId);
     if (courseRegistrationId) {
       query = query.eq("course_registration_id", courseRegistrationId);
     }
@@ -86,7 +97,7 @@ export async function GET(request: NextRequest) {
 }
 
 // PUT: Crear o actualizar calificación (upsert)
-// Body: { course_registration_id, song_id, period_date_id, rubric_id, scale_id }
+// Body: { course_registration_id, song_id, period_date_id?, course_session_id?, rubric_id, scale_id }
 // scale_id puede ser null para "Sin Calificar"
 export async function PUT(request: NextRequest) {
   try {
@@ -113,11 +124,23 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { course_registration_id, song_id, period_date_id, rubric_id, scale_id } = body;
+    const { course_registration_id, song_id, period_date_id, course_session_id, rubric_id, scale_id } = body;
 
-    if (!course_registration_id || !song_id || !period_date_id || !rubric_id) {
+    if (!course_registration_id || !song_id || !rubric_id) {
       return NextResponse.json(
-        { error: "course_registration_id, song_id, period_date_id and rubric_id are required" },
+        { error: "course_registration_id, song_id and rubric_id are required" },
+        { status: 400 }
+      );
+    }
+    if (!period_date_id && !course_session_id) {
+      return NextResponse.json(
+        { error: "period_date_id or course_session_id is required" },
+        { status: 400 }
+      );
+    }
+    if (period_date_id && course_session_id) {
+      return NextResponse.json(
+        { error: "Provide period_date_id OR course_session_id, not both" },
         { status: 400 }
       );
     }
@@ -132,23 +155,35 @@ export async function PUT(request: NextRequest) {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
+    const sessionFilter = course_session_id
+      ? { course_session_id }
+      : { period_date_id };
     const { data: existing } = await supabaseAdmin
       .from("song_evaluations")
       .select("id")
       .eq("course_registration_id", course_registration_id)
       .eq("song_id", song_id)
-      .eq("period_date_id", period_date_id)
+      .match(sessionFilter)
       .eq("rubric_id", rubric_id)
       .maybeSingle();
 
-    const payload = {
-      course_registration_id,
-      song_id,
-      period_date_id,
-      rubric_id,
-      scale_id: scale_id || null,
-      updated_at: new Date().toISOString(),
-    };
+    const payload = course_session_id
+      ? {
+          course_registration_id,
+          song_id,
+          course_session_id,
+          rubric_id,
+          scale_id: scale_id || null,
+          updated_at: new Date().toISOString(),
+        }
+      : {
+          course_registration_id,
+          song_id,
+          period_date_id,
+          rubric_id,
+          scale_id: scale_id || null,
+          updated_at: new Date().toISOString(),
+        };
 
     if (existing) {
       const { error } = await supabaseAdmin
@@ -189,7 +224,7 @@ export async function PUT(request: NextRequest) {
 }
 
 // DELETE: Eliminar calificación
-// Query: ?course_registration_id=uuid&song_id=uuid&period_date_id=uuid&rubric_id=uuid
+// Query: ?course_registration_id=uuid&song_id=uuid&period_date_id=uuid|course_session_id=uuid&rubric_id=uuid
 export async function DELETE(request: NextRequest) {
   try {
     const cookieStore = cookies();
@@ -218,11 +253,24 @@ export async function DELETE(request: NextRequest) {
     const courseRegistrationId = searchParams.get("course_registration_id");
     const songId = searchParams.get("song_id");
     const periodDateId = searchParams.get("period_date_id");
+    const courseSessionId = searchParams.get("course_session_id");
     const rubricId = searchParams.get("rubric_id");
 
-    if (!courseRegistrationId || !songId || !periodDateId || !rubricId) {
+    if (!courseRegistrationId || !songId || !rubricId) {
       return NextResponse.json(
-        { error: "course_registration_id, song_id, period_date_id and rubric_id are required" },
+        { error: "course_registration_id, song_id and rubric_id are required" },
+        { status: 400 }
+      );
+    }
+    if (!periodDateId && !courseSessionId) {
+      return NextResponse.json(
+        { error: "period_date_id or course_session_id is required" },
+        { status: 400 }
+      );
+    }
+    if (periodDateId && courseSessionId) {
+      return NextResponse.json(
+        { error: "Provide period_date_id OR course_session_id, not both" },
         { status: 400 }
       );
     }
@@ -237,12 +285,15 @@ export async function DELETE(request: NextRequest) {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
+    const sessionDeleteFilter = courseSessionId
+      ? { course_session_id: courseSessionId }
+      : { period_date_id: periodDateId };
     const { error } = await supabaseAdmin
       .from("song_evaluations")
       .delete()
       .eq("course_registration_id", courseRegistrationId)
       .eq("song_id", songId)
-      .eq("period_date_id", periodDateId)
+      .match(sessionDeleteFilter)
       .eq("rubric_id", rubricId);
 
     if (error) {

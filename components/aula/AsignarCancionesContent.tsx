@@ -21,8 +21,8 @@ type CourseRegistration = {
 
 type Course = {
   id: string;
-  subject?: { name?: string } | null;
-  period?: { year?: number; period?: string } | null;
+  name: string;
+  year: number;
 };
 
 interface AsignarCancionesContentProps {
@@ -58,12 +58,10 @@ export function AsignarCancionesContent({
         ]);
         const coursesData = await coursesRes.json();
         const songsData = await songsRes.json();
-        const list = (coursesData.courses || []).filter((c: Course) => {
-          const per = Array.isArray(c.period) ? c.period[0] : c.period;
-          const year = (per as { year?: number } | null)?.year;
-          const currentYear = new Date().getFullYear();
-          return year != null && year >= currentYear - 1;
-        });
+        const currentYear = new Date().getFullYear();
+        const list = (coursesData.courses || []).filter(
+          (c: Course) => c.year != null && c.year >= currentYear - 1
+        );
         setCourses(list);
         setAllSongs(songsData.songs || []);
       } catch {
@@ -188,17 +186,11 @@ export function AsignarCancionesContent({
           className="block w-full max-w-md rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
         >
           <option value="">Selecciona un curso...</option>
-          {courses.map((c) => {
-            const subj = Array.isArray(c.subject) ? c.subject[0] : c.subject;
-            const per = Array.isArray(c.period) ? c.period[0] : c.period;
-            const name = subj?.name || "Curso";
-            const periodStr = per ? `${per.year} – ${per.period}` : "";
-            return (
-              <option key={c.id} value={c.id}>
-                {name} {periodStr}
-              </option>
-            );
-          })}
+          {courses.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name} ({c.year})
+            </option>
+          ))}
         </select>
       </div>
 

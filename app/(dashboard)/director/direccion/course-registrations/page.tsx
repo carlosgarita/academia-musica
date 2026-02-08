@@ -10,20 +10,17 @@ import {
   UserPlus,
 } from "lucide-react";
 
-type Period = { id: string; year: number; period: string };
 type Course = {
   id: string;
+  name: string;
   profile_id: string;
-  subject_id: string;
-  period_id: string;
-  subject?: { id: string; name: string };
+  year: number;
   profile?: {
     id: string;
     first_name: string | null;
     last_name: string | null;
     email?: string;
   };
-  period?: Period;
   sessions_count?: number;
   turnos_count?: number;
 };
@@ -38,8 +35,9 @@ type Student = {
 type Reg = {
   id: string;
   student_id: string;
-  subject_id: string;
-  period_id: string;
+  course_id: string | null;
+  subject_id?: string | null;
+  period_id?: string | null;
   profile_id: string | null;
   student: { id: string; first_name: string; last_name: string } | null;
 };
@@ -96,14 +94,9 @@ export default function CourseRegistrationsPage() {
     }
   }
 
-  // Agrupar matrículas por curso: (subject_id, period_id, profile_id)
+  // Agrupar matrículas por curso: por course_id
   function regsForCourse(c: Course): Reg[] {
-    return regs.filter(
-      (r) =>
-        r.subject_id === c.subject_id &&
-        r.period_id === c.period_id &&
-        r.profile_id === c.profile_id
-    );
+    return regs.filter((r) => r.course_id === c.id);
   }
 
   if (loading) {
@@ -125,7 +118,7 @@ export default function CourseRegistrationsPage() {
         </div>
         <Link
           href="/director/direccion/course-registrations/special-registrations"
-          className="inline-flex items-center gap-2 rounded-md bg-gray-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-500"
+          className="inline-flex gap-2 rounded-md bg-gray-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-500"
         >
           Matrículas Especiales
         </Link>
@@ -165,32 +158,42 @@ export default function CourseRegistrationsPage() {
               onGenerateContracts={async (studentIds) => {
                 setSending(c.id);
                 try {
-                  const r = await fetch("/api/course-registrations/bulk-with-contracts", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      course_id: c.id,
-                      student_ids: studentIds,
-                    }),
-                  });
+                  const r = await fetch(
+                    "/api/course-registrations/bulk-with-contracts",
+                    {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        course_id: c.id,
+                        student_ids: studentIds,
+                      }),
+                    }
+                  );
                   const d = await r.json();
                   if (!r.ok)
                     throw new Error(
-                      d.error || d.details || "Error al generar contratos"
+                      d.details
+                        ? `${d.error || "Error"}: ${d.details}`
+                        : d.error || "Error al generar contratos"
                     );
                   setExpandedAdd(null);
                   load();
                 } catch (e) {
-                  alert(e instanceof Error ? e.message : "Error al generar contratos");
+                  alert(
+                    e instanceof Error ? e.message : "Error al generar contratos"
+                  );
                 } finally {
                   setSending(null);
                 }
               }}
               onRemove={async (regId) => {
                 try {
-                  const r = await fetch(`/api/course-registrations/${regId}`, {
-                    method: "DELETE",
-                  });
+                  const r = await fetch(
+                    `/api/course-registrations/${regId}`,
+                    {
+                      method: "DELETE",
+                    }
+                  );
                   const d = await r.json();
                   if (!r.ok) throw new Error(d.error || "Error al eliminar");
                   load();
@@ -256,20 +259,18 @@ function CourseBlock({
     setPendingStudents([]);
   }
 
-  const cl = course.subject?.name ?? "—";
+  const courseLabel = course.name ?? "—";
   const prof = professorName(course.profile);
-  const pd = course.period
-    ? `${course.period.year} – ${course.period.period}`
-    : "—";
+  const yearLabel = course.year ? String(course.year) : "—";
 
   return (
     <div className="bg-white shadow overflow-hidden sm:rounded-lg">
       <div className="px-4 py-4 sm:px-6">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <h2 className="text-lg font-medium text-gray-900">{cl}</h2>
+          <h2 className="text-lg font-medium text-gray-900">{courseLabel}</h2>
           <span className="text-gray-400">·</span>
           <span className="text-gray-600">{prof}</span>
-          <span className="text-sm text-gray-500">{pd}</span>
+          <span className="text-sm text-gray-500">{yearLabel}</span>
         </div>
         <div className="mt-1 flex flex-wrap gap-2">
           <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
@@ -280,7 +281,6 @@ function CourseBlock({
           </span>
         </div>
 
-        {/* Lista de matriculados */}
         <div className="mt-4">
           {regs.length > 0 ? (
             <ul className="divide-y divide-gray-100">
@@ -327,7 +327,6 @@ function CourseBlock({
             </p>
           )}
 
-          {/* Botón Agregar Estudiante */}
           <div className="mt-3">
             <button
               type="button"
@@ -343,7 +342,6 @@ function CourseBlock({
               Agregar Estudiante
             </button>
 
-            {/* Formulario expandido: dropdown estudiantes + canciones */}
             {expandedAdd && (
               <div className="mt-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
                 <div className="space-y-4">
@@ -368,22 +366,23 @@ function CourseBlock({
                         </option>
                       )}
                     </select>
-                    {availableStudents.length === 0 && pendingStudents.length === 0 && (
-                      <p className="mt-1 text-sm text-amber-600">
-                        Todos los estudiantes activos ya están matriculados en
-                        este curso o no hay estudiantes.
-                      </p>
-                    )}
+                    {availableStudents.length === 0 &&
+                      pendingStudents.length === 0 && (
+                        <p className="mt-1 text-sm text-amber-600">
+                          Todos los estudiantes activos ya están matriculados en
+                          este curso o no hay estudiantes.
+                        </p>
+                      )}
                   </div>
 
                   <button
                     type="button"
                     onClick={addToPending}
                     disabled={!studentId}
-                      className="rounded-md bg-gray-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-500 disabled:opacity-50"
-                    >
-                      Agregar Estudiante
-                    </button>
+                    className="rounded-md bg-gray-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-500 disabled:opacity-50"
+                  >
+                    Agregar Estudiante
+                  </button>
 
                   {pendingStudents.length > 0 && (
                     <>
@@ -418,7 +417,9 @@ function CourseBlock({
                           disabled={sending}
                           className="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          {sending ? "Generando…" : "Matricular y Generar Contrato(s)"}
+                          {sending
+                            ? "Generando…"
+                            : "Matricular y Generar Contrato(s)"}
                         </button>
                         <button
                           type="button"

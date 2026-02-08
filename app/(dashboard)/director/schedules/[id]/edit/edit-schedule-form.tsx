@@ -3,16 +3,11 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-type Professor = {
-  id: string;
-  first_name: string | null;
-  last_name: string | null;
-  email: string;
-};
-
-type Subject = {
+type Course = {
   id: string;
   name: string;
+  year: number;
+  profile_id: string;
 };
 
 type ScheduleSlot = {
@@ -46,8 +41,7 @@ export function EditScheduleForm({
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [subjectId, setSubjectId] = useState("");
-  const [professorId, setProfessorId] = useState("");
+  const [courseId, setCourseId] = useState("");
   const [scheduleSlots, setScheduleSlots] = useState<ScheduleSlot[]>([]);
 
   // Add turno form state
@@ -56,14 +50,12 @@ export function EditScheduleForm({
   const [newSlotEndTime, setNewSlotEndTime] = useState("10:00");
   const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
 
-  const [professors, setProfessors] = useState<Professor[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [loadingSubjects, setLoadingSubjects] = useState(true);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loadingCourses, setLoadingCourses] = useState(true);
 
   useEffect(() => {
     loadScheduleData();
-    loadProfessors();
-    loadSubjects();
+    loadCourses();
   }, [scheduleId]);
 
   async function loadScheduleData() {
@@ -77,20 +69,18 @@ export function EditScheduleForm({
       const data = await response.json();
       const initialSchedule = data.schedule;
 
-      setSubjectId(initialSchedule.subject_id || "");
-      setProfessorId(initialSchedule.profile_id || "");
+      setCourseId(initialSchedule.course_id || "");
 
-      // Load all schedules with the same name and profile_id (same class, same professor)
+      // Load all schedules with the same course_id
       const allSchedulesResponse = await fetch("/api/schedules");
       if (allSchedulesResponse.ok) {
         const allData = await allSchedulesResponse.json();
         const allSchedules = allData.schedules || [];
 
-        // Filter schedules with same name and profile_id
+        // Filter schedules with same course_id
         const relatedSchedules = allSchedules.filter(
-          (s: { name: string; profile_id: string }) =>
-            s.name === initialSchedule.name &&
-            s.profile_id === initialSchedule.profile_id
+          (s: { course_id: string | null }) =>
+            s.course_id && s.course_id === (initialSchedule.course_id || "")
         );
 
         // Convert to slots
@@ -119,28 +109,17 @@ export function EditScheduleForm({
     }
   }
 
-  async function loadProfessors() {
+  async function loadCourses() {
     try {
-      const response = await fetch("/api/professors");
-      if (!response.ok) throw new Error("Failed to load professors");
+      setLoadingCourses(true);
+      const response = await fetch("/api/courses");
+      if (!response.ok) throw new Error("Failed to load courses");
       const data = await response.json();
-      setProfessors(data.professors || []);
+      setCourses(data.courses || []);
     } catch (err) {
-      console.error("Error loading professors:", err);
-    }
-  }
-
-  async function loadSubjects() {
-    try {
-      setLoadingSubjects(true);
-      const response = await fetch("/api/subjects");
-      if (!response.ok) throw new Error("Failed to load subjects");
-      const data = await response.json();
-      setSubjects(data.subjects || []);
-    } catch (err) {
-      console.error("Error loading subjects:", err);
+      console.error("Error loading courses:", err);
     } finally {
-      setLoadingSubjects(false);
+      setLoadingCourses(false);
     }
   }
 
@@ -254,14 +233,8 @@ export function EditScheduleForm({
     setIsLoading(true);
     setError(null);
 
-    if (!subjectId) {
-      setError("Debes seleccionar una materia");
-      setIsLoading(false);
-      return;
-    }
-
-    if (!professorId) {
-      setError("Debes seleccionar un profesor");
+    if (!courseId) {
+      setError("Debes seleccionar un curso");
       setIsLoading(false);
       return;
     }
@@ -273,10 +246,9 @@ export function EditScheduleForm({
     }
 
     try {
-      // Get the selected subject name
-      const selectedSubject = subjects.find((s) => s.id === subjectId);
-      if (!selectedSubject) {
-        setError("Materia no encontrada");
+      const selectedCourse = courses.find((c) => c.id === courseId);
+      if (!selectedCourse) {
+        setError("Curso no encontrado");
         setIsLoading(false);
         return;
       }
@@ -294,14 +266,13 @@ export function EditScheduleForm({
       const originalData = await originalResponse.json();
       const originalSchedule = originalData.schedule;
 
-      // Get all schedules with same name and profile_id
+      // Get all schedules with same course_id
       const allSchedulesResponse = await fetch("/api/schedules");
       const allSchedulesData = await allSchedulesResponse.json();
       const allSchedules = allSchedulesData.schedules || [];
       const originalRelatedSchedules = allSchedules.filter(
-        (s: { name: string; profile_id: string }) =>
-          s.name === originalSchedule.name &&
-          s.profile_id === originalSchedule.profile_id
+        (s: { course_id: string | null }) =>
+          s.course_id && s.course_id === (originalSchedule.course_id || "")
       );
 
       // Find schedules to delete (exist in DB but not in current slots)
@@ -325,8 +296,7 @@ export function EditScheduleForm({
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            subject_id: subjectId,
-            profile_id: professorId,
+            course_id: courseId,
             day_of_week: slot.day_of_week,
             start_time: slot.start_time,
             end_time: slot.end_time,
@@ -342,8 +312,7 @@ export function EditScheduleForm({
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            subject_id: subjectId,
-            profile_id: professorId,
+            course_id: courseId,
             time_slots: newSlots.map((slot) => ({
               day_of_week: slot.day_of_week,
               start_time: slot.start_time,
@@ -380,60 +349,34 @@ export function EditScheduleForm({
       )}
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-        {/* Materia */}
+        {/* Curso */}
         <div>
           <label
-            htmlFor="subjectId"
+            htmlFor="courseId"
             className="block text-sm font-medium text-gray-700"
           >
-            Nombre de la Clase (Materia) <span className="text-red-500">*</span>
+            Curso <span className="text-red-500">*</span>
           </label>
           <select
-            id="subjectId"
-            name="subjectId"
+            id="courseId"
+            name="courseId"
             required
-            value={subjectId}
-            onChange={(e) => setSubjectId(e.target.value)}
-            disabled={loadingSubjects}
+            value={courseId}
+            onChange={(e) => setCourseId(e.target.value)}
+            disabled={loadingCourses}
             className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           >
             <option value="">
-              {loadingSubjects
-                ? "Cargando materias..."
-                : "Selecciona una materia"}
+              {loadingCourses
+                ? "Cargando cursos..."
+                : "Selecciona un curso"}
             </option>
-            {!loadingSubjects &&
-              subjects.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
+            {!loadingCourses &&
+              courses.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({c.year})
                 </option>
               ))}
-          </select>
-        </div>
-
-        {/* Profesor */}
-        <div>
-          <label
-            htmlFor="professor"
-            className="block text-sm font-medium text-gray-700"
-          >
-            Profesor Responsable <span className="text-red-500">*</span>
-          </label>
-          <select
-            id="professor"
-            name="professor"
-            required
-            value={professorId}
-            onChange={(e) => setProfessorId(e.target.value)}
-            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-          >
-            <option value="">Selecciona un profesor</option>
-            {professors.map((prof) => (
-              <option key={prof.id} value={prof.id}>
-                {`${prof.first_name || ""} ${prof.last_name || ""}`.trim() ||
-                  prof.email}
-              </option>
-            ))}
           </select>
         </div>
       </div>

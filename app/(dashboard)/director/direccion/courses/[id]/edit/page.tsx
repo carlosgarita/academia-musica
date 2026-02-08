@@ -30,9 +30,9 @@ export default function EditCoursePage() {
   const [loadCourse, setLoadCourse] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [subjectName, setSubjectName] = useState("");
+  const [courseName, setCourseName] = useState("");
   const [professorName, setProfessorName] = useState("");
-  const [yearPeriod, setYearPeriod] = useState("");
+  const [courseYear, setCourseYear] = useState("");
 
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -52,7 +52,8 @@ export default function EditCoursePage() {
         const d = await r.json();
         if (!r.ok) throw new Error(d.error || "Error al cargar el curso");
         const c = d.course;
-        setSubjectName((c.subject?.name as string) ?? "");
+        setCourseName((c.name as string) ?? "");
+        setCourseYear(c.year != null ? String(c.year) : "");
         const p = c.profile as {
           first_name?: string;
           last_name?: string;
@@ -65,8 +66,6 @@ export default function EditCoursePage() {
                 ""
             : ""
         );
-        const per = c.period as { year?: number; period?: string } | null;
-        setYearPeriod(per ? `${per.year} – ${per.period}` : "");
         setSessionDates(c.session_dates ?? []);
         setTurnos(
           (c.turnos ?? []).map(
@@ -270,8 +269,8 @@ export default function EditCoursePage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Editar curso</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Materia, profesor y periodo no se pueden cambiar. Puedes modificar
-          sesiones y turnos.
+          Nombre, profesor y año no se pueden cambiar. Puedes modificar sesiones
+          y turnos.
         </p>
       </div>
 
@@ -288,18 +287,18 @@ export default function EditCoursePage() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Año – Periodo
+              Nombre del curso
             </label>
             <div className="mt-1 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
-              {yearPeriod || "—"}
+              {courseName || "—"}
             </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Materia
+              Año
             </label>
             <div className="mt-1 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
-              {subjectName || "—"}
+              {courseYear || "—"}
             </div>
           </div>
           <div>

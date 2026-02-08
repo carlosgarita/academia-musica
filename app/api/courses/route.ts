@@ -13,8 +13,8 @@ const DAY_NAMES = [
   "Domingo",
 ];
 
-// GET: List courses (professor_subject_periods + period, subject, professor, counts)
-// Query: ?period_id=uuid (opcional), ?profile_id=uuid (obligatorio para profesores)
+// GET: List courses from courses table
+// Query: ?profile_id=uuid (obligatorio para profesores), ?year=number (opcional)
 export async function GET(request: NextRequest) {
   try {
     const cookieStore = cookies();
@@ -62,32 +62,37 @@ export async function GET(request: NextRequest) {
     );
 
     const searchParams = new URL(request.url).searchParams;
-    const periodId = searchParams.get("period_id");
     const profileId = searchParams.get("profile_id");
+    const yearParam = searchParams.get("year");
 
     let query = supabaseAdmin
-      .from("professor_subject_periods")
+      .from("courses")
       .select(
         `
         id,
+        name,
         profile_id,
-        subject_id,
-        period_id,
+        year,
         mensualidad,
-        period:periods(id, year, period, academy_id, deleted_at),
-        subject:subjects(id, name, deleted_at),
+        academy_id,
         profile:profiles(id, first_name, last_name, email, deleted_at)
       `
-      );
+      )
+      .is("deleted_at", null);
 
-    if (periodId) {
-      query = query.eq("period_id", periodId);
-    }
     if (profileId) {
       query = query.eq("profile_id", profileId);
     }
+    if (yearParam) {
+      const year = parseInt(yearParam, 10);
+      if (!Number.isNaN(year)) {
+        query = query.eq("year", year);
+      }
+    }
 
-    const { data: psp, error } = await query.order("period_id", { ascending: false });
+    const { data: coursesData, error } = await query.order("year", {
+      ascending: false,
+    });
 
     if (error) {
       console.error("Error fetching courses:", error);
@@ -97,56 +102,41 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Filter by academy (unless super_admin) and exclude soft-deleted
-    // Supabase may return period/subject/profile as arrays for relations
-    const filtered = (psp || []).filter((c: Record<string, unknown>) => {
-      const period = Array.isArray(c.period) ? c.period[0] : c.period;
-      const subject = Array.isArray(c.subject) ? c.subject[0] : c.subject;
-      const profileRel = Array.isArray(c.profile) ? c.profile[0] : c.profile;
-      const p = period as { academy_id?: string; deleted_at?: string | null } | null;
-      const s = subject as { deleted_at?: string | null } | null;
-      const pr = profileRel as { deleted_at?: string | null } | null;
-      if (profile.role !== "super_admin" && p?.academy_id !== profile.academy_id) return false;
+    // Filter by academy (unless super_admin) and exclude soft-deleted profile
+    const filtered = (coursesData || []).filter((c: Record<string, unknown>) => {
+      const pr = c.profile as { deleted_at?: string | null } | null;
+      const profileArr = Array.isArray(pr) ? pr : pr ? [pr] : [];
+      const p = profileArr[0] as { deleted_at?: string | null } | undefined;
+      if (profile.role !== "super_admin" && c.academy_id !== profile.academy_id)
+        return false;
       if (p?.deleted_at) return false;
-      if (s?.deleted_at) return false;
-      if (pr?.deleted_at) return false;
       return true;
     });
 
     // Enrich with session count, turnos count, and session date range
     const courses = await Promise.all(
       filtered.map(async (c: Record<string, unknown>) => {
-        const periodId = c.period_id as string | undefined;
-        const subjectId = c.subject_id as string | undefined;
-        const profileId = c.profile_id as string | undefined;
+        const courseId = c.id as string;
         const [sessionsRes, turnosRes, datesRes] = await Promise.all([
           supabaseAdmin
-            .from("period_dates")
+            .from("course_sessions")
             .select("id", { count: "exact", head: true })
-            .eq("period_id", periodId)
-            .eq("subject_id", subjectId)
-            .eq("date_type", "clase")
-            .is("deleted_at", null),
+            .eq("course_id", courseId),
           supabaseAdmin
             .from("schedules")
             .select("id", { count: "exact", head: true })
-            .eq("period_id", periodId)
-            .eq("subject_id", subjectId)
-            .eq("profile_id", profileId)
+            .eq("course_id", courseId)
             .is("deleted_at", null),
           supabaseAdmin
-            .from("period_dates")
+            .from("course_sessions")
             .select("date")
-            .eq("period_id", periodId)
-            .eq("subject_id", subjectId)
-            .eq("profile_id", profileId)
-            .eq("date_type", "clase")
-            .is("deleted_at", null)
+            .eq("course_id", courseId)
             .order("date", { ascending: true }),
         ]);
         const dates = (datesRes.data || []) as { date: string }[];
         const firstSessionDate = dates.length > 0 ? dates[0].date : null;
-        const lastSessionDate = dates.length > 0 ? dates[dates.length - 1].date : null;
+        const lastSessionDate =
+          dates.length > 0 ? dates[dates.length - 1].date : null;
         return {
           ...c,
           sessions_count: sessionsRes.count ?? 0,
@@ -161,17 +151,18 @@ export async function GET(request: NextRequest) {
   } catch (e) {
     console.error("Unexpected error in GET /api/courses:", e);
     return NextResponse.json(
-      { error: "An unexpected error occurred", details: e instanceof Error ? e.message : "Unknown error" },
+      {
+        error: "An unexpected error occurred",
+        details: e instanceof Error ? e.message : "Unknown error",
+      },
       { status: 500 }
     );
   }
 }
 
-// POST: Create a course. Principal: sesiones (period_dates) para comentarios/calificaciones; luego horarios (schedules/turnos).
-// Crea: periodo si no existe, professor_subject_periods, period_dates (sesiones), schedules (día/hora por turno).
-// Body: { year, period, subject_id, profile_id, turnos, [session_dates] o [start_date, end_date] }
-//   session_dates: string[] (YYYY-MM-DD) — si se envía, se usa para period_dates; si no, se derivan de start_date, end_date y días de turnos.
-// Opcional: academy_id (solo super_admin sin academia)
+// POST: Create a course. New flow: name (text), profile_id, year from start_date, course_sessions, schedules
+// Body: { name, profile_id, turnos, session_dates or [start_date, end_date], mensualidad }
+// Year is derived from the first session date (or start_date)
 export async function POST(request: NextRequest) {
   try {
     const cookieStore = cookies();
@@ -214,25 +205,27 @@ export async function POST(request: NextRequest) {
     );
 
     const body = await request.json();
-    const { year, period, academy_id: bodyAcademyId, subject_id, profile_id, start_date, end_date, session_dates, turnos, mensualidad } = body;
+    const {
+      academy_id: bodyAcademyId,
+      name,
+      profile_id,
+      start_date,
+      end_date,
+      session_dates,
+      turnos,
+      mensualidad,
+    } = body;
 
-    if (year == null || year === "" || typeof year !== "number" || year < 2000 || year > 2100) {
+    if (!name || typeof name !== "string" || name.trim().length === 0) {
       return NextResponse.json(
-        { error: "year es obligatorio y debe ser un número entre 2000 y 2100" },
+        { error: "El nombre del curso es obligatorio" },
         { status: 400 }
       );
     }
 
-    if (!period || !["I", "II", "III", "IV", "V", "VI"].includes(period)) {
+    if (!profile_id) {
       return NextResponse.json(
-        { error: "period es obligatorio y debe ser I, II, III, IV, V o VI" },
-        { status: 400 }
-      );
-    }
-
-    if (!subject_id || !profile_id) {
-      return NextResponse.json(
-        { error: "subject_id y profile_id son obligatorios" },
+        { error: "profile_id es obligatorio" },
         { status: 400 }
       );
     }
@@ -240,84 +233,29 @@ export async function POST(request: NextRequest) {
     const academyId = profile.academy_id ?? bodyAcademyId ?? null;
     if (!academyId) {
       return NextResponse.json(
-        { error: "academy_id es obligatorio cuando tu cuenta no está vinculada a una academia" },
+        {
+          error:
+            "academy_id es obligatorio cuando tu cuenta no está vinculada a una academia",
+        },
         { status: 400 }
       );
     }
 
-    // Resolver o crear el periodo (año + periodo)
-    let periodId: string;
-    const { data: existing } = await supabaseAdmin
-      .from("periods")
-      .select("id")
-      .eq("academy_id", academyId)
-      .eq("year", year)
-      .eq("period", period)
-      .is("deleted_at", null)
-      .maybeSingle();
-
-    if (existing) {
-      periodId = existing.id;
-    } else {
-      const { data: deleted } = await supabaseAdmin
-        .from("periods")
-        .select("id")
-        .eq("academy_id", academyId)
-        .eq("year", year)
-        .eq("period", period)
-        .not("deleted_at", "is", null)
-        .maybeSingle();
-
-      if (deleted) {
-        await supabaseAdmin.from("periods").update({ deleted_at: null }).eq("id", deleted.id);
-        periodId = deleted.id;
-      } else {
-        const { data: inserted, error: insErr } = await supabaseAdmin
-          .from("periods")
-          .insert({ academy_id: academyId, year, period })
-          .select("id")
-          .single();
-        if (insErr) {
-          if ((insErr as { code?: string }).code === "23505") {
-            const { data: race } = await supabaseAdmin
-              .from("periods")
-              .select("id")
-              .eq("academy_id", academyId)
-              .eq("year", year)
-              .eq("period", period)
-              .is("deleted_at", null)
-              .single();
-            if (race) periodId = race.id;
-            else {
-              return NextResponse.json({ error: "Error al crear el periodo", details: insErr.message }, { status: 500 });
-            }
-          } else {
-            return NextResponse.json({ error: "Error al crear el periodo", details: insErr.message }, { status: 500 });
-          }
-        } else {
-          periodId = inserted!.id;
-        }
-      }
-    }
-
-    // Obtener el periodo para academy_id y validaciones
-    const { data: periodRow, error: perr } = await supabaseAdmin
-      .from("periods")
-      .select("id, academy_id, year, period")
-      .eq("id", periodId)
-      .is("deleted_at", null)
-      .single();
-
-    if (perr || !periodRow) {
-      return NextResponse.json({ error: "Error al obtener el periodo" }, { status: 500 });
-    }
-
-    const useSessionDates = Array.isArray(session_dates) && session_dates.length > 0;
+    const useSessionDates =
+      Array.isArray(session_dates) && session_dates.length > 0;
 
     if (!useSessionDates) {
-      if (!start_date || !end_date || typeof start_date !== "string" || typeof end_date !== "string") {
+      if (
+        !start_date ||
+        !end_date ||
+        typeof start_date !== "string" ||
+        typeof end_date !== "string"
+      ) {
         return NextResponse.json(
-          { error: "Indica start_date y end_date, o envía session_dates (fechas de sesiones generadas)" },
+          {
+            error:
+              "Indica start_date y end_date, o envía session_dates (fechas de sesiones generadas)",
+          },
           { status: 400 }
         );
       }
@@ -325,7 +263,9 @@ export async function POST(request: NextRequest) {
       const end = new Date(end_date);
       if (end < start) {
         return NextResponse.json(
-          { error: "end_date debe ser posterior o igual a start_date" },
+          {
+            error: "end_date debe ser posterior o igual a start_date",
+          },
           { status: 400 }
         );
       }
@@ -333,15 +273,27 @@ export async function POST(request: NextRequest) {
 
     if (!Array.isArray(turnos) || turnos.length === 0) {
       return NextResponse.json(
-        { error: "turnos debe ser un array con al menos un elemento: { day_of_week, start_time, end_time }" },
+        {
+          error:
+            "turnos debe ser un array con al menos un elemento: { day_of_week, start_time, end_time }",
+        },
         { status: 400 }
       );
     }
 
     for (const t of turnos) {
-      if (!t.day_of_week || !t.start_time || !t.end_time || t.day_of_week < 1 || t.day_of_week > 7) {
+      if (
+        !t.day_of_week ||
+        !t.start_time ||
+        !t.end_time ||
+        t.day_of_week < 1 ||
+        t.day_of_week > 7
+      ) {
         return NextResponse.json(
-          { error: "Cada turno debe tener day_of_week (1-7), start_time y end_time" },
+          {
+            error:
+              "Cada turno debe tener day_of_week (1-7), start_time y end_time",
+          },
           { status: 400 }
         );
       }
@@ -349,7 +301,11 @@ export async function POST(request: NextRequest) {
       const e = new Date(`2000-01-01T${t.end_time}`);
       if (e <= s) {
         return NextResponse.json(
-          { error: `En el turno ${DAY_NAMES[t.day_of_week - 1]}: la hora de fin debe ser posterior a la de inicio` },
+          {
+            error: `En el turno ${
+              DAY_NAMES[t.day_of_week - 1]
+            }: la hora de fin debe ser posterior a la de inicio`,
+          },
           { status: 400 }
         );
       }
@@ -361,22 +317,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Subject
-    const { data: subject, error: suberr } = await supabaseAdmin
-      .from("subjects")
-      .select("id, name, academy_id, deleted_at")
-      .eq("id", subject_id)
-      .single();
-
-    if (suberr || !subject || subject.deleted_at) {
-      return NextResponse.json({ error: "Materia no encontrada" }, { status: 404 });
-    }
-
-    if (subject.academy_id !== periodRow.academy_id) {
-      return NextResponse.json({ error: "La materia no pertenece a la academia del periodo" }, { status: 400 });
-    }
-
-    // Professor
+    // Professor validation
     const { data: prof, error: proferr } = await supabaseAdmin
       .from("profiles")
       .select("id, role, academy_id, deleted_at")
@@ -384,106 +325,125 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (proferr || !prof || prof.deleted_at || prof.role !== "professor") {
-      return NextResponse.json({ error: "Profesor no encontrado o inválido" }, { status: 404 });
-    }
-
-    if (prof.academy_id !== periodRow.academy_id) {
-      return NextResponse.json({ error: "El profesor no pertenece a la academia" }, { status: 400 });
-    }
-
-    const { data: ps } = await supabaseAdmin
-      .from("professor_subjects")
-      .select("profile_id")
-      .eq("profile_id", profile_id)
-      .eq("subject_id", subject_id)
-      .maybeSingle();
-
-    if (!ps) {
       return NextResponse.json(
-        { error: "Este profesor no tiene asignada la materia seleccionada" },
+        { error: "Profesor no encontrado o inválido" },
+        { status: 404 }
+      );
+    }
+
+    if (prof.academy_id !== academyId) {
+      return NextResponse.json(
+        { error: "El profesor no pertenece a la academia" },
         { status: 400 }
       );
     }
 
-    // mensualidad: número no negativo o null
-    const mensualidadVal = mensualidad != null && mensualidad !== "" ? Number(mensualidad) : null;
-    if (mensualidadVal != null && (Number.isNaN(mensualidadVal) || mensualidadVal < 0)) {
+    // mensualidad
+    const mensualidadVal =
+      mensualidad != null && mensualidad !== ""
+        ? Number(mensualidad)
+        : null;
+    if (
+      mensualidadVal != null &&
+      (Number.isNaN(mensualidadVal) || mensualidadVal < 0)
+    ) {
       return NextResponse.json(
         { error: "mensualidad debe ser un número mayor o igual a 0" },
         { status: 400 }
       );
     }
 
-    // 1) professor_subject_periods (ignorar si ya existe)
-    const { error: pspErr } = await supabaseAdmin
-      .from("professor_subject_periods")
-      .insert({
-        profile_id,
-        subject_id,
-        period_id: periodId,
-        mensualidad: mensualidadVal,
-      });
-    if (pspErr && (pspErr as { code?: string }).code !== "23505") {
-      console.error("Error creating professor_subject_periods:", pspErr);
+    // Build session dates and derive year from first date
+    let sessionDatesList: string[] = [];
+    if (useSessionDates) {
+      sessionDatesList = (session_dates as string[]).filter(
+        (d) => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d)
+      );
+    } else {
+      const start = new Date(start_date as string);
+      const end = new Date(end_date as string);
+      const daysSet = new Set<number>(
+        turnos.map((t: { day_of_week: number }) => t.day_of_week)
+      );
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const dow = d.getDay() === 0 ? 7 : d.getDay();
+        if (daysSet.has(dow)) {
+          sessionDatesList.push(d.toISOString().split("T")[0]);
+        }
+      }
+    }
+
+    if (sessionDatesList.length === 0) {
       return NextResponse.json(
-        { error: "Error al crear el curso", details: pspErr.message },
+        { error: "Debe haber al menos una fecha de sesión" },
+        { status: 400 }
+      );
+    }
+
+    const firstDate = sessionDatesList[0];
+    const year = new Date(firstDate).getFullYear();
+
+    // 1) Create course
+    const { data: courseRow, error: courseErr } = await supabaseAdmin
+      .from("courses")
+      .insert({
+        academy_id: academyId,
+        name: name.trim().slice(0, 200),
+        profile_id,
+        year,
+        mensualidad: mensualidadVal,
+      })
+      .select("id")
+      .single();
+
+    if (courseErr || !courseRow) {
+      console.error("Error creating course:", courseErr);
+      return NextResponse.json(
+        {
+          error: "Error al crear el curso",
+          details: courseErr?.message ?? "Unknown",
+        },
         { status: 500 }
       );
     }
 
-    // 2) period_dates: usar session_dates o derivar de start_date, end_date y días de turnos
-    const dateInserts: { period_id: string; date_type: string; date: string; subject_id: string; profile_id: string; comment: null }[] = [];
+    const courseId = courseRow.id;
 
-    if (useSessionDates) {
-      for (const d of session_dates as string[]) {
-        if (typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
-          dateInserts.push({ period_id: periodId, date_type: "clase", date: d, subject_id, profile_id, comment: null });
-        }
-      }
-    } else {
-      const start = new Date(start_date as string);
-      const end = new Date(end_date as string);
-      const daysSet = new Set<number>(turnos.map((t: { day_of_week: number }) => t.day_of_week));
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const dow = d.getDay() === 0 ? 7 : d.getDay();
-        if (daysSet.has(dow)) {
-          dateInserts.push({
-            period_id: periodId,
-            date_type: "clase",
-            date: d.toISOString().split("T")[0],
-            subject_id,
-            profile_id,
-            comment: null,
-          });
-        }
-      }
+    // 2) Create course_sessions
+    const sessionInserts = sessionDatesList.map((d) => ({
+      course_id: courseId,
+      date: d,
+    }));
+
+    const { error: sessionsErr } = await supabaseAdmin
+      .from("course_sessions")
+      .insert(sessionInserts);
+
+    if (sessionsErr) {
+      console.error("Error creating course_sessions:", sessionsErr);
+      await supabaseAdmin.from("courses").delete().eq("id", courseId);
+      return NextResponse.json(
+        {
+          error: "Error al crear las sesiones",
+          details: sessionsErr.message,
+        },
+        { status: 500 }
+      );
     }
 
-    if (dateInserts.length > 0) {
-      const { error: datesErr } = await supabaseAdmin.from("period_dates").insert(dateInserts);
-      if (datesErr) {
-        console.error("Error creating period_dates:", datesErr);
-        return NextResponse.json(
-          { error: "Error al crear las sesiones", details: datesErr.message },
-          { status: 500 }
-        );
-      }
-    }
-
-    // 3) schedules (turnos): solo para saber en qué día/hora se imparte. Conflicto solo si mismo año, periodo, día y horario.
-    const scheduleName = `${subject.name} ${periodRow.year}-${periodRow.period}`.slice(0, 100);
+    // 3) Create schedules (turnos) with course_id
+    const scheduleName = `${name.trim()} ${year}`.slice(0, 100);
     const created: object[] = [];
 
     for (const t of turnos) {
       const { day_of_week, start_time, end_time } = t;
 
-      // Conflicto: mismo profesor, mismo periodo (año+periodo), mismo día, rango horario solapado
+      // Conflict: same professor, same year, same day, overlapping time
       const { data: conflict } = await supabaseAdmin
         .from("schedules")
         .select("id, name")
-        .eq("academy_id", periodRow.academy_id)
+        .eq("academy_id", academyId)
         .eq("profile_id", profile_id)
-        .eq("period_id", periodId)
         .eq("day_of_week", day_of_week)
         .is("deleted_at", null)
         .or(
@@ -492,29 +452,22 @@ export async function POST(request: NextRequest) {
         .limit(1);
 
       if (conflict && conflict.length > 0) {
+        await supabaseAdmin.from("courses").delete().eq("id", courseId);
         return NextResponse.json(
           {
-            error: `En ${periodRow.year}-${periodRow.period} el profesor ya tiene una clase en ${DAY_NAMES[day_of_week - 1]} que se solapa con ${start_time}-${end_time}`,
+            error: `El profesor ya tiene una clase en ${
+              DAY_NAMES[day_of_week - 1]
+            } que se solapa con ${start_time}-${end_time}`,
           },
           { status: 400 }
         );
       }
 
-      const insertData: {
-        academy_id: string;
-        subject_id: string;
-        name: string;
-        profile_id: string;
-        period_id: string;
-        day_of_week: number;
-        start_time: string;
-        end_time: string;
-      } = {
-        academy_id: periodRow.academy_id,
-        subject_id,
+      const insertData = {
+        academy_id: academyId,
+        course_id: courseId,
         name: scheduleName,
         profile_id,
-        period_id: periodId,
         day_of_week,
         start_time,
         end_time,
@@ -528,8 +481,12 @@ export async function POST(request: NextRequest) {
 
       if (insErr) {
         console.error("Error creating schedule:", insErr);
+        await supabaseAdmin.from("courses").delete().eq("id", courseId);
         return NextResponse.json(
-          { error: "Error al crear el turno", details: insErr.message },
+          {
+            error: "Error al crear el turno",
+            details: insErr.message,
+          },
           { status: 500 }
         );
       }
@@ -537,13 +494,21 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { message: "Curso creado correctamente", period_dates_count: dateInserts.length, schedules: created },
+      {
+        message: "Curso creado correctamente",
+        course_id: courseId,
+        session_count: sessionDatesList.length,
+        schedules: created,
+      },
       { status: 201 }
     );
   } catch (e) {
     console.error("Unexpected error in POST /api/courses:", e);
     return NextResponse.json(
-      { error: "An unexpected error occurred", details: e instanceof Error ? e.message : "Unknown error" },
+      {
+        error: "An unexpected error occurred",
+        details: e instanceof Error ? e.message : "Unknown error",
+      },
       { status: 500 }
     );
   }

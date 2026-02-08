@@ -6,7 +6,7 @@ import { cookies } from "next/headers";
 const MAX_ASSIGNMENT_LENGTH = 1500;
 
 // GET: Listar tareas individuales de una sesión
-// Query: ?period_date_id=uuid
+// Query: ?course_session_id=uuid
 export async function GET(request: NextRequest) {
   try {
     const cookieStore = cookies();
@@ -37,11 +37,11 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const periodDateId = searchParams.get("period_date_id");
+    const courseSessionId = searchParams.get("course_session_id");
 
-    if (!periodDateId) {
+    if (!courseSessionId) {
       return NextResponse.json(
-        { error: "period_date_id is required" },
+        { error: "course_session_id is required" },
         { status: 400 }
       );
     }
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
     const { data: assignments, error } = await supabaseAdmin
       .from("session_assignments")
       .select("id, course_registration_id, assignment_text")
-      .eq("period_date_id", periodDateId);
+      .eq("course_session_id", courseSessionId);
 
     if (error) {
       console.error("Error fetching assignments:", error);
@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
 }
 
 // PUT: Crear o actualizar tarea (upsert)
-// Body: { course_registration_id, period_date_id, assignment_text }
+// Body: { course_registration_id, course_session_id, assignment_text }
 // assignment_text es obligatorio (texto, max 1500 chars). Para borrar, usar DELETE.
 export async function PUT(request: NextRequest) {
   try {
@@ -141,11 +141,17 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { course_registration_id, period_date_id, assignment_text } = body;
+    const { course_registration_id, course_session_id, assignment_text } = body;
 
-    if (!course_registration_id || !period_date_id) {
+    if (!course_registration_id) {
       return NextResponse.json(
-        { error: "course_registration_id and period_date_id are required" },
+        { error: "course_registration_id is required" },
+        { status: 400 }
+      );
+    }
+    if (!course_session_id) {
+      return NextResponse.json(
+        { error: "course_session_id is required" },
         { status: 400 }
       );
     }
@@ -179,12 +185,20 @@ export async function PUT(request: NextRequest) {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    const { data: existing } = await supabaseAdmin
+    const { data: existing, error: findError } = await supabaseAdmin
       .from("session_assignments")
       .select("id")
       .eq("course_registration_id", course_registration_id)
-      .eq("period_date_id", period_date_id)
+      .eq("course_session_id", course_session_id)
       .maybeSingle();
+
+    if (findError) {
+      console.error("Error finding existing assignment:", findError);
+      return NextResponse.json(
+        { error: "Error al buscar tarea", details: findError.message },
+        { status: 500 }
+      );
+    }
 
     if (existing) {
       const { data: updated, error } = await supabaseAdmin
@@ -207,7 +221,7 @@ export async function PUT(request: NextRequest) {
         .from("session_assignments")
         .insert({
           course_registration_id,
-          period_date_id,
+          course_session_id,
           assignment_text,
         })
         .select()
@@ -235,7 +249,7 @@ export async function PUT(request: NextRequest) {
 }
 
 // DELETE: Eliminar tarea
-// Query: ?course_registration_id=uuid&period_date_id=uuid
+// Query: ?course_registration_id=uuid&course_session_id=uuid
 export async function DELETE(request: NextRequest) {
   try {
     const cookieStore = cookies();
@@ -267,11 +281,17 @@ export async function DELETE(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const courseRegistrationId = searchParams.get("course_registration_id");
-    const periodDateId = searchParams.get("period_date_id");
+    const courseSessionId = searchParams.get("course_session_id");
 
-    if (!courseRegistrationId || !periodDateId) {
+    if (!courseRegistrationId) {
       return NextResponse.json(
-        { error: "course_registration_id and period_date_id are required" },
+        { error: "course_registration_id is required" },
+        { status: 400 }
+      );
+    }
+    if (!courseSessionId) {
+      return NextResponse.json(
+        { error: "course_session_id is required" },
         { status: 400 }
       );
     }
@@ -293,7 +313,7 @@ export async function DELETE(request: NextRequest) {
       .from("session_assignments")
       .delete()
       .eq("course_registration_id", courseRegistrationId)
-      .eq("period_date_id", periodDateId);
+      .eq("course_session_id", courseSessionId);
 
     if (error) {
       console.error("Error deleting assignment:", error);

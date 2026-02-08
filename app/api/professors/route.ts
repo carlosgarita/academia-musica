@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
 // GET: List all professors for the director's academy
-// Query: ?subject_id=uuid → solo profesores que tienen esa materia en professor_subjects
+// Query: ?course_id=uuid → filtrar profesores que tienen ese curso
 export async function GET(request: NextRequest) {
   try {
     const cookieStore = cookies();
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const subjectId = searchParams.get("subject_id");
+    const courseIdFilter = searchParams.get("course_id");
 
     // Build query - now query from profiles directly (role='professor')
     // Use service role to bypass RLS since there's no policy for directors to view professors
@@ -109,28 +109,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Now fetch subjects and schedules for each professor using admin client
+    // Now fetch courses and schedules for each professor using admin client
     const professorsWithDetails = await Promise.all(
       (professors || []).map(async (prof) => {
-        // Fetch subjects (exclude soft deleted - filtered client-side after fetch)
-        const { data: professorSubjects } = await supabaseAdmin
-          .from("professor_subjects")
-          .select(
-            `
-            subject:subjects(
-              id,
-              name,
-              deleted_at
-            )
-          `
-          )
-          .eq("profile_id", prof.id);
-
-        // Filter out soft-deleted subjects
-        const activeSubjects = (professorSubjects || []).filter((ps: { subject?: unknown }) => {
-          const s = Array.isArray(ps.subject) ? (ps.subject as { deleted_at?: string | null }[])[0] : (ps.subject as { deleted_at?: string | null } | null);
-          return s && !s.deleted_at;
-        });
+        // Fetch courses where this professor is assigned (profile_id)
+        const { data: courses } = await supabaseAdmin
+          .from("courses")
+          .select("id, name, year")
+          .eq("profile_id", prof.id)
+          .is("deleted_at", null)
+          .order("year", { ascending: false });
 
         // Fetch schedules (exclude soft deleted)
         const { data: schedules } = await supabaseAdmin
@@ -141,20 +129,17 @@ export async function GET(request: NextRequest) {
 
         return {
           ...prof,
-          subjects: activeSubjects || [],
+          courses: courses || [],
           schedules: schedules || [],
         };
       })
     );
 
-    // Si se pide subject_id, filtrar a profesores que imparten esa materia (professor_subjects)
+    // Si se pide course_id, filtrar a profesores que imparten ese curso
     let result = professorsWithDetails;
-    if (subjectId) {
-      result = (professorsWithDetails || []).filter((p: { subjects?: { subject?: unknown }[] }) =>
-        p.subjects?.some((s: { subject?: unknown }) => {
-          const subj = Array.isArray(s.subject) ? (s.subject as { id?: string }[])[0] : (s.subject as { id?: string } | null);
-          return subj?.id === subjectId;
-        })
+    if (courseIdFilter) {
+      result = (professorsWithDetails || []).filter((p: { courses?: { id: string }[] }) =>
+        p.courses?.some((c) => c.id === courseIdFilter)
       );
     }
 
@@ -218,7 +203,6 @@ export async function POST(request: NextRequest) {
       password,
       additional_info,
       status,
-      subject_ids,
     } = body;
 
     // Validation
@@ -315,23 +299,6 @@ export async function POST(request: NextRequest) {
         },
         { status: 500 }
       );
-    }
-
-    // Associate subjects if provided (now using profile_id instead of professor_id)
-    if (subject_ids && Array.isArray(subject_ids) && subject_ids.length > 0) {
-      const professorSubjects = subject_ids.map((subjectId: string) => ({
-        profile_id: professorProfile.id,
-        subject_id: subjectId,
-      }));
-
-      const { error: subjectsError } = await supabaseAdmin
-        .from("professor_subjects")
-        .insert(professorSubjects);
-
-      if (subjectsError) {
-        console.error("Error associating subjects:", subjectsError);
-        // Don't fail the whole operation, just log the error
-      }
     }
 
     return NextResponse.json(

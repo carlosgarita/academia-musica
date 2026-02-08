@@ -14,12 +14,14 @@ export default function EditCourseRegistrationPage() {
   const [reg, setReg] = useState<{
     id: string;
     student_id: string;
-    subject_id: string;
-    period_id: string;
+    subject_id?: string | null;
+    period_id?: string | null;
+    course_id?: string | null;
     status: string;
     student?: { first_name: string; last_name: string } | null;
     subject?: { name: string } | null;
     period?: { year: number; period: string } | null;
+    course?: { name: string; year: number } | null;
   } | null>(null);
   const [status, setStatus] = useState("active");
 
@@ -90,8 +92,12 @@ export default function EditCourseRegistrationPage() {
   const sn = reg.student
     ? `${reg.student.first_name} ${reg.student.last_name}`.trim()
     : "—";
-  const cl = reg.subject?.name || "—";
-  const pd = reg.period ? `${reg.period.year}-${reg.period.period}` : "—";
+  const cl = reg.course?.name ?? reg.subject?.name ?? "—";
+  const pd = reg.course?.year
+    ? String(reg.course.year)
+    : reg.period
+      ? `${reg.period.year}-${reg.period.period}`
+      : "—";
 
   return (
     <div className="space-y-6">

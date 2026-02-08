@@ -14,9 +14,11 @@ type Professor = {
   additional_info: string | null;
 };
 
-type Subject = {
+type Course = {
   id: string;
   name: string;
+  year: number;
+  profile_id: string;
 };
 
 type TimeSlot = {
@@ -43,8 +45,7 @@ export default function NewSchedulePage() {
   const [conflicts, setConflicts] = useState<string[]>([]);
 
   // Form state
-  const [subjectId, setSubjectId] = useState("");
-  const [professorId, setProfessorId] = useState("");
+  const [courseId, setCourseId] = useState("");
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
 
   // Add turno form state
@@ -53,37 +54,24 @@ export default function NewSchedulePage() {
   const [newSlotEndTime, setNewSlotEndTime] = useState("10:00");
   const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
 
-  const [professors, setProfessors] = useState<Professor[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [loadingSubjects, setLoadingSubjects] = useState(true);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loadingCourses, setLoadingCourses] = useState(true);
 
   useEffect(() => {
-    loadProfessors();
-    loadSubjects();
+    loadCourses();
   }, []);
 
-  async function loadProfessors() {
+  async function loadCourses() {
     try {
-      const response = await fetch("/api/professors");
-      if (!response.ok) throw new Error("Failed to load professors");
+      setLoadingCourses(true);
+      const response = await fetch("/api/courses");
+      if (!response.ok) throw new Error("Failed to load courses");
       const data = await response.json();
-      setProfessors(data.professors || []);
+      setCourses(data.courses || []);
     } catch (err) {
-      console.error("Error loading professors:", err);
-    }
-  }
-
-  async function loadSubjects() {
-    try {
-      setLoadingSubjects(true);
-      const response = await fetch("/api/subjects");
-      if (!response.ok) throw new Error("Failed to load subjects");
-      const data = await response.json();
-      setSubjects(data.subjects || []);
-    } catch (err) {
-      console.error("Error loading subjects:", err);
+      console.error("Error loading courses:", err);
     } finally {
-      setLoadingSubjects(false);
+      setLoadingCourses(false);
     }
   }
 
@@ -200,14 +188,8 @@ export default function NewSchedulePage() {
     setLoading(true);
 
     // Validation
-    if (!subjectId) {
-      setError("Debes seleccionar una materia");
-      setLoading(false);
-      return;
-    }
-
-    if (!professorId) {
-      setError("Debes seleccionar un profesor");
+    if (!courseId) {
+      setError("Debes seleccionar un curso");
       setLoading(false);
       return;
     }
@@ -225,8 +207,7 @@ export default function NewSchedulePage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          subject_id: subjectId,
-          profile_id: professorId,
+          course_id: courseId,
           time_slots: timeSlots.map((slot) => ({
             day_of_week: slot.day_of_week,
             start_time: slot.start_time,
@@ -303,68 +284,41 @@ export default function NewSchedulePage() {
         )}
 
         <div className="space-y-6">
-          {/* Materia (Nombre de la Clase) - dropdown con materias creadas */}
+          {/* Curso */}
           <div>
             <label
-              htmlFor="subjectId"
+              htmlFor="courseId"
               className="block text-sm font-medium text-gray-700"
             >
-              Nombre de la Clase (Materia){" "}
-              <span className="text-red-500">*</span>
+              Curso <span className="text-red-500">*</span>
             </label>
             <select
-              id="subjectId"
-              name="subjectId"
+              id="courseId"
+              name="courseId"
               required
-              value={subjectId}
-              onChange={(e) => setSubjectId(e.target.value)}
-              disabled={loadingSubjects}
+              value={courseId}
+              onChange={(e) => setCourseId(e.target.value)}
+              disabled={loadingCourses}
               className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-              aria-label="Seleccione la materia"
+              aria-label="Seleccione el curso"
             >
               <option value="">
-                {loadingSubjects
-                  ? "Cargando materias..."
-                  : "Selecciona una materia"}
+                {loadingCourses
+                  ? "Cargando cursos..."
+                  : "Selecciona un curso"}
               </option>
-              {!loadingSubjects &&
-                subjects.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
+              {!loadingCourses &&
+                courses.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.year})
                   </option>
                 ))}
             </select>
-            {!loadingSubjects && subjects.length === 0 && (
+            {!loadingCourses && courses.length === 0 && (
               <p className="mt-1 text-xs text-amber-600">
-                No hay materias creadas. Crea materias primero en Materias.
+                No hay cursos creados. Crea cursos primero en Dirección → Cursos.
               </p>
             )}
-          </div>
-
-          {/* Professor */}
-          <div>
-            <label
-              htmlFor="professor"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Profesor Responsable <span className="text-red-500">*</span>
-            </label>
-            <select
-              id="professor"
-              name="professor"
-              required
-              value={professorId}
-              onChange={(e) => setProfessorId(e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-            >
-              <option value="">Selecciona un profesor</option>
-              {professors.map((prof) => (
-                <option key={prof.id} value={prof.id}>
-                  {`${prof.first_name || ""} ${prof.last_name || ""}`.trim() ||
-                    prof.email}
-                </option>
-              ))}
-            </select>
           </div>
 
           {/* Add Time Slot Section */}

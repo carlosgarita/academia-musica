@@ -5,77 +5,49 @@ import { cookies } from "next/headers";
 
 const MAX_ASSIGNMENT_LENGTH = 1500;
 
-/** Verifica que el usuario tenga permiso sobre la sesión (period_date_id). Devuelve false si no. */
-async function canAccessPeriodDate(
+/** Verifica que el usuario tenga permiso sobre la sesión (course_session_id). Devuelve false si no. */
+async function canAccessCourseSession(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabaseAdmin: any,
   userId: string,
   role: string,
   academyId: string | null,
-  periodDateId: string
+  courseSessionId: string
 ): Promise<boolean> {
-  const { data: pd } = await supabaseAdmin
-    .from("period_dates")
-    .select("id, period_id, subject_id, date_type, period:periods(academy_id)")
-    .eq("id", periodDateId)
+  const { data: cs } = await supabaseAdmin
+    .from("course_sessions")
+    .select("id, course_id, course:courses(academy_id, profile_id)")
+    .eq("id", courseSessionId)
     .maybeSingle();
 
-  if (!pd) return false;
-  type PdRow = { id?: string; period_id?: string; subject_id?: string; date_type?: string; period?: { academy_id?: string } | { academy_id?: string }[] | null };
-  const row = pd as PdRow;
-  if (!row.period_id || !row.subject_id) return false;
-  // Solo sesiones de clase pueden tener tarea grupal
-  if (row.date_type !== "clase") return false;
+  if (!cs) return false;
+  type CsRow = { id?: string; course_id?: string; course?: { academy_id?: string; profile_id?: string } | null };
+  const row = cs as CsRow;
+  if (!row.course_id || !row.course) return false;
   if (role === "super_admin") return true;
-  const periodRel = Array.isArray(row.period) ? row.period[0] : row.period;
-  if (
-    role === "director" &&
-    academyId &&
-    periodRel?.academy_id === academyId
-  )
-    return true;
-  if (role === "professor") {
-    const { data: psp } = await supabaseAdmin
-      .from("professor_subject_periods")
-      .select("id")
-      .eq("period_id", row.period_id)
-      .eq("subject_id", row.subject_id)
-      .eq("profile_id", userId)
-      .maybeSingle();
-    if (psp) return true;
-  }
+  if (role === "director" && academyId && row.course.academy_id === academyId) return true;
+  if (role === "professor" && row.course.profile_id === userId) return true;
   if (role === "student") {
-    const { data: cr } = await supabaseAdmin
-      .from("students")
-      .select("id")
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (!cr) return false;
+    const { data: stu } = await supabaseAdmin.from("students").select("id").eq("user_id", userId).maybeSingle();
+    if (!stu) return false;
     const { data: reg } = await supabaseAdmin
       .from("course_registrations")
       .select("id")
-      .eq("student_id", (cr as { id: string }).id)
-      .eq("period_id", row.period_id)
-      .eq("subject_id", row.subject_id)
+      .eq("student_id", (stu as { id: string }).id)
+      .eq("course_id", row.course_id)
       .is("deleted_at", null)
       .maybeSingle();
     if (reg) return true;
   }
   if (role === "guardian") {
-    const { data: gsRows } = await supabaseAdmin
-      .from("guardian_students")
-      .select("student_id")
-      .eq("guardian_id", userId);
-    const studentIds = (gsRows || []).map(
-      (r: { student_id: string }) => r.student_id
-    );
+    const { data: gsRows } = await supabaseAdmin.from("guardian_students").select("student_id").eq("guardian_id", userId);
+    const studentIds = (gsRows || []).map((r: { student_id: string }) => r.student_id);
     if (studentIds.length === 0) return false;
     const { data: crList } = await supabaseAdmin
       .from("course_registrations")
       .select("id")
       .in("student_id", studentIds)
-      .eq("period_id", row.period_id)
-      .eq("subject_id", row.subject_id)
+      .eq("course_id", row.course_id)
       .is("deleted_at", null)
       .limit(1);
     if (crList && crList.length > 0) return true;
@@ -84,7 +56,7 @@ async function canAccessPeriodDate(
 }
 
 // GET: Obtener tarea grupal de una sesión
-// Query: ?period_date_id=uuid
+// Query: ?course_session_id=uuid
 export async function GET(request: NextRequest) {
   try {
     const cookieStore = cookies();
@@ -118,10 +90,17 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const periodDateId = searchParams.get("period_date_id");
+    const courseSessionId = searchParams.get("course_session_id");
 
-    if (!periodDateId) {
+    if (!periodDateId && !courseSessionId) {
       return NextResponse.json(
-        { error: "period_date_id is required" },
+        { error: "period_date_id or course_session_id is required" },
+        { status: 400 }
+      );
+    }
+    if (periodDateId && courseSessionId) {
+      return NextResponse.json(
+        { error: "Provide period_date_id OR course_session_id, not both" },
         { status: 400 }
       );
     }
@@ -139,21 +118,22 @@ export async function GET(request: NextRequest) {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    const allowed = await canAccessPeriodDate(
+    const allowed = await canAccessCourseSession(
       supabaseAdmin,
       user.id,
       profile.role,
       profile.academy_id ?? null,
-      periodDateId
+      courseSessionId
     );
     if (!allowed) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    const sessionFilter = { course_session_id: courseSessionId };
     const { data: row, error: fetchError } = await supabaseAdmin
       .from("session_group_assignments")
-      .select("id, period_date_id, assignment_text, created_at, updated_at")
-      .eq("period_date_id", periodDateId)
+      .select("id, period_date_id, course_session_id, assignment_text, created_at, updated_at")
+      .match(sessionFilter)
       .maybeSingle();
 
     if (fetchError) {
@@ -168,7 +148,7 @@ export async function GET(request: NextRequest) {
       groupAssignment: row
         ? {
             id: row.id,
-            period_date_id: row.period_date_id,
+            course_session_id: row.course_session_id ?? undefined,
             assignment_text: row.assignment_text,
             created_at: row.created_at,
             updated_at: row.updated_at,
@@ -188,7 +168,7 @@ export async function GET(request: NextRequest) {
 }
 
 // PUT: Crear o actualizar tarea grupal (upsert)
-// Body: { period_date_id, assignment_text }
+// Body: { course_session_id, assignment_text }
 export async function PUT(request: NextRequest) {
   try {
     const cookieStore = cookies();
@@ -219,11 +199,11 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { period_date_id, assignment_text } = body;
+    const { course_session_id, assignment_text } = body;
 
-    if (!period_date_id) {
+    if (!course_session_id) {
       return NextResponse.json(
-        { error: "period_date_id is required" },
+        { error: "course_session_id is required" },
         { status: 400 }
       );
     }
@@ -248,23 +228,24 @@ export async function PUT(request: NextRequest) {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    const allowed = await canAccessPeriodDate(
+    const allowed = await canAccessCourseSession(
       supabaseAdmin,
       user.id,
       profile.role,
       profile.academy_id ?? null,
-      period_date_id
+      course_session_id
     );
     if (!allowed) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    const sessionFilter = { course_session_id };
     // Texto vacío o solo espacios: eliminar tarea grupal (mismo comportamiento que la UI)
     if (assignment_text.trim() === "") {
       const { error: delError } = await supabaseAdmin
         .from("session_group_assignments")
         .delete()
-        .eq("period_date_id", period_date_id);
+        .match(sessionFilter);
       if (delError) {
         console.error("Error deleting session group assignment:", delError);
         return NextResponse.json(
@@ -290,7 +271,7 @@ export async function PUT(request: NextRequest) {
     const { data: existing } = await supabaseAdmin
       .from("session_group_assignments")
       .select("id")
-      .eq("period_date_id", period_date_id)
+      .match(sessionFilter)
       .maybeSingle();
 
     if (existing) {
@@ -313,12 +294,10 @@ export async function PUT(request: NextRequest) {
       }
       return NextResponse.json({ groupAssignment: updated });
     } else {
+      const insertPayload = { course_session_id, assignment_text };
       const { data: created, error } = await supabaseAdmin
         .from("session_group_assignments")
-        .insert({
-          period_date_id,
-          assignment_text,
-        })
+        .insert(insertPayload)
         .select()
         .single();
 
@@ -344,7 +323,7 @@ export async function PUT(request: NextRequest) {
 }
 
 // DELETE: Eliminar tarea grupal de una sesión
-// Query: ?period_date_id=uuid
+// Query: ?course_session_id=uuid
 export async function DELETE(request: NextRequest) {
   try {
     const cookieStore = cookies();
@@ -375,11 +354,11 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const periodDateId = searchParams.get("period_date_id");
+    const courseSessionId = searchParams.get("course_session_id");
 
-    if (!periodDateId) {
+    if (!courseSessionId) {
       return NextResponse.json(
-        { error: "period_date_id is required" },
+        { error: "course_session_id is required" },
         { status: 400 }
       );
     }
@@ -397,21 +376,22 @@ export async function DELETE(request: NextRequest) {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    const allowed = await canAccessPeriodDate(
+    const allowed = await canAccessCourseSession(
       supabaseAdmin,
       user.id,
       profile.role,
       profile.academy_id ?? null,
-      periodDateId
+      courseSessionId
     );
     if (!allowed) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    const deleteFilter = { course_session_id: courseSessionId };
     const { error } = await supabaseAdmin
       .from("session_group_assignments")
       .delete()
-      .eq("period_date_id", periodDateId);
+      .match(deleteFilter);
 
     if (error) {
       console.error("Error deleting session group assignment:", error);

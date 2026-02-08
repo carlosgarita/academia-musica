@@ -82,8 +82,7 @@ type SongChart = {
 type ProgressData = {
   registration: {
     id: string;
-    subject: { id: string; name: string } | null;
-    period: { id: string; year: number; period: string } | null;
+    course: { id: string; name: string; year?: number } | null;
     status: string | null;
   };
   evaluations: Evaluation[];

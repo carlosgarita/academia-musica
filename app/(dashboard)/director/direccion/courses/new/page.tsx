@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-type Subject = { id: string; name: string };
 type Professor = {
   id: string;
   first_name: string | null;
@@ -33,14 +32,9 @@ export default function NewCoursePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [courseName, setCourseName] = useState("");
   const [professors, setProfessors] = useState<Professor[]>([]);
-  const [loadingSubjects, setLoadingSubjects] = useState(true);
-  const [loadingProfessors, setLoadingProfessors] = useState(false);
-
-  const [year, setYear] = useState<string>("");
-  const [period, setPeriod] = useState<string>("");
-  const [subjectId, setSubjectId] = useState("");
+  const [loadingProfessors, setLoadingProfessors] = useState(true);
   const [profileId, setProfileId] = useState("");
   const [mensualidad, setMensualidad] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -54,38 +48,22 @@ export default function NewCoursePage() {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
-    loadSubjects();
+    async function loadProfessors() {
+      try {
+        setLoadingProfessors(true);
+        const r = await fetch("/api/professors");
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || "Error al cargar profesores");
+        setProfessors(d.professors || []);
+      } catch (e) {
+        console.error("loadProfessors", e);
+        setError(e instanceof Error ? e.message : "Error al cargar profesores");
+      } finally {
+        setLoadingProfessors(false);
+      }
+    }
+    loadProfessors();
   }, []);
-
-  useEffect(() => {
-    if (subjectId) {
-      setLoadingProfessors(true);
-      fetch(`/api/professors?subject_id=${subjectId}`)
-        .then((r) => r.json())
-        .then((d) => {
-          setProfessors(d.professors || []);
-          setProfileId("");
-        })
-        .finally(() => setLoadingProfessors(false));
-    } else {
-      setProfessors([]);
-      setProfileId("");
-    }
-  }, [subjectId]);
-
-  async function loadSubjects() {
-    try {
-      setLoadingSubjects(true);
-      const r = await fetch("/api/subjects");
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || "Error al cargar materias");
-      setSubjects(d.subjects || []);
-    } catch (e) {
-      console.error("loadSubjects", e);
-    } finally {
-      setLoadingSubjects(false);
-    }
-  }
 
   function addTurno() {
     if (newStart >= newEnd) {
@@ -207,13 +185,13 @@ export default function NewCoursePage() {
     setError(null);
     setLoading(true);
 
-    if (!year || !period) {
-      setError("Año y periodo son obligatorios");
+    if (!courseName.trim()) {
+      setError("El nombre del curso es obligatorio");
       setLoading(false);
       return;
     }
-    if (!subjectId || !profileId) {
-      setError("Materia y profesor son obligatorios");
+    if (!profileId) {
+      setError("El profesor es obligatorio");
       setLoading(false);
       return;
     }
@@ -235,9 +213,7 @@ export default function NewCoursePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          year: Number(year),
-          period,
-          subject_id: subjectId,
+          name: courseName.trim(),
           profile_id: profileId,
           mensualidad: mensualidad.trim() || null,
           session_dates: sessionDates,
@@ -272,8 +248,8 @@ export default function NewCoursePage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Nuevo Curso</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Crea un curso con su materia, profesor, periodo, sesiones (rango de
-          fechas) y turnos (días y horarios)
+          Crea un curso con su nombre, profesor, sesiones (rango de fechas) y
+          turnos (días y horarios). El año se toma de la fecha de inicio.
         </p>
       </div>
 
@@ -290,78 +266,21 @@ export default function NewCoursePage() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label
-              htmlFor="year"
+              htmlFor="courseName"
               className="block text-sm font-medium text-gray-700"
             >
-              Año <span className="text-red-500">*</span>
+              Nombre del curso <span className="text-red-500">*</span>
             </label>
-            <select
-              id="year"
-              value={year}
-              onChange={(e) => setYear(e.target.value)}
+            <input
+              id="courseName"
+              type="text"
+              value={courseName}
+              onChange={(e) => setCourseName(e.target.value)}
+              placeholder="ej. Guitarra principiantes"
               required
+              maxLength={200}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-            >
-              <option value="">Selecciona el año</option>
-              {Array.from(
-                { length: 10 },
-                (_, i) => new Date().getFullYear() + i
-              ).map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label
-              htmlFor="period"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Periodo <span className="text-red-500">*</span>
-            </label>
-            <select
-              id="period"
-              value={period}
-              onChange={(e) => setPeriod(e.target.value)}
-              required
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-            >
-              <option value="">Selecciona el periodo</option>
-              <option value="I">I</option>
-              <option value="II">II</option>
-              <option value="III">III</option>
-              <option value="IV">IV</option>
-              <option value="V">V</option>
-              <option value="VI">VI</option>
-            </select>
-          </div>
-
-          <div>
-            <label
-              htmlFor="subject"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Materia <span className="text-red-500">*</span>
-            </label>
-            <select
-              id="subject"
-              value={subjectId}
-              onChange={(e) => setSubjectId(e.target.value)}
-              required
-              disabled={loadingSubjects}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-            >
-              <option value="">
-                {loadingSubjects ? "Cargando..." : "Selecciona una materia"}
-              </option>
-              {subjects.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+            />
           </div>
 
           <div>
@@ -376,13 +295,11 @@ export default function NewCoursePage() {
               value={profileId}
               onChange={(e) => setProfileId(e.target.value)}
               required
-              disabled={!subjectId || loadingProfessors}
+              disabled={loadingProfessors}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
             >
               <option value="">
-                {!subjectId
-                  ? "Primero elige una materia"
-                  : loadingProfessors
+                {loadingProfessors
                   ? "Cargando..."
                   : "Selecciona un profesor"}
               </option>
@@ -396,11 +313,6 @@ export default function NewCoursePage() {
                     p.id}
                 </option>
               ))}
-              {subjectId && professors.length === 0 && !loadingProfessors && (
-                <option value="" disabled>
-                  Ningún profesor tiene esta materia
-                </option>
-              )}
             </select>
           </div>
 
@@ -551,7 +463,6 @@ export default function NewCoursePage() {
           </div>
         )}
 
-        {/* Fechas de sesiones: como en Cronograma, con Generar fechas y lista antes de Crear curso */}
         <div className="border-t border-gray-200 pt-6">
           <h2 className="text-lg font-medium text-gray-900 mb-4">
             Fechas de sesiones
@@ -590,7 +501,8 @@ export default function NewCoursePage() {
               </div>
             </div>
             <p className="text-sm text-gray-500">
-              Se usan los días de la semana de los turnos agregados.
+              Se usan los días de la semana de los turnos agregados. El año del
+              curso se toma de la fecha de inicio.
             </p>
             <button
               type="button"

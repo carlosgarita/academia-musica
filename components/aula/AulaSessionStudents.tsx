@@ -41,17 +41,23 @@ export function AulaSessionStudents({
   professorId,
   courseId,
   sessionId,
-  subjectId,
   academyId,
   pathPrefix,
+  useCourseSession = false,
 }: {
   professorId: string;
   courseId: string;
   sessionId: string;
-  subjectId: string;
   academyId: string;
   pathPrefix: "director" | "professor";
+  useCourseSession?: boolean;
 }) {
+  const sessionParam = useCourseSession
+    ? `course_session_id=${encodeURIComponent(sessionId)}`
+    : `period_date_id=${encodeURIComponent(sessionId)}`;
+  const sessionBodyPayload = useCourseSession
+    ? { course_session_id: sessionId }
+    : { period_date_id: sessionId };
   const base = `/${pathPrefix}/aula/${professorId}/curso/${courseId}`;
   const [registrations, setRegistrations] = useState<CourseRegistration[]>([]);
   const [attendances, setAttendances] = useState<Record<string, string>>({});
@@ -122,26 +128,10 @@ export function AulaSessionStudents({
                 courseId
               )}`
             ),
-            fetch(
-              `/api/session-attendances?period_date_id=${encodeURIComponent(
-                sessionId
-              )}`
-            ),
-            fetch(
-              `/api/session-comments?period_date_id=${encodeURIComponent(
-                sessionId
-              )}`
-            ),
-            fetch(
-              `/api/session-assignments?period_date_id=${encodeURIComponent(
-                sessionId
-              )}`
-            ),
-            fetch(
-              `/api/session-group-assignments?period_date_id=${encodeURIComponent(
-                sessionId
-              )}`
-            ),
+            fetch(`/api/session-attendances?${sessionParam}`),
+            fetch(`/api/session-comments?${sessionParam}`),
+            fetch(`/api/session-assignments?${sessionParam}`),
+            fetch(`/api/session-group-assignments?${sessionParam}`),
           ]
         );
         const regData = await regRes.json();
@@ -276,7 +266,7 @@ export function AulaSessionStudents({
       }
     }
     load();
-  }, [courseId, sessionId]);
+  }, [courseId, sessionId, sessionParam]);
 
   useEffect(
     () => () => {
@@ -301,9 +291,7 @@ export function AulaSessionStudents({
     try {
       if (!value) {
         const r = await fetch(
-          `/api/session-attendances?course_registration_id=${encodeURIComponent(
-            regId
-          )}&period_date_id=${encodeURIComponent(sessionId)}`,
+          `/api/session-attendances?course_registration_id=${encodeURIComponent(regId)}&${sessionParam}`,
           { method: "DELETE" }
         );
         if (!r.ok) {
@@ -321,7 +309,7 @@ export function AulaSessionStudents({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             course_registration_id: regId,
-            period_date_id: sessionId,
+            ...sessionBodyPayload,
             attendance_status: value,
           }),
         });
@@ -348,9 +336,7 @@ export function AulaSessionStudents({
       const commentText = (comments[regId] ?? "").trim();
       if (!commentText) {
         const comDel = await fetch(
-          `/api/session-comments?course_registration_id=${encodeURIComponent(
-            regId
-          )}&period_date_id=${encodeURIComponent(sessionId)}`,
+          `/api/session-comments?course_registration_id=${encodeURIComponent(regId)}&${sessionParam}`,
           { method: "DELETE" }
         );
         if (!comDel.ok) {
@@ -377,7 +363,7 @@ export function AulaSessionStudents({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           course_registration_id: regId,
-          period_date_id: sessionId,
+          ...sessionBodyPayload,
           comment: commentText,
         }),
       });
@@ -404,9 +390,7 @@ export function AulaSessionStudents({
       const assignmentText = (assignments[regId] ?? "").trim();
       if (!assignmentText) {
         const assDel = await fetch(
-          `/api/session-assignments?course_registration_id=${encodeURIComponent(
-            regId
-          )}&period_date_id=${encodeURIComponent(sessionId)}`,
+          `/api/session-assignments?course_registration_id=${encodeURIComponent(regId)}&${sessionParam}`,
           { method: "DELETE" }
         );
         if (!assDel.ok) {
@@ -433,13 +417,14 @@ export function AulaSessionStudents({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           course_registration_id: regId,
-          period_date_id: sessionId,
+          ...sessionBodyPayload,
           assignment_text: assignmentText,
         }),
       });
       if (!assRes.ok) {
         const d = await assRes.json();
-        throw new Error(d.error || "Error al guardar tarea");
+        const msg = [d.error, d.details].filter(Boolean).join(" — ") || "Error al guardar tarea";
+        throw new Error(msg);
       }
       setSavedAssignmentIds((prev) => new Set(prev).add(regId));
       setEditingAssignmentFor((prev) => (prev === regId ? null : prev));
@@ -458,9 +443,7 @@ export function AulaSessionStudents({
     setDeletingCommentFor(regId);
     try {
       const r = await fetch(
-        `/api/session-comments?course_registration_id=${encodeURIComponent(
-          regId
-        )}&period_date_id=${encodeURIComponent(sessionId)}`,
+        `/api/session-comments?course_registration_id=${encodeURIComponent(regId)}&${sessionParam}`,
         { method: "DELETE" }
       );
       if (!r.ok) {
@@ -495,9 +478,7 @@ export function AulaSessionStudents({
     try {
       if (!text) {
         const r = await fetch(
-          `/api/session-group-assignments?period_date_id=${encodeURIComponent(
-            sessionId
-          )}`,
+          `/api/session-group-assignments?${sessionParam}`,
           { method: "DELETE" }
         );
         if (!r.ok) {
@@ -514,7 +495,7 @@ export function AulaSessionStudents({
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          period_date_id: sessionId,
+          ...sessionBodyPayload,
           assignment_text: text,
         }),
       });
@@ -539,9 +520,7 @@ export function AulaSessionStudents({
     setDeletingGroupAssignment(true);
     try {
       const r = await fetch(
-        `/api/session-group-assignments?period_date_id=${encodeURIComponent(
-          sessionId
-        )}`,
+        `/api/session-group-assignments?${sessionParam}`,
         { method: "DELETE" }
       );
       if (!r.ok) {
@@ -566,9 +545,7 @@ export function AulaSessionStudents({
     setDeletingAssignmentFor(regId);
     try {
       const r = await fetch(
-        `/api/session-assignments?course_registration_id=${encodeURIComponent(
-          regId
-        )}&period_date_id=${encodeURIComponent(sessionId)}`,
+        `/api/session-assignments?course_registration_id=${encodeURIComponent(regId)}&${sessionParam}`,
         { method: "DELETE" }
       );
       if (!r.ok) {
@@ -820,9 +797,9 @@ export function AulaSessionStudents({
                       <AulaSongEvaluations
                         registrationId={reg.id}
                         sessionId={sessionId}
-                        subjectId={subjectId}
                         academyId={academyId}
                         onSnackbar={showSnackbar}
+                        useCourseSession={useCourseSession}
                       />
                     </div>
 

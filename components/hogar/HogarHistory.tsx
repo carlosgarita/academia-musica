@@ -5,8 +5,7 @@ import { BookOpen, Award, Calendar } from "lucide-react";
 
 type Course = {
   id: string;
-  subject: { id: string; name: string } | null;
-  period: { id: string; year: number; period: string } | null;
+  course: { id: string; name: string; year: number };
   status: string | null;
 };
 
@@ -57,7 +56,7 @@ export function HogarHistory({
               allBadges.push(
                 ...data.badges.map((b: Badge) => ({
                   ...b,
-                  courseName: course.subject?.name || "—",
+                  courseName: course.course?.name || "—",
                 }))
               );
             }
@@ -85,7 +84,7 @@ export function HogarHistory({
 
   // Group courses by year
   const coursesByYear = historicalCourses.reduce((acc, course) => {
-    const year = course.period?.year || 0;
+    const year = course.course?.year ?? 0;
     if (!acc[year]) acc[year] = [];
     acc[year].push(course);
     return acc;
@@ -116,10 +115,10 @@ export function HogarHistory({
                     className="rounded-lg border border-gray-200 bg-white px-3 py-2"
                   >
                     <p className="font-medium text-gray-900">
-                      {course.subject?.name || "Curso sin nombre"}
+                      {course.course?.name || "Curso sin nombre"}
                     </p>
                     <p className="text-xs text-gray-600">
-                      {course.period?.period || "—"} {course.period?.year || ""}
+                      {course.course?.year ?? "—"}
                       {course.status && (
                         <span
                           className={`ml-2 px-1.5 py-0.5 rounded-sm text-xs ${

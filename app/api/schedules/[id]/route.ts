@@ -146,7 +146,7 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { subject_id, name, profile_id, day_of_week, start_time, end_time } = body;
+    const { course_id, name, profile_id, day_of_week, start_time, end_time } = body;
 
     // Use service role to bypass RLS
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -191,38 +191,40 @@ export async function PATCH(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Resolve subject_id and name if subject_id is provided
-    let resolvedSubjectId: string | null = existingSchedule.subject_id || null;
+    // Resolve course_id, name, and profile_id if course_id is provided
+    let resolvedCourseId: string | null = existingSchedule.course_id || null;
     let resolvedName: string = existingSchedule.name;
+    let resolvedProfileId: string | null = existingSchedule.profile_id || null;
 
-    if (subject_id) {
-      const { data: subject, error: subjectError } = await supabaseAdmin
-        .from("subjects")
-        .select("id, name, academy_id")
-        .eq("id", subject_id)
+    if (course_id) {
+      const { data: course, error: courseError } = await supabaseAdmin
+        .from("courses")
+        .select("id, name, academy_id, profile_id")
+        .eq("id", course_id)
         .is("deleted_at", null)
         .single();
 
-      if (subjectError || !subject) {
+      if (courseError || !course) {
         return NextResponse.json(
-          { error: "Materia no encontrada" },
+          { error: "Curso no encontrado" },
           { status: 400 }
         );
       }
-      if (subject.academy_id !== existingSchedule.academy_id) {
+      if (course.academy_id !== existingSchedule.academy_id) {
         return NextResponse.json(
-          { error: "La materia no pertenece a esta academia" },
+          { error: "El curso no pertenece a esta academia" },
           { status: 400 }
         );
       }
-      resolvedSubjectId = subject.id;
-      resolvedName = subject.name;
+      resolvedCourseId = course.id;
+      resolvedName = course.name;
+      resolvedProfileId = course.profile_id;
     } else if (name && typeof name === "string" && name.trim()) {
       resolvedName = name.trim();
     }
 
-    // Use provided values or existing ones
-    const finalProfileId = profile_id || existingSchedule.profile_id;
+    // Use provided values or existing ones (profile from course takes precedence if course_id was provided)
+    const finalProfileId = profile_id || resolvedProfileId || existingSchedule.profile_id;
     const finalDayOfWeek = day_of_week || existingSchedule.day_of_week;
     const finalStartTime = start_time || existingSchedule.start_time;
     const finalEndTime = end_time || existingSchedule.end_time;
@@ -284,7 +286,7 @@ export async function PATCH(
 
     // Update schedule
     const updateData: {
-      subject_id?: string | null;
+      course_id?: string | null;
       name?: string;
       profile_id?: string;
       day_of_week?: number;
@@ -292,9 +294,10 @@ export async function PATCH(
       end_time?: string;
     } = {};
 
-    if (subject_id !== undefined) {
-      updateData.subject_id = resolvedSubjectId;
+    if (course_id !== undefined) {
+      updateData.course_id = resolvedCourseId;
       updateData.name = resolvedName;
+      if (resolvedProfileId) updateData.profile_id = resolvedProfileId;
     } else if (name !== undefined) {
       updateData.name = name.trim();
     }

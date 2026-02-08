@@ -54,11 +54,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get course registrations with period_id, subject_id, profile_id
+    // Get course registrations with course_id
     const { data: regs, error: regError } = await supabaseAdmin
       .from("course_registrations")
-      .select("id, period_id, subject_id, profile_id")
+      .select("id, course_id")
       .in("id", course_registration_ids)
+      .not("course_id", "is", null)
       .is("deleted_at", null);
 
     if (regError || !regs || regs.length === 0) {
@@ -67,47 +68,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Collect period_ids for those registrations
-    const periodIds = [...new Set(regs.map((r: { period_id: string }) => r.period_id))];
+    const courseIds = [...new Set(regs.map((r: { course_id: string }) => r.course_id))];
 
-    // Fetch period_dates with date_type='clase' for those periods
-    const { data: dates, error: datesError } = await supabaseAdmin
-      .from("period_dates")
-      .select("date, subject_id, profile_id, period_id")
-      .in("period_id", periodIds)
-      .eq("date_type", "clase")
-      .is("deleted_at", null);
+    const { data: sessions, error: sessionsError } = await supabaseAdmin
+      .from("course_sessions")
+      .select("date")
+      .in("course_id", courseIds)
+      .order("date", { ascending: true });
 
-    if (datesError || !dates || dates.length === 0) {
+    if (sessionsError || !sessions || sessions.length === 0) {
       return NextResponse.json(
         { start_date: null, end_date: null },
       );
     }
 
-    // Filter dates: keep those that match at least one registration
-    let matchingDates = dates.filter(
-      (d: { period_id: string; subject_id: string | null; profile_id: string | null }) =>
-        regs.some((r: { period_id: string; subject_id: string; profile_id: string | null }) => {
-          if (d.period_id !== r.period_id) return false;
-          if (d.subject_id != null && d.subject_id !== r.subject_id) return false;
-          if (d.profile_id != null && r.profile_id != null && d.profile_id !== r.profile_id) return false;
-          return true;
-        })
-    );
-    // Fallback: match by period_id only
-    if (matchingDates.length === 0) {
-      matchingDates = dates.filter((d: { period_id: string }) =>
-        regs.some((r: { period_id: string }) => r.period_id === d.period_id)
-      );
-    }
-
-    if (matchingDates.length === 0) {
-      return NextResponse.json(
-        { start_date: null, end_date: null },
-      );
-    }
-
-    const dateStrings = matchingDates.map((d: { date: string }) => d.date).sort();
+    const dateStrings = sessions.map((s: { date: string }) => s.date).sort();
     const start_date = dateStrings[0];
     const end_date = dateStrings[dateStrings.length - 1];
 

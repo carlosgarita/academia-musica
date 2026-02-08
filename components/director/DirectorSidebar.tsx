@@ -54,11 +54,6 @@ const navigation: NavigationItem[] = [
         href: "/director/direccion/guardians",
         icon: UserCheck,
       },
-      {
-        name: "Materias",
-        href: "/director/direccion/subjects",
-        icon: BookOpen,
-      },
       { name: "Cursos", href: "/director/direccion/courses", icon: BookMarked },
       {
         name: "Matrículas",
@@ -77,7 +72,7 @@ const navigation: NavigationItem[] = [
     href: "/director/aula",
     icon: School,
     children: [
-      { name: "Inicio", href: "/director/aula", icon: School },
+      { name: "Cursos", href: "/director/aula", icon: School },
       {
         name: "Estudiantes",
         href: "/director/aula",
@@ -89,11 +84,6 @@ const navigation: NavigationItem[] = [
         icon: Music,
       },
     ],
-  },
-  {
-    name: "Hogar",
-    href: "/director/hogar",
-    icon: Home,
   },
 ];
 
@@ -113,7 +103,6 @@ export function DirectorSidebar() {
     // Auto-expand section that contains current path
     if (pathname.startsWith("/director/direccion")) return ["dirección"];
     if (pathname.startsWith("/director/aula")) return ["aula"];
-    if (pathname.startsWith("/director/hogar")) return ["hogar"];
     return [];
   });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -233,7 +222,7 @@ export function DirectorSidebar() {
                           const isAulaSection = section.name === "Aula";
                           const href =
                             isAulaSection && aulaProfessorId
-                              ? child.name === "Inicio"
+                              ? child.name === "Cursos"
                                 ? `/director/aula/${aulaProfessorId}`
                                 : child.name === "Estudiantes"
                                 ? `/director/aula/${aulaProfessorId}/estudiantes`

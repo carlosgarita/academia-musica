@@ -24,12 +24,10 @@ type Song = {
 type CourseRegistrationData = {
   id: string;
   student_id: string;
-  subject_id: string;
-  period_id: string;
+  course_id?: string | null;
   academy_id?: string;
   student?: { id: string; first_name: string; last_name: string };
-  subject?: { id: string; name: string };
-  period?: { id: string; year: number; period: string };
+  course?: { id: string; name: string; year?: number } | null;
   songs: Song[];
 };
 

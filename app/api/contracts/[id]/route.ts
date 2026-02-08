@@ -74,8 +74,7 @@ export async function GET(
           course_registration:course_registrations(
             id,
             student:students(id, first_name, last_name),
-            subject:subjects(id, name),
-            period:periods(id, year, period)
+            course:courses(id, name, year)
           )
         ),
         contract_invoices(

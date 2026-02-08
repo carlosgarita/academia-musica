@@ -13,15 +13,15 @@ const EVAL_KEY = (regId: string, songId: string, rubricId: string) =>
 export function AulaSongEvaluations({
   registrationId,
   sessionId,
-  subjectId,
   academyId,
   onSnackbar,
+  useCourseSession = false,
 }: {
   registrationId: string;
   sessionId: string;
-  subjectId: string;
   academyId: string;
   onSnackbar: (msg: string) => void;
+  useCourseSession?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [songs, setSongs] = useState<Song[]>([]);
@@ -38,12 +38,10 @@ export function AulaSongEvaluations({
       const [songsRes, evalDataRes, evaluationsRes] = await Promise.all([
         fetch(`/api/course-registrations/${registrationId}/songs`),
         fetch(
-          `/api/evaluation-data?academy_id=${encodeURIComponent(
-            academyId
-          )}&subject_id=${encodeURIComponent(subjectId)}`
+          `/api/evaluation-data?academy_id=${encodeURIComponent(academyId)}`
         ),
         fetch(
-          `/api/song-evaluations?period_date_id=${encodeURIComponent(
+          `/api/song-evaluations?${useCourseSession ? "course_session_id" : "period_date_id"}=${encodeURIComponent(
             sessionId
           )}&course_registration_id=${encodeURIComponent(registrationId)}`
         ),
@@ -63,7 +61,7 @@ export function AulaSongEvaluations({
     } finally {
       setLoading(false);
     }
-  }, [expanded, registrationId, sessionId, academyId, subjectId]);
+  }, [expanded, registrationId, sessionId, academyId, useCourseSession]);
 
   useEffect(() => {
     loadData();
@@ -84,14 +82,15 @@ export function AulaSongEvaluations({
         body: JSON.stringify({
           course_registration_id: registrationId,
           song_id: songId,
-          period_date_id: sessionId,
+          ...(useCourseSession ? { course_session_id: sessionId } : { period_date_id: sessionId }),
           rubric_id: rubricId,
           scale_id: scaleId || null,
         }),
       });
       if (!r.ok) {
         const d = await r.json();
-        throw new Error(d.error || "Error al guardar");
+        const msg = [d.error, d.details].filter(Boolean).join(" — ");
+        throw new Error(msg || "Error al guardar");
       }
       onSnackbar("Calificación guardada");
     } catch (e) {

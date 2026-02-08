@@ -21,6 +21,7 @@ type CourseRegLink = {
     student?: { id: string; first_name: string; last_name: string };
     subject?: { id: string; name: string };
     period?: { id: string; year: number; period: string };
+    course?: { id: string; name: string; year: number };
   };
 };
 
@@ -229,14 +230,19 @@ export default function ContractDetailPage() {
                   const studentName = reg.student
                     ? `${reg.student.first_name} ${reg.student.last_name}`.trim()
                     : "—";
-                  const subjectName = reg.subject?.name ?? "—";
-                  const periodStr = reg.period
-                    ? `${reg.period.year} – ${reg.period.period}`
-                    : "—";
+                  // New flow: course (name, year); legacy: subject + period
+                  const courseLabel = reg.course
+                    ? reg.course.year
+                      ? `${reg.course.name} (${reg.course.year})`
+                      : reg.course.name
+                    : reg.subject?.name ?? "—";
+                  const periodStr = null;
                   return (
                     <li key={cr.id} className="text-sm text-gray-900">
-                      <strong>{studentName}</strong> – {subjectName}{" "}
-                      <span className="text-gray-500">({periodStr})</span>
+                      <strong>{studentName}</strong> – {courseLabel}
+                      {periodStr && (
+                        <span className="text-gray-500"> ({periodStr})</span>
+                      )}
                     </li>
                   );
                 })}

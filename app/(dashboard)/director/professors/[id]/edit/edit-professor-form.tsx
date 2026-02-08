@@ -7,19 +7,11 @@ interface EditProfessorFormProps {
   professorId: string;
 }
 
-type Subject = {
-  id: string;
-  name: string;
-};
-
 export function EditProfessorForm({ professorId }: EditProfessorFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [loadingSubjects, setLoadingSubjects] = useState(true);
-  const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>([]);
 
   // Form state
   const [firstName, setFirstName] = useState("");
@@ -31,7 +23,6 @@ export function EditProfessorForm({ professorId }: EditProfessorFormProps) {
 
   useEffect(() => {
     loadProfessorData();
-    loadSubjects();
   }, [professorId]);
 
   async function loadProfessorData() {
@@ -50,11 +41,6 @@ export function EditProfessorForm({ professorId }: EditProfessorFormProps) {
       setPhone(professor.phone || "");
       setAdditionalInfo(professor.additional_info || "");
       setStatus(professor.status || "active");
-
-      const ids = (professor.subjects || []).map(
-        (ps: { subject: { id: string } }) => ps.subject.id
-      );
-      setSelectedSubjectIds(ids);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Error al cargar el profesor"
@@ -62,28 +48,6 @@ export function EditProfessorForm({ professorId }: EditProfessorFormProps) {
     } finally {
       setIsLoadingData(false);
     }
-  }
-
-  async function loadSubjects() {
-    try {
-      const response = await fetch("/api/subjects");
-      if (response.ok) {
-        const data = await response.json();
-        setSubjects(data.subjects || []);
-      }
-    } catch (err) {
-      console.error("Error loading subjects:", err);
-    } finally {
-      setLoadingSubjects(false);
-    }
-  }
-
-  function toggleSubject(subjectId: string) {
-    setSelectedSubjectIds((prev) =>
-      prev.includes(subjectId)
-        ? prev.filter((id) => id !== subjectId)
-        : [...prev, subjectId]
-    );
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -110,7 +74,6 @@ export function EditProfessorForm({ professorId }: EditProfessorFormProps) {
           phone: phone?.trim() || null,
           additional_info: additionalInfo?.trim() || null,
           status: status || "active",
-          subject_ids: selectedSubjectIds,
         }),
       });
 
@@ -252,38 +215,6 @@ export function EditProfessorForm({ professorId }: EditProfessorFormProps) {
       </div>
 
       {/* Subjects */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Materias
-        </label>
-        {loadingSubjects ? (
-          <p className="text-sm text-gray-500">Cargando materias...</p>
-        ) : subjects.length === 0 ? (
-          <p className="text-sm text-gray-400 italic">
-            No hay materias disponibles. Crea materias primero.
-          </p>
-        ) : (
-          <div className="border border-gray-300 rounded-md p-4 max-h-60 overflow-y-auto">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {subjects.map((subject) => (
-                <label
-                  key={subject.id}
-                  className="flex items-center space-x-2 cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedSubjectIds.includes(subject.id)}
-                    onChange={() => toggleSubject(subject.id)}
-                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span className="text-sm text-gray-700">{subject.name}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
       <div>
         <label
           htmlFor="additionalInfo"

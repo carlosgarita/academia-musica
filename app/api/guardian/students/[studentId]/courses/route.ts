@@ -87,39 +87,25 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Fetch all course registrations for the student
+    // Fetch all course registrations for the student (new model: course_id + course)
     const { data: registrations, error: fetchError } = await supabaseAdmin
       .from("course_registrations")
       .select(
         `
         id,
         student_id,
-        subject_id,
-        period_id,
+        course_id,
         academy_id,
         status,
         enrollment_date,
         created_at,
         profile_id,
-        subject:subjects(
-          id,
-          name,
-          description
-        ),
-        period:periods(
-          id,
-          year,
-          period,
-          academy_id
-        ),
-        profile:profiles(
-          id,
-          first_name,
-          last_name
-        )
+        course:courses(id, name, year),
+        profile:profiles(id, first_name, last_name)
       `
       )
       .eq("student_id", studentId)
+      .not("course_id", "is", null)
       .is("deleted_at", null)
       .order("created_at", { ascending: false });
 
@@ -138,25 +124,35 @@ export async function GET(
     const unwrap = <T>(v: T | T[] | null | undefined): T | null =>
       Array.isArray(v) ? (v[0] as T) ?? null : v ?? null;
 
-    // Format and separate courses
-    const courses = (registrations || []).map((r: Record<string, unknown>) => {
-      const subj = unwrap(r.subject as { id: string; name: string; description?: string | null } | { id: string; name: string; description?: string | null }[] | null);
-      const per = unwrap(r.period as { id: string; year: number; period: string } | { id: string; year: number; period: string }[] | null);
-      const prof = unwrap(r.profile as { id: string; first_name: string; last_name: string } | { id: string; first_name: string; last_name: string }[] | null);
-      return {
-        id: r.id,
-        student_id: r.student_id,
-        subject_id: r.subject_id,
-        period_id: r.period_id,
-        academy_id: r.academy_id,
-        status: r.status,
-        enrollment_date: r.enrollment_date,
-        subject: subj ? { id: subj.id, name: subj.name, description: subj.description } : null,
-        period: per ? { id: per.id, year: per.year, period: per.period } : null,
-        profile: prof ? { id: prof.id, first_name: prof.first_name, last_name: prof.last_name } : null,
-        isCurrent: per ? per.year === currentYear : false,
-      };
-    });
+    // Format and separate courses (only registrations with valid course)
+    const courses = (registrations || [])
+      .map((r: Record<string, unknown>) => {
+        const crs = unwrap(r.course as { id: string; name: string; year?: number } | null);
+        const prof = unwrap(r.profile as { id: string; first_name: string; last_name: string } | null);
+        if (!crs) return null;
+        return {
+          id: r.id,
+          student_id: r.student_id,
+          course_id: r.course_id,
+          academy_id: r.academy_id,
+          status: r.status,
+          enrollment_date: r.enrollment_date,
+          course: { id: crs.id, name: crs.name, year: crs.year ?? currentYear },
+          profile: prof ? { id: prof.id, first_name: prof.first_name, last_name: prof.last_name } : null,
+          isCurrent: (crs.year ?? 0) === currentYear,
+        };
+      })
+      .filter(Boolean) as Array<{
+        id: string;
+        student_id: string;
+        course_id: string;
+        academy_id: string;
+        status: string;
+        enrollment_date: string;
+        course: { id: string; name: string; year: number };
+        profile: { id: string; first_name: string; last_name: string } | null;
+        isCurrent: boolean;
+      }>;
 
     const currentCourses = courses.filter((c: { isCurrent: boolean }) => c.isCurrent);
     const historicalCourses = courses.filter((c: { isCurrent: boolean }) => !c.isCurrent);

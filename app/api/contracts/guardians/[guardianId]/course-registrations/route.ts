@@ -86,23 +86,22 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Get course registrations for these students
+    // Get course registrations for these students (new model: course_id)
     const { data: registrations, error: regError } = await supabaseAdmin
       .from("course_registrations")
       .select(
         `
         id,
         student_id,
-        subject_id,
-        period_id,
+        course_id,
         profile_id,
         status,
         student:students!inner(id, first_name, last_name, deleted_at),
-        subject:subjects!inner(id, name, deleted_at),
-        period:periods!inner(id, year, period, deleted_at)
+        course:courses!inner(id, name, year, deleted_at)
       `
       )
       .in("student_id", studentIds)
+      .not("course_id", "is", null)
       .is("deleted_at", null)
       .order("created_at", { ascending: false });
 
@@ -114,43 +113,34 @@ export async function GET(
       );
     }
 
-    // Filter soft-deleted student, subject, period (Supabase join can return single obj or array)
+    // Filter soft-deleted student and course
     const getDeletedAt = (v: unknown): string | null | undefined => {
       if (!v) return undefined;
       const obj = Array.isArray(v) ? v[0] : v;
       return (obj as { deleted_at?: string | null })?.deleted_at;
     };
-    const filtered = (registrations || []).filter((r: { student?: unknown; subject?: unknown; period?: unknown }) =>
-      !getDeletedAt(r.student) && !getDeletedAt(r.subject) && !getDeletedAt(r.period)
+    const filtered = (registrations || []).filter((r: { student?: unknown; course?: unknown }) =>
+      !getDeletedAt(r.student) && !getDeletedAt(r.course)
     );
 
-    // Add first_session_date and last_session_date for each registration (from period_dates, date_type='clase')
-    const periodIds = [...new Set(filtered.map((r: { period_id: string }) => r.period_id))];
-    const { data: dates } = await supabaseAdmin
-      .from("period_dates")
-      .select("date, period_id, subject_id, profile_id")
-      .in("period_id", periodIds)
-      .eq("date_type", "clase")
-      .is("deleted_at", null);
+    // Add first_session_date and last_session_date from course_sessions
+    const courseIds = [...new Set(filtered.map((r: { course_id: string }) => r.course_id))];
+    const { data: sessions } = await supabaseAdmin
+      .from("course_sessions")
+      .select("date, course_id")
+      .in("course_id", courseIds)
+      .order("date", { ascending: true });
 
     const dateRanges: Record<string, { first: string; last: string }> = {};
     for (const reg of filtered) {
-      // Match: period_id + subject_id (when set); profile_id optional
-      let matchingDates = (dates || []).filter((d: { period_id: string; subject_id: string | null; profile_id: string | null }) => {
-        if (d.period_id !== reg.period_id) return false;
-        if (d.subject_id != null && d.subject_id !== reg.subject_id) return false;
-        if (d.profile_id != null && reg.profile_id != null && d.profile_id !== reg.profile_id) return false;
-        return true;
-      });
-      // Fallback: if no match, use period_id only (all clase dates for the period)
-      if (matchingDates.length === 0) {
-        matchingDates = (dates || []).filter((d: { period_id: string }) => d.period_id === reg.period_id);
-      }
-      const dateStrings = matchingDates.map((d: { date: string }) => d.date).sort();
-      if (dateStrings.length > 0) {
+      const matchingDates = (sessions || [])
+        .filter((s: { course_id: string }) => s.course_id === reg.course_id)
+        .map((s: { date: string }) => s.date)
+        .sort();
+      if (matchingDates.length > 0) {
         dateRanges[reg.id] = {
-          first: dateStrings[0],
-          last: dateStrings[dateStrings.length - 1],
+          first: matchingDates[0],
+          last: matchingDates[matchingDates.length - 1],
         };
       }
     }

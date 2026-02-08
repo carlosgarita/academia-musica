@@ -10,13 +10,10 @@ type Student = Database["public"]["Tables"]["students"]["Row"] & {
 };
 type CourseRegistration =
   Database["public"]["Tables"]["course_registrations"]["Row"];
-type Subject = Database["public"]["Tables"]["subjects"]["Row"];
-type Period = Database["public"]["Tables"]["periods"]["Row"];
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 
 interface CourseRegistrationWithDetails extends CourseRegistration {
-  subject: Subject | null;
-  period: Period | null;
+  course: { id: string; name: string; year?: number } | null;
   professor: Profile | null;
 }
 
@@ -213,8 +210,7 @@ export function StudentsList({ academyId, readOnly = false, professorId }: Stude
         for (const reg of registrations) {
           const courseWithDetails: CourseRegistrationWithDetails = {
             ...reg,
-            subject: reg.subject as Subject | null,
-            period: reg.period as Period | null,
+            course: reg.course ?? null,
             professor: reg.profile_id
               ? professorsMap[reg.profile_id] || null
               : null,
@@ -576,16 +572,14 @@ export function StudentsList({ academyId, readOnly = false, professorId }: Stude
                                         className="text-xs text-gray-600 pl-2 border-l-2 border-gray-300"
                                       >
                                         <span className="font-medium">
-                                          {course.subject?.name ||
-                                            "Curso sin nombre"}
+                                          {course.course?.name || "Curso sin nombre"}
                                         </span>
-                                        {course.period && (
+                                        {course.course?.year != null ? (
                                           <span className="text-gray-500">
                                             {" "}
-                                            • {course.period.year} –{" "}
-                                            {course.period.period}
+                                            • {course.course.year}
                                           </span>
-                                        )}
+                                        ) : null}
                                         {course.professor && (
                                           <span className="text-gray-500">
                                             {" "}

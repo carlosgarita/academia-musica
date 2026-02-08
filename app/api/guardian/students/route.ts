@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
 // GET: Get students assigned to the authenticated guardian
@@ -71,8 +72,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    // Use service role for director/super_admin to bypass RLS (nested students relation)
+    const isDirectorOrSuperAdmin =
+      profile.role === "director" || profile.role === "super_admin";
+    const client =
+      isDirectorOrSuperAdmin && process.env.SUPABASE_SERVICE_ROLE_KEY
+        ? createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY,
+            { auth: { autoRefreshToken: false, persistSession: false } }
+          )
+        : supabase;
+
     // Get students assigned to the guardian
-    const { data: assignments, error } = await supabase
+    const { data: assignments, error } = await client
       .from("guardian_students")
       .select(
         `

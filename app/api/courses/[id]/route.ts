@@ -4,10 +4,16 @@ import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
 const DAY_NAMES = [
-  "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo",
+  "Lunes",
+  "Martes",
+  "Miércoles",
+  "Jueves",
+  "Viernes",
+  "Sábado",
+  "Domingo",
 ];
 
-// GET: one course (professor_subject_periods) with period, subject, profile, session_dates, turnos
+// GET: one course from courses table with session_dates and turnos
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -17,7 +23,10 @@ export async function GET(
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
     if (userError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -36,7 +45,10 @@ export async function GET(
     }
 
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Server configuration error" },
+        { status: 500 }
+      );
     }
 
     const supabaseAdmin = createClient(
@@ -45,41 +57,42 @@ export async function GET(
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    const { data: psp, error: pspErr } = await supabaseAdmin
-      .from("professor_subject_periods")
-      .select(`
-        id, profile_id, subject_id, period_id,
-        period:periods(id, year, period, academy_id),
-        subject:subjects(id, name),
+    const { data: course, error: courseErr } = await supabaseAdmin
+      .from("courses")
+      .select(
+        `
+        id, name, profile_id, year, mensualidad, academy_id,
         profile:profiles(id, first_name, last_name, email)
-      `)
+      `
+      )
       .eq("id", id)
+      .is("deleted_at", null)
       .single();
 
-    if (pspErr || !psp) {
-      return NextResponse.json({ error: "Curso no encontrado" }, { status: 404 });
+    if (courseErr || !course) {
+      return NextResponse.json(
+        { error: "Curso no encontrado" },
+        { status: 404 }
+      );
     }
 
-    const p = psp.period as { academy_id?: string } | null;
-    if (profile.role !== "super_admin" && p?.academy_id !== profile.academy_id) {
+    if (
+      profile.role !== "super_admin" &&
+      course.academy_id !== profile.academy_id
+    ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { data: dates } = await supabaseAdmin
-      .from("period_dates")
+      .from("course_sessions")
       .select("date")
-      .eq("period_id", psp.period_id)
-      .eq("subject_id", psp.subject_id)
-      .eq("date_type", "clase")
-      .is("deleted_at", null)
+      .eq("course_id", id)
       .order("date", { ascending: true });
 
     const { data: scheds } = await supabaseAdmin
       .from("schedules")
       .select("id, day_of_week, start_time, end_time")
-      .eq("period_id", psp.period_id)
-      .eq("subject_id", psp.subject_id)
-      .eq("profile_id", psp.profile_id)
+      .eq("course_id", id)
       .is("deleted_at", null)
       .order("day_of_week")
       .order("start_time");
@@ -94,7 +107,7 @@ export async function GET(
 
     return NextResponse.json({
       course: {
-        ...psp,
+        ...course,
         session_dates,
         turnos,
       },
@@ -102,13 +115,16 @@ export async function GET(
   } catch (e) {
     console.error("GET /api/courses/[id]:", e);
     return NextResponse.json(
-      { error: "An unexpected error occurred", details: e instanceof Error ? e.message : "Unknown error" },
+      {
+        error: "An unexpected error occurred",
+        details: e instanceof Error ? e.message : "Unknown error",
+      },
       { status: 500 }
     );
   }
 }
 
-// PATCH: update session_dates and turnos (year, period, subject, professor read-only)
+// PATCH: update session_dates and turnos
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -118,7 +134,10 @@ export async function PATCH(
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
     if (userError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -137,7 +156,10 @@ export async function PATCH(
     }
 
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Server configuration error" },
+        { status: 500 }
+      );
     }
 
     const supabaseAdmin = createClient(
@@ -146,43 +168,65 @@ export async function PATCH(
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    const { data: psp, error: pspErr } = await supabaseAdmin
-      .from("professor_subject_periods")
-      .select("id, profile_id, subject_id, period_id, period:periods(academy_id, year, period)")
+    const { data: course, error: courseErr } = await supabaseAdmin
+      .from("courses")
+      .select("id, profile_id, academy_id, name, year")
       .eq("id", id)
+      .is("deleted_at", null)
       .single();
 
-    if (pspErr || !psp) {
-      return NextResponse.json({ error: "Curso no encontrado" }, { status: 404 });
+    if (courseErr || !course) {
+      return NextResponse.json(
+        { error: "Curso no encontrado" },
+        { status: 404 }
+      );
     }
 
-    const periodRow = psp.period as { academy_id?: string; year?: number; period?: string } | null;
-    if (profile.role !== "super_admin" && periodRow?.academy_id !== profile.academy_id) {
+    if (
+      profile.role !== "super_admin" &&
+      course.academy_id !== profile.academy_id
+    ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const body = await request.json();
     const { session_dates, turnos } = body;
 
-    const useSessionDates = Array.isArray(session_dates) && session_dates.length > 0;
+    const useSessionDates =
+      Array.isArray(session_dates) && session_dates.length > 0;
     if (!useSessionDates) {
       return NextResponse.json(
-        { error: "session_dates debe ser un array con al menos una fecha (YYYY-MM-DD)" },
+        {
+          error:
+            "session_dates debe ser un array con al menos una fecha (YYYY-MM-DD)",
+        },
         { status: 400 }
       );
     }
 
     if (!Array.isArray(turnos) || turnos.length === 0) {
       return NextResponse.json(
-        { error: "turnos debe ser un array con al menos un elemento: { day_of_week, start_time, end_time }" },
+        {
+          error:
+            "turnos debe ser un array con al menos un elemento: { day_of_week, start_time, end_time }",
+        },
         { status: 400 }
       );
     }
 
     for (const t of turnos) {
-      if (!t.day_of_week || !t.start_time || !t.end_time || t.day_of_week < 1 || t.day_of_week > 7) {
+      if (
+        !t.day_of_week ||
+        !t.start_time ||
+        !t.end_time ||
+        t.day_of_week < 1 ||
+        t.day_of_week > 7
+      ) {
         return NextResponse.json(
-          { error: "Cada turno debe tener day_of_week (1-7), start_time y end_time" },
+          {
+            error:
+              "Cada turno debe tener day_of_week (1-7), start_time y end_time",
+          },
           { status: 400 }
         );
       }
@@ -190,75 +234,55 @@ export async function PATCH(
       const e = new Date(`2000-01-01T${t.end_time}`);
       if (e <= s) {
         return NextResponse.json(
-          { error: `En el turno ${DAY_NAMES[t.day_of_week - 1]}: la hora de fin debe ser posterior a la de inicio` },
+          {
+            error: `En el turno ${
+              DAY_NAMES[t.day_of_week - 1]
+            }: la hora de fin debe ser posterior a la de inicio`,
+          },
           { status: 400 }
         );
       }
       if (t.start_time < "07:00" || t.end_time > "22:00") {
-        return NextResponse.json({ error: "Las horas deben estar entre 07:00 y 22:00" }, { status: 400 });
+        return NextResponse.json(
+          { error: "Las horas deben estar entre 07:00 y 22:00" },
+          { status: 400 }
+        );
       }
     }
 
-    const { data: subject } = await supabaseAdmin
-      .from("subjects")
-      .select("id, name")
-      .eq("id", psp.subject_id)
-      .single();
+    const scheduleName = `${course.name} ${course.year}`.slice(0, 100);
 
-    const scheduleName = (subject?.name && periodRow
-      ? `${subject.name} ${periodRow.year}-${periodRow.period}`
-      : "Curso"
-    ).slice(0, 100);
-
-    // 1) Borrar period_dates (period_id, subject_id) y schedules (period_id, subject_id, profile_id)
+    // 1) Delete existing course_sessions and schedules for this course
     await supabaseAdmin
-      .from("period_dates")
+      .from("course_sessions")
       .delete()
-      .eq("period_id", psp.period_id)
-      .eq("subject_id", psp.subject_id);
+      .eq("course_id", id);
 
     await supabaseAdmin
       .from("schedules")
       .delete()
-      .eq("period_id", psp.period_id)
-      .eq("subject_id", psp.subject_id)
-      .eq("profile_id", psp.profile_id);
+      .eq("course_id", id);
 
-    // 2) Insertar period_dates
-    const dateInserts = (session_dates as string[]).filter((d) => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d));
+    // 2) Insert course_sessions
+    const dateInserts = (session_dates as string[]).filter(
+      (d) => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d)
+    );
     if (dateInserts.length > 0) {
-      await supabaseAdmin.from("period_dates").insert(
+      await supabaseAdmin.from("course_sessions").insert(
         dateInserts.map((d) => ({
-          period_id: psp.period_id,
-          date_type: "clase",
+          course_id: id,
           date: d,
-          subject_id: psp.subject_id,
-          profile_id: psp.profile_id,
-          comment: null,
         }))
       );
     }
 
-    // 3) Insertar schedules (necesitamos academy_id)
-    const { data: per } = await supabaseAdmin
-      .from("periods")
-      .select("academy_id")
-      .eq("id", psp.period_id)
-      .single();
-
-    const academyId = (per as { academy_id?: string } | null)?.academy_id;
-    if (!academyId) {
-      return NextResponse.json({ error: "Periodo sin academia" }, { status: 500 });
-    }
-
-    // Conflicto mismo periodo/día/hora para este profesor
+    // 3) Insert schedules - conflict check same professor, same day
     for (const t of turnos) {
       const { data: conflict } = await supabaseAdmin
         .from("schedules")
         .select("id")
-        .eq("academy_id", academyId)
-        .eq("profile_id", psp.profile_id)
-        .eq("period_id", psp.period_id)
+        .eq("academy_id", course.academy_id)
+        .eq("profile_id", course.profile_id)
         .eq("day_of_week", t.day_of_week)
         .is("deleted_at", null)
         .or(
@@ -268,17 +292,20 @@ export async function PATCH(
 
       if (conflict && conflict.length > 0) {
         return NextResponse.json(
-          { error: `En ${periodRow?.year}-${periodRow?.period} el profesor ya tiene una clase en ${DAY_NAMES[t.day_of_week - 1]} que se solapa con ${t.start_time}-${t.end_time}` },
+          {
+            error: `El profesor ya tiene una clase en ${
+              DAY_NAMES[t.day_of_week - 1]
+            } que se solapa con ${t.start_time}-${t.end_time}`,
+          },
           { status: 400 }
         );
       }
 
       await supabaseAdmin.from("schedules").insert({
-        academy_id: academyId,
-        subject_id: psp.subject_id,
+        academy_id: course.academy_id,
+        course_id: id,
         name: scheduleName,
-        profile_id: psp.profile_id,
-        period_id: psp.period_id,
+        profile_id: course.profile_id,
         day_of_week: t.day_of_week,
         start_time: t.start_time,
         end_time: t.end_time,
@@ -289,13 +316,16 @@ export async function PATCH(
   } catch (e) {
     console.error("PATCH /api/courses/[id]:", e);
     return NextResponse.json(
-      { error: "An unexpected error occurred", details: e instanceof Error ? e.message : "Unknown error" },
+      {
+        error: "An unexpected error occurred",
+        details: e instanceof Error ? e.message : "Unknown error",
+      },
       { status: 500 }
     );
   }
 }
 
-// DELETE: remove professor_subject_periods, its schedules, and period_dates (period_id, subject_id)
+// DELETE: remove course, its course_sessions, and schedules
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -305,7 +335,10 @@ export async function DELETE(
     const cookieStore = cookies();
     const supabase = await createServerClient(cookieStore);
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
     if (userError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -324,7 +357,10 @@ export async function DELETE(
     }
 
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Server configuration error" },
+        { status: 500 }
+      );
     }
 
     const supabaseAdmin = createClient(
@@ -333,41 +369,47 @@ export async function DELETE(
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    const { data: psp, error: pspErr } = await supabaseAdmin
-      .from("professor_subject_periods")
-      .select("id, profile_id, subject_id, period_id, period:periods(academy_id)")
+    const { data: course, error: courseErr } = await supabaseAdmin
+      .from("courses")
+      .select("id, academy_id")
       .eq("id", id)
+      .is("deleted_at", null)
       .single();
 
-    if (pspErr || !psp) {
-      return NextResponse.json({ error: "Curso no encontrado" }, { status: 404 });
+    if (courseErr || !course) {
+      return NextResponse.json(
+        { error: "Curso no encontrado" },
+        { status: 404 }
+      );
     }
 
-    const p = psp.period as { academy_id?: string } | null;
-    if (profile.role !== "super_admin" && p?.academy_id !== profile.academy_id) {
+    if (
+      profile.role !== "super_admin" &&
+      course.academy_id !== profile.academy_id
+    ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     await supabaseAdmin
-      .from("period_dates")
+      .from("course_sessions")
       .delete()
-      .eq("period_id", psp.period_id)
-      .eq("subject_id", psp.subject_id);
+      .eq("course_id", id);
+
+    await supabaseAdmin.from("schedules").delete().eq("course_id", id);
 
     await supabaseAdmin
-      .from("schedules")
-      .delete()
-      .eq("period_id", psp.period_id)
-      .eq("subject_id", psp.subject_id)
-      .eq("profile_id", psp.profile_id);
-
-    await supabaseAdmin.from("professor_subject_periods").delete().eq("id", id);
+      .from("courses")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id);
 
     return NextResponse.json({ message: "Curso eliminado" });
   } catch (e) {
     console.error("DELETE /api/courses/[id]:", e);
     return NextResponse.json(
-      { error: "An unexpected error occurred", details: e instanceof Error ? e.message : "Unknown error" },
+      {
+        error: "An unexpected error occurred",
+        details: e instanceof Error ? e.message : "Unknown error",
+      },
       { status: 500 }
     );
   }

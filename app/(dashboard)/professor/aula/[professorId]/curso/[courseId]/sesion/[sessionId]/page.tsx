@@ -63,48 +63,43 @@ export default async function ProfessorAulaSesionPage({
     redirect("/professor/aula");
   }
 
-  const { data: psp } = await supabaseAdmin
-    .from("professor_subject_periods")
-    .select("id, profile_id, subject_id, period_id, period:periods(academy_id), subject:subjects(name)")
+  const { data: courseRow } = await supabaseAdmin
+    .from("courses")
+    .select("id, profile_id, academy_id, name")
     .eq("id", courseId)
-    .maybeSingle();
-
-  if (!psp || psp.profile_id !== professorId) {
-    redirect(`/professor/aula/${professorId}`);
-  }
-
-  const { data: sessionRow } = await supabaseAdmin
-    .from("period_dates")
-    .select("id, date, comment")
-    .eq("id", sessionId)
-    .eq("period_id", psp.period_id)
-    .eq("subject_id", psp.subject_id)
-    .eq("date_type", "clase")
     .is("deleted_at", null)
     .maybeSingle();
 
-  if (!sessionRow) {
+  if (!courseRow || courseRow.profile_id !== professorId) {
+    redirect(`/professor/aula/${professorId}`);
+  }
+
+  const { data: session } = await supabaseAdmin
+    .from("course_sessions")
+    .select("id, date")
+    .eq("id", sessionId)
+    .eq("course_id", courseId)
+    .maybeSingle();
+
+  if (!session) {
     redirect(`/professor/aula/${professorId}/curso/${courseId}`);
   }
 
   const { data: courseSessions } = await supabaseAdmin
-    .from("period_dates")
+    .from("course_sessions")
     .select("id, date")
-    .eq("period_id", psp.period_id)
-    .eq("subject_id", psp.subject_id)
-    .eq("date_type", "clase")
-    .is("deleted_at", null)
+    .eq("course_id", courseId)
     .order("date", { ascending: true });
 
   const sessionIndex = (courseSessions ?? []).findIndex((s) => s.id === sessionId);
   const sessionNumber = sessionIndex >= 0 ? sessionIndex + 1 : 1;
 
-  const subject = psp.subject as { name?: string } | null;
   const professorName =
     professor.first_name || professor.last_name
       ? `${professor.first_name || ""} ${professor.last_name || ""}`.trim()
       : professor.email || "Profesor";
-  const period = psp.period as { academy_id?: string } | null;
+  const courseName = courseRow.name ?? "Curso";
+  const academyId = courseRow.academy_id ?? profile.academy_id ?? "";
 
   const formatDate = (dateStr: string) => {
     try {
@@ -133,24 +128,19 @@ export default async function ProfessorAulaSesionPage({
           </Link>
           <ChevronRight className="h-4 w-4 shrink-0" />
           <Link href={`/professor/aula/${professorId}/curso/${courseId}`} className="hover:text-gray-700">
-            {subject?.name ?? "Curso"}
+            {courseName}
           </Link>
           <ChevronRight className="h-4 w-4 shrink-0" />
           <span className="text-gray-900 font-medium">
-            {formatDate(sessionRow.date)}
+            {formatDate(session.date)}
           </span>
         </nav>
         <h1 className="text-2xl font-bold text-gray-900">
-          Sesión {sessionNumber} — {formatDate(sessionRow.date)}
+          Sesión {sessionNumber} — {formatDate(session.date)}
         </h1>
         <p className="mt-1 text-sm text-gray-500">
           Estudiantes del curso. Abre el expediente para ver canciones, calificaciones y comentarios.
         </p>
-        {sessionRow.comment && (
-          <p className="mt-2 text-sm text-gray-600 bg-gray-50 rounded px-3 py-2">
-            {sessionRow.comment}
-          </p>
-        )}
       </div>
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Estudiantes</h2>
@@ -158,9 +148,9 @@ export default async function ProfessorAulaSesionPage({
           professorId={professorId}
           courseId={courseId}
           sessionId={sessionId}
-          subjectId={psp.subject_id}
-          academyId={period?.academy_id ?? profile.academy_id ?? ""}
+          academyId={academyId}
           pathPrefix="professor"
+          useCourseSession={true}
         />
       </div>
     </div>

@@ -3,9 +3,8 @@ import { createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
-// GET: Rubros y escala de calificación para una materia/academia
-// Query: ?academy_id=uuid&subject_id=uuid
-// Rubros: de subject_rubrics si hay, si no de evaluation_rubrics (is_default) de la academia
+// GET: Rubros y escala de calificación para una academia
+// Query: ?academy_id=uuid
 // Escalas: evaluation_scales de la academia
 export async function GET(request: NextRequest) {
   try {
@@ -33,7 +32,6 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const academyId = searchParams.get("academy_id");
-    const subjectId = searchParams.get("subject_id");
 
     if (!academyId) {
       return NextResponse.json({ error: "academy_id is required" }, { status: 400 });
@@ -53,41 +51,17 @@ export async function GET(request: NextRequest) {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    let rubrics: { id: string; name: string; display_order: number }[] = [];
-
-    if (subjectId) {
-      const { data: sr } = await supabaseAdmin
-        .from("subject_rubrics")
-        .select("rubric_id, rubric:evaluation_rubrics(id, name, display_order, deleted_at)")
-        .eq("subject_id", subjectId);
-
-      const valid = (sr || []).filter(
-        (r: any) => r.rubric && !r.rubric.deleted_at
-      );
-      if (valid.length > 0) {
-        rubrics = valid
-          .map((r: any) => ({
-            id: r.rubric.id,
-            name: r.rubric.name,
-            display_order: r.rubric.display_order ?? 0,
-          }))
-          .sort((a: any, b: any) => a.display_order - b.display_order);
-      }
-    }
-
-    if (rubrics.length === 0) {
-      const { data: er } = await supabaseAdmin
-        .from("evaluation_rubrics")
-        .select("id, name, display_order")
-        .eq("academy_id", academyId)
-        .is("deleted_at", null)
-        .order("display_order", { ascending: true });
-      rubrics = (er || []).map((r: any) => ({
-        id: r.id,
-        name: r.name,
-        display_order: r.display_order ?? 0,
-      }));
-    }
+    const { data: er } = await supabaseAdmin
+      .from("evaluation_rubrics")
+      .select("id, name, display_order")
+      .eq("academy_id", academyId)
+      .is("deleted_at", null)
+      .order("display_order", { ascending: true });
+    const rubrics = (er || []).map((r: any) => ({
+      id: r.id,
+      name: r.name,
+      display_order: r.display_order ?? 0,
+    }));
 
     const { data: scales } = await supabaseAdmin
       .from("evaluation_scales")

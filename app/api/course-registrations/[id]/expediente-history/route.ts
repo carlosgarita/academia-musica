@@ -52,7 +52,7 @@ export async function GET(
 
     const { data: reg, error: regErr } = await supabaseAdmin
       .from("course_registrations")
-      .select("id, student_id, academy_id, period_id, subject_id")
+      .select("id, student_id, academy_id, course_id, profile_id")
       .eq("id", registrationId)
       .is("deleted_at", null)
       .single();
@@ -64,12 +64,17 @@ export async function GET(
       );
     }
 
-    if (
-      profile.role !== "super_admin" &&
-      profile.academy_id &&
-      reg.academy_id !== profile.academy_id
-    ) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (profile.role !== "super_admin") {
+      if (profile.academy_id && reg.academy_id !== profile.academy_id) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      if (
+        profile.role === "professor" &&
+        reg.profile_id &&
+        reg.profile_id !== user.id
+      ) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
     }
 
     const formatDate = (d: string) => {
@@ -85,36 +90,37 @@ export async function GET(
       }
     };
 
-    // Evaluaciones de canciones
+    // Evaluaciones de canciones (usa course_session_id + course_sessions)
     const { data: evals } = await supabaseAdmin
       .from("song_evaluations")
       .select(
         `
         id,
-        period_date_id,
+        course_session_id,
         song_id,
         rubric_id,
         scale_id,
-        period_dates(date),
+        course_sessions(date),
         songs(name),
         evaluation_rubrics(name),
         evaluation_scales(name)
       `
       )
       .eq("course_registration_id", registrationId)
+      .not("course_session_id", "is", null)
       .order("created_at", { ascending: false });
 
     const evaluations = (evals || [])
-      .filter((e: any) => e.period_dates)
+      .filter((e: any) => e.course_sessions)
       .map((e: any) => {
-        const pd = e.period_dates;
+        const cs = e.course_sessions;
         const song = e.songs;
         const rubric = e.evaluation_rubrics;
         const scale = e.evaluation_scales;
         return {
           id: e.id,
-          date: pd?.date,
-          dateFormatted: pd?.date ? formatDate(pd.date) : "",
+          date: cs?.date,
+          dateFormatted: cs?.date ? formatDate(cs.date) : "",
           songName: song?.name ?? "—",
           rubricName: rubric?.name ?? "—",
           scaleName: scale?.name ?? "Sin calificar",
@@ -122,44 +128,46 @@ export async function GET(
       })
       .sort((a: any, b: any) => (b.date || "").localeCompare(a.date || ""));
 
-    // Comentarios del profesor
+    // Comentarios del profesor (usa course_session_id + course_sessions)
     const { data: comments } = await supabaseAdmin
       .from("session_comments")
       .select(
         `
         id,
-        period_date_id,
+        course_session_id,
         comment,
-        period_dates(date)
+        course_sessions(date)
       `
       )
       .eq("course_registration_id", registrationId)
+      .not("course_session_id", "is", null)
       .order("updated_at", { ascending: false });
 
     const commentsList = (comments || [])
-      .filter((c: any) => c.period_dates)
+      .filter((c: any) => c.course_sessions)
       .map((c: any) => ({
         id: c.id,
-        date: c.period_dates?.date,
-        dateFormatted: c.period_dates?.date
-          ? formatDate(c.period_dates.date)
+        date: c.course_sessions?.date,
+        dateFormatted: c.course_sessions?.date
+          ? formatDate(c.course_sessions.date)
           : "",
         comment: c.comment,
       }))
       .sort((a: any, b: any) => (b.date || "").localeCompare(a.date || ""));
 
-    // Tareas individuales
+    // Tareas individuales (usa course_session_id + course_sessions)
     const { data: assignments } = await supabaseAdmin
       .from("session_assignments")
       .select(
         `
         id,
-        period_date_id,
+        course_session_id,
         assignment_text,
-        period_dates(date)
+        course_sessions(date)
       `
       )
       .eq("course_registration_id", registrationId)
+      .not("course_session_id", "is", null)
       .order("updated_at", { ascending: false });
 
     // Task completions for this student (individual + group)
@@ -180,12 +188,12 @@ export async function GET(
     );
 
     const assignmentsList = (assignments || [])
-      .filter((a: any) => a.period_dates)
+      .filter((a: any) => a.course_sessions)
       .map((a: any) => ({
         id: a.id,
-        date: a.period_dates?.date,
-        dateFormatted: a.period_dates?.date
-          ? formatDate(a.period_dates.date)
+        date: a.course_sessions?.date,
+        dateFormatted: a.course_sessions?.date
+          ? formatDate(a.course_sessions.date)
           : "",
         assignmentText: a.assignment_text,
         isCompleted: completedIndividualIds.has(a.id),
@@ -232,53 +240,56 @@ export async function GET(
         dateFormatted: r.assigned_at ? formatDateTime(r.assigned_at) : "",
       }));
 
-    // Tareas grupales por sesión (sesiones del curso a las que pertenece esta matrícula)
-    const { data: periodDatesForCourse } = await supabaseAdmin
-      .from("period_dates")
-      .select("id, date")
-      .eq("period_id", reg.period_id)
-      .eq("subject_id", reg.subject_id)
-      .eq("date_type", "clase")
-      .is("deleted_at", null);
-
-    const periodDateIds = (periodDatesForCourse || []).map((p: any) => p.id);
+    // Tareas grupales por sesión (course_sessions del curso de esta matrícula)
     const groupAssignmentsList: {
       id: string;
+      date?: string;
       dateFormatted: string;
       assignmentText: string;
       isGroup: true;
+      isCompleted?: boolean;
     }[] = [];
 
-    if (periodDateIds.length > 0) {
-      const { data: groupAssData } = await supabaseAdmin
-        .from("session_group_assignments")
-        .select("id, period_date_id, assignment_text")
-        .in("period_date_id", periodDateIds);
+    const courseId = reg.course_id;
+    if (courseId) {
+      const { data: courseSessions } = await supabaseAdmin
+        .from("course_sessions")
+        .select("id, date")
+        .eq("course_id", courseId)
+        .order("date", { ascending: true });
 
-      const dateById = (periodDatesForCourse || []).reduce(
-        (acc: Record<string, string>, p: any) => {
-          acc[p.id] = p.date;
+      const sessionIds = (courseSessions || []).map((s: any) => s.id);
+      const dateBySessionId = (courseSessions || []).reduce(
+        (acc: Record<string, string>, s: any) => {
+          acc[s.id] = s.date ?? "";
           return acc;
         },
         {}
       );
 
-      groupAssignmentsList.push(
-        ...(groupAssData || []).map((g: any) => {
-          const date = dateById[g.period_date_id] ?? "";
-          return {
-            id: g.id,
-            date,
-            dateFormatted: date ? formatDate(date) : "",
-            assignmentText: g.assignment_text,
-            isGroup: true as const,
-            isCompleted: completedGroupIds.has(g.id),
-          };
-        })
-      );
-      groupAssignmentsList.sort((a, b) =>
-        ((b as { date?: string }).date || "").localeCompare((a as { date?: string }).date || "")
-      );
+      if (sessionIds.length > 0) {
+        const { data: groupAssData } = await supabaseAdmin
+          .from("session_group_assignments")
+          .select("id, course_session_id, assignment_text")
+          .in("course_session_id", sessionIds);
+
+        groupAssignmentsList.push(
+          ...(groupAssData || []).map((g: any) => {
+            const date = dateBySessionId[g.course_session_id] ?? "";
+            return {
+              id: g.id,
+              date,
+              dateFormatted: date ? formatDate(date) : "",
+              assignmentText: g.assignment_text,
+              isGroup: true as const,
+              isCompleted: completedGroupIds.has(g.id),
+            };
+          })
+        );
+        groupAssignmentsList.sort((a, b) =>
+          (b.date || "").localeCompare(a.date || "")
+        );
+      }
     }
 
     return NextResponse.json({

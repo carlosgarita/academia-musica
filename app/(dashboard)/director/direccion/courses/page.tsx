@@ -5,15 +5,11 @@ import Link from "next/link";
 import { Pencil, Trash2 } from "lucide-react";
 import { useApi, mutate } from "@/lib/hooks/useApi";
 
-type Period = { id: string; year: number; period: string; academy_id: string };
-
 type Course = {
   id: string;
-  period_id: string;
-  subject_id: string;
+  name: string;
   profile_id: string;
-  period?: Period;
-  subject?: { id: string; name: string };
+  year: number;
   profile?: {
     id: string;
     first_name: string | null;
@@ -25,13 +21,13 @@ type Course = {
 };
 
 export default function CoursesPage() {
-  const [periodFilter, setPeriodFilter] = useState<string>("");
+  const [yearFilter, setYearFilter] = useState<string>("");
 
-  const { data: periodsData } = useApi<{ periods: Period[] }>("/api/periods");
-  const periods = periodsData?.periods ?? [];
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 10 }, (_, i) => currentYear - 5 + i);
 
-  const coursesUrl = periodFilter
-    ? `/api/courses?period_id=${encodeURIComponent(periodFilter)}`
+  const coursesUrl = yearFilter
+    ? `/api/courses?year=${encodeURIComponent(yearFilter)}`
     : "/api/courses";
   const {
     data: coursesData,
@@ -58,8 +54,8 @@ export default function CoursesPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Cursos</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Crea cursos con sesiones y turnos (materia, profesor, periodo,
-            fechas y horarios)
+            Crea cursos con sesiones y turnos (nombre, profesor, fechas y
+            horarios)
           </p>
         </div>
         <Link
@@ -71,19 +67,19 @@ export default function CoursesPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <label htmlFor="period" className="text-sm font-medium text-gray-700">
-          Periodo
+        <label htmlFor="year" className="text-sm font-medium text-gray-700">
+          Año
         </label>
         <select
-          id="period"
-          value={periodFilter}
-          onChange={(e) => setPeriodFilter(e.target.value)}
+          id="year"
+          value={yearFilter}
+          onChange={(e) => setYearFilter(e.target.value)}
           className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
         >
           <option value="">Todos</option>
-          {periods.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.year} – {p.period}
+          {years.map((y) => (
+            <option key={y} value={y}>
+              {y}
             </option>
           ))}
         </select>
@@ -102,8 +98,8 @@ export default function CoursesPage() {
       ) : courses.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-lg shadow">
           <p className="text-gray-500">
-            {periodFilter
-              ? "No hay cursos en este periodo."
+            {yearFilter
+              ? "No hay cursos en este año."
               : "No hay cursos creados."}
           </p>
           <Link
@@ -122,15 +118,11 @@ export default function CoursesPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                       <span className="font-medium text-gray-900">
-                        {c.subject?.name ?? "—"}
+                        {c.name ?? "—"}
                       </span>
                       <span className="text-gray-400">·</span>
                       <span className="text-gray-600">{professorName(c)}</span>
-                      {c.period && (
-                        <span className="text-sm text-gray-500">
-                          {c.period.year} – {c.period.period}
-                        </span>
-                      )}
+                      <span className="text-sm text-gray-500">{c.year}</span>
                     </div>
                     <p className="mt-1 text-sm text-gray-500">
                       {c.sessions_count ?? 0} sesiones · {c.turnos_count ?? 0}{" "}

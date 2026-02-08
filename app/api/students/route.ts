@@ -3,7 +3,7 @@ import { createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
-/** Obtiene los student_ids matriculados en cursos del profesor, opcionalmente filtrados por curso o por períodos activos */
+/** Obtiene los student_ids matriculados en cursos del profesor, filtrados por curso o por cursos activos (year >= currentYear-1) */
 async function getStudentIdsForProfessor(
   academyId: string,
   professorId: string,
@@ -17,47 +17,42 @@ async function getStudentIdsForProfessor(
     { auth: { autoRefreshToken: false, persistSession: false } }
   );
 
-  let profileId = professorId;
-  let subjectId: string | null = null;
-  let periodId: string | null = null;
-  let allowedPeriodIds: string[] | null = null;
+  let allowedCourseIds: string[] | null = null;
 
   if (courseId) {
-    const { data: psp, error } = await supabaseAdmin
-      .from("professor_subject_periods")
-      .select("profile_id, subject_id, period_id")
+    const { data: course, error } = await supabaseAdmin
+      .from("courses")
+      .select("id, profile_id, academy_id")
       .eq("id", courseId)
+      .is("deleted_at", null)
       .single();
 
-    if (error || !psp || psp.profile_id !== professorId) {
+    if (error || !course || course.profile_id !== professorId || course.academy_id !== academyId) {
       return [];
     }
-    profileId = psp.profile_id;
-    subjectId = psp.subject_id;
-    periodId = psp.period_id;
+    allowedCourseIds = [courseId];
   } else if (activeOnly) {
     const currentYear = new Date().getFullYear();
-    const { data: periods } = await supabaseAdmin
-      .from("periods")
+    const { data: courses } = await supabaseAdmin
+      .from("courses")
       .select("id")
       .eq("academy_id", academyId)
+      .eq("profile_id", professorId)
       .gte("year", currentYear - 1)
       .is("deleted_at", null);
-    allowedPeriodIds = (periods || []).map((p: { id: string }) => p.id);
-    if (allowedPeriodIds.length === 0) return [];
+    allowedCourseIds = (courses || []).map((c: { id: string }) => c.id);
+    if (allowedCourseIds.length === 0) return [];
   }
 
   let crQuery = supabaseAdmin
     .from("course_registrations")
     .select("student_id")
     .eq("academy_id", academyId)
-    .eq("profile_id", profileId)
+    .eq("profile_id", professorId)
     .is("deleted_at", null);
 
-  if (subjectId) crQuery = crQuery.eq("subject_id", subjectId);
-  if (periodId) crQuery = crQuery.eq("period_id", periodId);
-  if (allowedPeriodIds && allowedPeriodIds.length > 0) {
-    crQuery = crQuery.in("period_id", allowedPeriodIds);
+  if (allowedCourseIds && allowedCourseIds.length > 0) {
+    crQuery = crQuery.in("course_id", allowedCourseIds);
   }
 
   const { data: rows } = await crQuery;

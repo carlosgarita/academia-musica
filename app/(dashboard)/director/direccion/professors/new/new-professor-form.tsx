@@ -1,40 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 interface NewProfessorFormProps {
   academyId: string;
 }
 
-type Subject = {
-  id: string;
-  name: string;
-};
-
 export function NewProfessorForm({ academyId }: NewProfessorFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [loadingSubjects, setLoadingSubjects] = useState(true);
-
-  useEffect(() => {
-    async function loadSubjects() {
-      try {
-        const response = await fetch("/api/subjects");
-        if (response.ok) {
-          const data = await response.json();
-          setSubjects(data.subjects || []);
-        }
-      } catch (err) {
-        console.error("Error loading subjects:", err);
-      } finally {
-        setLoadingSubjects(false);
-      }
-    }
-    loadSubjects();
-  }, []);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -49,7 +25,6 @@ export function NewProfessorForm({ academyId }: NewProfessorFormProps) {
     const password = formData.get("password") as string;
     const additionalInfo = formData.get("additionalInfo") as string;
     const status = formData.get("status") as string;
-    const selectedSubjects = formData.getAll("subjects") as string[];
 
     // Validation
     if (!firstName || !lastName || !email) {
@@ -78,7 +53,6 @@ export function NewProfessorForm({ academyId }: NewProfessorFormProps) {
           password,
           additional_info: additionalInfo.trim() || null,
           status: status || "active",
-          subject_ids: selectedSubjects,
         }),
       });
 
@@ -228,42 +202,6 @@ export function NewProfessorForm({ academyId }: NewProfessorFormProps) {
             <option value="inactive">Inactivo</option>
           </select>
         </div>
-      </div>
-
-      {/* Subjects */}
-      <div>
-        <label
-          htmlFor="subjects"
-          className="block text-sm font-medium text-gray-700 mb-2"
-        >
-          Materias
-        </label>
-        {loadingSubjects ? (
-          <p className="text-sm text-gray-500">Cargando materias...</p>
-        ) : subjects.length === 0 ? (
-          <p className="text-sm text-gray-400 italic">
-            No hay materias disponibles. Crea materias primero.
-          </p>
-        ) : (
-          <div className="border border-gray-300 rounded-md p-4 max-h-60 overflow-y-auto">
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {subjects.map((subject) => (
-                <label
-                  key={subject.id}
-                  className="flex items-center space-x-2 cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    name="subjects"
-                    value={subject.id}
-                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span className="text-sm text-gray-700">{subject.name}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Additional Info */}

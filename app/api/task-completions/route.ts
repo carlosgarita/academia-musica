@@ -91,10 +91,11 @@ export async function GET(request: NextRequest) {
     } else if (profile.role === "professor") {
       // Professors can view completions for students in their courses
       const { data: hasAccess } = await supabaseAdmin
-        .from("professor_subject_periods")
-        .select("id, course_registrations!inner(student_id)")
+        .from("course_registrations")
+        .select("id")
+        .eq("student_id", studentId)
         .eq("profile_id", user.id)
-        .eq("course_registrations.student_id", studentId)
+        .is("deleted_at", null)
         .limit(1);
       if (!hasAccess || hasAccess.length === 0) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -239,26 +240,15 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
     } else if (profile.role === "professor") {
-      // Verify student is in a course the professor teaches (same period+subject)
-      const { data: crs } = await supabaseAdmin
+      // Verify student is in a course the professor teaches
+      const { data: hasAccess } = await supabaseAdmin
         .from("course_registrations")
-        .select("period_id, subject_id")
+        .select("id")
         .eq("student_id", student_id)
-        .is("deleted_at", null);
-      const { data: pspRows } = await supabaseAdmin
-        .from("professor_subject_periods")
-        .select("period_id, subject_id")
-        .eq("profile_id", user.id);
-      const professorTeaches = (periodId: string, subjectId: string) =>
-        pspRows?.some(
-          (p: { period_id: string; subject_id: string }) =>
-            p.period_id === periodId && p.subject_id === subjectId
-        );
-      const hasAccess =
-        crs?.some((c: { period_id: string; subject_id: string }) =>
-          professorTeaches(c.period_id, c.subject_id)
-        ) ?? false;
-      if (!hasAccess) {
+        .eq("profile_id", user.id)
+        .is("deleted_at", null)
+        .limit(1);
+      if (!hasAccess || hasAccess.length === 0) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
     }
@@ -293,16 +283,9 @@ export async function POST(request: NextRequest) {
       // For group assignments, verify the student is enrolled in the course
       const { data: groupAssignment } = await supabaseAdmin
         .from("session_group_assignments")
-        .select(
-          `
-          id,
-          period_date:period_dates(
-            period_id,
-            subject_id
-          )
-        `
-        )
+        .select("id, course_session_id")
         .eq("id", session_group_assignment_id)
+        .not("course_session_id", "is", null)
         .maybeSingle();
 
       if (!groupAssignment) {
@@ -312,25 +295,24 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const pdRaw = groupAssignment.period_date;
-      const pd = (Array.isArray(pdRaw) ? pdRaw[0] : pdRaw) as {
-        period_id: string;
-        subject_id: string;
-      } | null;
-      if (!pd) {
+      const { data: session } = await supabaseAdmin
+        .from("course_sessions")
+        .select("course_id")
+        .eq("id", groupAssignment.course_session_id)
+        .maybeSingle();
+
+      if (!session) {
         return NextResponse.json(
           { error: "Invalid group assignment" },
           { status: 400 }
         );
       }
 
-      // Verify student is enrolled in this course
       const { data: enrollment } = await supabaseAdmin
         .from("course_registrations")
         .select("id")
         .eq("student_id", student_id)
-        .eq("period_id", pd.period_id)
-        .eq("subject_id", pd.subject_id)
+        .eq("course_id", session.course_id)
         .is("deleted_at", null)
         .maybeSingle();
 
@@ -527,25 +509,14 @@ export async function DELETE(request: NextRequest) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
     } else if (profile.role === "professor") {
-      const { data: crs } = await supabaseAdmin
+      const { data: hasAccess } = await supabaseAdmin
         .from("course_registrations")
-        .select("period_id, subject_id")
+        .select("id")
         .eq("student_id", completionToDelete.student_id)
-        .is("deleted_at", null);
-      const { data: pspRows } = await supabaseAdmin
-        .from("professor_subject_periods")
-        .select("period_id, subject_id")
-        .eq("profile_id", user.id);
-      const professorTeaches = (periodId: string, subjectId: string) =>
-        pspRows?.some(
-          (p: { period_id: string; subject_id: string }) =>
-            p.period_id === periodId && p.subject_id === subjectId
-        );
-      const hasAccess =
-        crs?.some((c: { period_id: string; subject_id: string }) =>
-          professorTeaches(c.period_id, c.subject_id)
-        ) ?? false;
-      if (!hasAccess) {
+        .eq("profile_id", user.id)
+        .is("deleted_at", null)
+        .limit(1);
+      if (!hasAccess || hasAccess.length === 0) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
     }

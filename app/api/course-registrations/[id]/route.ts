@@ -44,8 +44,7 @@ export async function GET(
         `
         *,
         student:students(id, first_name, last_name, deleted_at),
-        subject:subjects(id, name, deleted_at),
-        period:periods(id, year, period, deleted_at)
+        course:courses(id, name, year, deleted_at)
       `
       )
       .eq("id", id)
@@ -79,8 +78,7 @@ export async function GET(
       student: row.student && !row.student.deleted_at
         ? { id: row.student.id, first_name: row.student.first_name, last_name: row.student.last_name }
         : null,
-      subject: row.subject && !row.subject.deleted_at ? { id: row.subject.id, name: row.subject.name } : null,
-      period: row.period && !row.period.deleted_at ? { id: row.period.id, year: row.period.year, period: row.period.period } : null,
+      course: row.course && !row.course.deleted_at ? { id: row.course.id, name: row.course.name, year: row.course.year } : null,
       songs,
     };
 

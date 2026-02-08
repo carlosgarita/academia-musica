@@ -15,11 +15,10 @@ type Professor = {
   additional_info: string | null;
   created_at: string;
   updated_at: string;
-  subjects: Array<{
-    subject: {
-      id: string;
-      name: string;
-    };
+  courses: Array<{
+    id: string;
+    name: string;
+    year: number;
   }>;
   schedules: Array<{
     id: string;
@@ -150,9 +149,6 @@ export default function ProfessorsList() {
                 professor.last_name,
                 professor.email
               );
-              const subjectsList = professor.subjects
-                .map((ps) => ps.subject.name)
-                .join(", ");
               const statusColor =
                 professor.status === "active"
                   ? "bg-green-100 text-green-800"
@@ -185,12 +181,6 @@ export default function ProfessorsList() {
                             {professor.phone}
                           </div>
                         )}
-                        {subjectsList && (
-                          <div>
-                            <span className="font-medium">Materias:</span>{" "}
-                            {subjectsList || "Sin materias asignadas"}
-                          </div>
-                        )}
                         {professor.additional_info && (
                           <div>
                             <span className="font-medium">Info adicional:</span>{" "}
@@ -198,27 +188,27 @@ export default function ProfessorsList() {
                           </div>
                         )}
                       </div>
-                      {professor.schedules &&
-                        professor.schedules.length > 0 && (
+                      {professor.courses &&
+                        professor.courses.length > 0 && (
                           <div className="mt-4">
                             <h4 className="text-sm font-medium text-gray-900 mb-2">
-                              Horarios Asignados:
+                              Cursos Asignados:
                             </h4>
                             <div className="space-y-1">
-                              {professor.schedules.map((schedule) => (
+                              {professor.courses.map((course) => (
                                 <div
-                                  key={schedule.id}
+                                  key={course.id}
                                   className="text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded"
                                 >
                                   <span className="font-medium">
-                                    {schedule.name}
+                                    {course.name}
                                   </span>
-                                  {" - "}
-                                  <span>
-                                    {DAY_NAMES[schedule.day_of_week - 1]}{" "}
-                                    {schedule.start_time.substring(0, 5)} -{" "}
-                                    {schedule.end_time.substring(0, 5)}
-                                  </span>
+                                  {course.year && (
+                                    <>
+                                      {" - "}
+                                      <span>{course.year}</span>
+                                    </>
+                                  )}
                                 </div>
                               ))}
                             </div>

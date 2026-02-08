@@ -47,11 +47,6 @@ const navigation: NavigationItem[] = [
         icon: UserCheck,
       },
       {
-        name: "Materias",
-        href: "/director/direccion/subjects",
-        icon: BookOpen,
-      },
-      {
         name: "Contratos",
         href: "/director/direccion/contracts",
         icon: FileText,
@@ -63,11 +58,6 @@ const navigation: NavigationItem[] = [
     href: "/director/aula",
     icon: School,
   },
-  {
-    name: "Hogar",
-    href: "/director/hogar",
-    icon: Home,
-  },
 ];
 
 export function DirectorNavigation() {
@@ -77,7 +67,6 @@ export function DirectorNavigation() {
     // Auto-expand section that contains current path
     if (pathname.startsWith("/director/direccion")) return ["direccion"];
     if (pathname.startsWith("/director/aula")) return ["aula"];
-    if (pathname.startsWith("/director/hogar")) return ["hogar"];
     return [];
   });
 

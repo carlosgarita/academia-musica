@@ -66,7 +66,7 @@ export function ProfessorSidebar() {
               }`}
             >
               <School className="h-5 w-5 flex-shrink-0" />
-              <span>Aula</span>
+              <span>Cursos</span>
             </Link>
             <Link
               href="/professor/aula/estudiantes"

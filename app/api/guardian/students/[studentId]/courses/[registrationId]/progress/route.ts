@@ -89,7 +89,7 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Verify the registration belongs to this student
+    // Verify the registration belongs to this student (new model: course_id)
     const { data: reg, error: regErr } = await supabaseAdmin
       .from("course_registrations")
       .select(
@@ -97,15 +97,14 @@ export async function GET(
         id,
         student_id,
         academy_id,
-        period_id,
-        subject_id,
+        course_id,
         status,
-        subject:subjects(id, name),
-        period:periods(id, year, period)
+        course:courses(id, name, year)
       `
       )
       .eq("id", registrationId)
       .eq("student_id", studentId)
+      .not("course_id", "is", null)
       .is("deleted_at", null)
       .single();
 
@@ -186,36 +185,37 @@ export async function GET(
       name: r.name ?? "—",
     }));
 
-    // Evaluaciones de canciones
+    // Evaluaciones de canciones (new model: course_session_id + course_sessions)
     const { data: evals } = await supabaseAdmin
       .from("song_evaluations")
       .select(
         `
         id,
-        period_date_id,
+        course_session_id,
         song_id,
         rubric_id,
         scale_id,
-        period_dates(date),
+        course_sessions(date),
         songs(name),
         evaluation_rubrics(name),
         evaluation_scales(name, numeric_value)
       `
       )
       .eq("course_registration_id", registrationId)
+      .not("course_session_id", "is", null)
       .order("created_at", { ascending: false });
 
     const evaluations = (evals || [])
-      .filter((e: Record<string, unknown>) => unwrap(e.period_dates))
+      .filter((e: Record<string, unknown>) => unwrap(e.course_sessions))
       .map((e: Record<string, unknown>) => {
-        const pd = unwrap(e.period_dates) as { date?: string } | null;
+        const cs = unwrap(e.course_sessions) as { date?: string } | null;
         const song = unwrap(e.songs) as { name?: string } | null;
         const rubric = unwrap(e.evaluation_rubrics) as { name?: string } | null;
         const scale = unwrap(e.evaluation_scales) as { name?: string; numeric_value?: number } | null;
         return {
           id: e.id,
-          date: pd?.date,
-          dateFormatted: pd?.date ? formatDate(pd.date) : "",
+          date: cs?.date,
+          dateFormatted: cs?.date ? formatDate(cs.date) : "",
           songName: song?.name ?? "—",
           rubricName: rubric?.name ?? "—",
           scaleName: scale?.name ?? "Sin calificar",
@@ -226,7 +226,7 @@ export async function GET(
 
     // Song charts data: gauge (latest per rubric) + timeline (all evals over time)
     const evalsRaw = (evals || []).filter(
-      (e: any) => e.period_dates && e.songs
+      (e: any) => e.course_sessions && e.songs
     );
     const songCharts = assignedSongs.map((song) => {
       const songEvals = evalsRaw.filter((e: any) => e.song_id === song.id);
@@ -268,8 +268,8 @@ export async function GET(
         { date: string; dateFormatted: string; values: Record<string, number> }
       > = {};
       for (const e of [...songEvals].reverse()) {
-        const pd = unwrap(e.period_dates) as { date?: string } | null;
-        const date = pd?.date ?? "";
+        const cs = unwrap(e.course_sessions) as { date?: string } | null;
+        const date = cs?.date ?? "";
         if (!date) continue;
         const dateFormatted = formatDate(date);
         if (!byDate[date]) {
@@ -292,69 +292,73 @@ export async function GET(
       };
     });
 
-    // Comentarios del profesor
+    // Comentarios del profesor (new model: course_session_id)
     const { data: comments } = await supabaseAdmin
       .from("session_comments")
       .select(
         `
         id,
-        period_date_id,
+        course_session_id,
         comment,
-        period_dates(date)
+        course_sessions(date)
       `
       )
       .eq("course_registration_id", registrationId)
+      .not("course_session_id", "is", null)
       .order("updated_at", { ascending: false });
 
     const commentsList = (comments || [])
-      .filter((c: any) => c.period_dates)
-      .map((c: any) => ({
-        id: c.id,
-        date: c.period_dates?.date,
-        dateFormatted: c.period_dates?.date
-          ? formatDate(c.period_dates.date)
-          : "",
-        comment: c.comment,
-      }))
+      .filter((c: any) => c.course_sessions)
+      .map((c: any) => {
+        const cs = Array.isArray(c.course_sessions) ? c.course_sessions[0] : c.course_sessions;
+        const date = cs?.date;
+        return {
+          id: c.id,
+          date,
+          dateFormatted: date ? formatDate(date) : "",
+          comment: c.comment,
+        };
+      })
       .sort((a: any, b: any) => (b.date || "").localeCompare(a.date || ""));
 
-    // Tareas individuales
+    // Tareas individuales (new model: course_session_id)
     const { data: assignments } = await supabaseAdmin
       .from("session_assignments")
       .select(
         `
         id,
-        period_date_id,
+        course_session_id,
         assignment_text,
-        period_dates(date)
+        course_sessions(date)
       `
       )
       .eq("course_registration_id", registrationId)
+      .not("course_session_id", "is", null)
       .order("updated_at", { ascending: false });
 
     const assignmentsList = (assignments || [])
-      .filter((a: any) => a.period_dates)
-      .map((a: any) => ({
-        id: a.id,
-        date: a.period_dates?.date,
-        dateFormatted: a.period_dates?.date
-          ? formatDate(a.period_dates.date)
-          : "",
-        assignmentText: a.assignment_text,
-        isCompleted: completedAssignmentIds.has(a.id),
-      }))
+      .filter((a: any) => a.course_sessions)
+      .map((a: any) => {
+        const cs = Array.isArray(a.course_sessions) ? a.course_sessions[0] : a.course_sessions;
+        const date = cs?.date;
+        return {
+          id: a.id,
+          date,
+          dateFormatted: date ? formatDate(date) : "",
+          assignmentText: a.assignment_text,
+          isCompleted: completedAssignmentIds.has(a.id),
+        };
+      })
       .sort((a: any, b: any) => (b.date || "").localeCompare(a.date || ""));
 
-    // Tareas grupales
-    const { data: periodDatesForCourse } = await supabaseAdmin
-      .from("period_dates")
+    // Tareas grupales (new model: course_session_id)
+    const { data: courseSessions } = await supabaseAdmin
+      .from("course_sessions")
       .select("id, date")
-      .eq("period_id", reg.period_id)
-      .eq("subject_id", reg.subject_id)
-      .eq("date_type", "clase")
-      .is("deleted_at", null);
+      .eq("course_id", reg.course_id)
+      .order("date", { ascending: true });
 
-    const periodDateIds = (periodDatesForCourse || []).map((p: any) => p.id);
+    const sessionIds = (courseSessions || []).map((s: any) => s.id);
     const groupAssignmentsList: {
       id: string;
       date: string;
@@ -364,15 +368,16 @@ export async function GET(
       isCompleted: boolean;
     }[] = [];
 
-    if (periodDateIds.length > 0) {
+    if (sessionIds.length > 0) {
       const { data: groupAssData } = await supabaseAdmin
         .from("session_group_assignments")
-        .select("id, period_date_id, assignment_text")
-        .in("period_date_id", periodDateIds);
+        .select("id, course_session_id, assignment_text")
+        .in("course_session_id", sessionIds)
+        .not("course_session_id", "is", null);
 
-      const dateById = (periodDatesForCourse || []).reduce(
-        (acc: Record<string, string>, p: any) => {
-          acc[p.id] = p.date;
+      const dateById = (courseSessions || []).reduce(
+        (acc: Record<string, string>, s: any) => {
+          acc[s.id] = s.date;
           return acc;
         },
         {}
@@ -380,7 +385,7 @@ export async function GET(
 
       groupAssignmentsList.push(
         ...(groupAssData || []).map((g: any) => {
-          const date = dateById[g.period_date_id] ?? "";
+          const date = dateById[g.course_session_id] ?? "";
           return {
             id: g.id,
             date,
@@ -439,8 +444,7 @@ export async function GET(
     return NextResponse.json({
       registration: {
         id: reg.id,
-        subject: reg.subject,
-        period: reg.period,
+        course: reg.course,
         status: reg.status,
       },
       evaluations,

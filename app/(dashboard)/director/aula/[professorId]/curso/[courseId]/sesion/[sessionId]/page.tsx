@@ -42,7 +42,6 @@ export default async function AulaSesionPage({
     redirect("/");
   }
 
-  // Usar service role para evitar RLS en period_dates y tablas relacionadas
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     redirect(`/director/aula/${professorId}/curso/${courseId}`);
   }
@@ -70,48 +69,56 @@ export default async function AulaSesionPage({
     redirect("/director/aula");
   }
 
-  const { data: psp } = await supabaseAdmin
-    .from("professor_subject_periods")
-    .select("id, profile_id, subject_id, period_id, period:periods(academy_id), subject:subjects(name)")
+  // Try courses table first (new flow)
+  const { data: courseRow } = await supabaseAdmin
+    .from("courses")
+    .select("id, profile_id, academy_id, name")
     .eq("id", courseId)
-    .maybeSingle();
-
-  if (!psp || psp.profile_id !== professorId) {
-    redirect(`/director/aula/${professorId}`);
-  }
-
-  const period = psp.period as { academy_id?: string } | null;
-  if (profile.role !== "super_admin" && period?.academy_id !== profile.academy_id) {
-    redirect("/director/aula");
-  }
-
-  const { data: sessionRow } = await supabaseAdmin
-    .from("period_dates")
-    .select("id, date, comment")
-    .eq("id", sessionId)
-    .eq("period_id", psp.period_id)
-    .eq("subject_id", psp.subject_id)
-    .eq("date_type", "clase")
     .is("deleted_at", null)
     .maybeSingle();
+
+  let sessionRow: { id: string; date: string; comment?: string | null } | null = null;
+  let courseSessions: { id: string; date: string }[] = [];
+  let courseName = "Curso";
+  let effectiveAcademyId = profile.academy_id ?? "";
+
+  if (courseRow && courseRow.profile_id === professorId) {
+    if (
+      profile.role !== "super_admin" &&
+      courseRow.academy_id !== profile.academy_id
+    ) {
+      redirect("/director/aula");
+    }
+    courseName = courseRow.name ?? "Curso";
+    effectiveAcademyId = courseRow.academy_id;
+
+    const { data: session } = await supabaseAdmin
+      .from("course_sessions")
+      .select("id, date")
+      .eq("id", sessionId)
+      .eq("course_id", courseId)
+      .maybeSingle();
+
+    if (session) {
+      sessionRow = { id: session.id, date: session.date, comment: null };
+    }
+
+    const { data: sessions } = await supabaseAdmin
+      .from("course_sessions")
+      .select("id, date")
+      .eq("course_id", courseId)
+      .order("date", { ascending: true });
+
+    courseSessions = sessions ?? [];
+  }
 
   if (!sessionRow) {
     redirect(`/director/aula/${professorId}/curso/${courseId}`);
   }
 
-  const { data: courseSessions } = await supabaseAdmin
-    .from("period_dates")
-    .select("id, date")
-    .eq("period_id", psp.period_id)
-    .eq("subject_id", psp.subject_id)
-    .eq("date_type", "clase")
-    .is("deleted_at", null)
-    .order("date", { ascending: true });
-
-  const sessionIndex = (courseSessions ?? []).findIndex((s) => s.id === sessionId);
+  const sessionIndex = courseSessions.findIndex((s) => s.id === sessionId);
   const sessionNumber = sessionIndex >= 0 ? sessionIndex + 1 : 1;
 
-  const subject = psp.subject as { name?: string } | null;
   const professorName =
     professor.first_name || professor.last_name
       ? `${professor.first_name || ""} ${professor.last_name || ""}`.trim()
@@ -147,7 +154,7 @@ export default async function AulaSesionPage({
             href={`/director/aula/${professorId}/curso/${courseId}`}
             className="hover:text-gray-700"
           >
-            {subject?.name ?? "Curso"}
+            {courseName}
           </Link>
           <ChevronRight className="h-4 w-4 shrink-0" />
           <span className="text-gray-900 font-medium">
@@ -166,18 +173,16 @@ export default async function AulaSesionPage({
           </p>
         )}
       </div>
-      <ProfessorSelector academyId={profile.academy_id ?? ""} />
+      <ProfessorSelector academyId={effectiveAcademyId} />
       <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Estudiantes
-        </h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Estudiantes</h2>
         <AulaSessionStudents
           professorId={professorId}
           courseId={courseId}
           sessionId={sessionId}
-          subjectId={psp.subject_id}
-          academyId={period?.academy_id ?? profile.academy_id ?? ""}
+          academyId={effectiveAcademyId}
           pathPrefix="director"
+          useCourseSession={true}
         />
       </div>
     </div>

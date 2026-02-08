@@ -66,13 +66,6 @@ export async function GET(
         additional_info,
         created_at,
         updated_at,
-        subjects:professor_subjects(
-          subject:subjects(
-            id,
-            name,
-            deleted_at
-          )
-        ),
         schedules:schedules(
           id,
           name,
@@ -103,13 +96,14 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Filter out deleted subjects from professor_subjects relationships
-    if (professor.subjects && Array.isArray(professor.subjects)) {
-      professor.subjects = professor.subjects.filter((ps: { subject?: unknown }) => {
-        const s = Array.isArray(ps.subject) ? (ps.subject as { deleted_at?: string | null }[])[0] : (ps.subject as { deleted_at?: string | null } | null);
-        return s && !s.deleted_at;
-      });
-    }
+    // Fetch courses for this professor
+    const { data: courses } = await supabaseAdmin
+      .from("courses")
+      .select("id, name, year")
+      .eq("profile_id", id)
+      .is("deleted_at", null)
+      .order("year", { ascending: false });
+    (professor as { courses?: { id: string; name: string; year: number }[] }).courses = courses || [];
 
     // Filter out deleted schedules
     if (professor.schedules && Array.isArray(professor.schedules)) {
@@ -172,7 +166,6 @@ export async function PATCH(
       phone,
       additional_info,
       status,
-      subject_ids,
     } = body;
 
     if (!first_name?.trim() || !last_name?.trim() || !email?.trim()) {
@@ -239,33 +232,6 @@ export async function PATCH(
         { error: "Failed to update professor", details: updateError.message },
         { status: 500 }
       );
-    }
-
-    if (Array.isArray(subject_ids)) {
-      await supabaseAdmin
-        .from("professor_subjects")
-        .delete()
-        .eq("profile_id", id);
-
-      if (subject_ids.length > 0) {
-        const rows = subject_ids.map((subject_id: string) => ({
-          profile_id: id,
-          subject_id,
-        }));
-        const { error: insertErr } = await supabaseAdmin
-          .from("professor_subjects")
-          .insert(rows);
-        if (insertErr) {
-          console.error("Error updating professor_subjects:", insertErr);
-          return NextResponse.json(
-            {
-              error: "Error al actualizar materias",
-              details: insertErr.message,
-            },
-            { status: 500 }
-          );
-        }
-      }
     }
 
     return NextResponse.json({

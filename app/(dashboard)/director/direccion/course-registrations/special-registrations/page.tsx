@@ -20,6 +20,8 @@ type Student = {
 
 type Course = {
   id: string;
+  name?: string;
+  year?: number;
   subject?: { id: string; name: string };
   profile?: { first_name: string | null; last_name: string | null; email?: string };
   period?: { year: number; period: string };
@@ -46,9 +48,10 @@ function studentDisplayName(s: Student): string {
 }
 
 function courseDisplayName(c: Course): string {
-  const subject = c.subject?.name ?? "—";
-  const period = c.period ? `${c.period.year} – ${c.period.period}` : "";
-  return period ? `${subject} (${period})` : subject;
+  const name = c.name ?? c.subject?.name ?? "—";
+  const year = c.year ?? c.period?.year;
+  const period = c.period ? ` – ${c.period.period}` : "";
+  return year ? `${name} (${year}${period})` : name;
 }
 
 export default function SpecialRegistrationsPage() {

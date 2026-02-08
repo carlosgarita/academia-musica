@@ -3,7 +3,7 @@ import { createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
-// GET: Sesiones (period_dates tipo clase) del curso
+// GET: Sesiones (course_sessions) del curso
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -53,42 +53,36 @@ export async function GET(
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    const { data: psp, error: pspErr } = await supabaseAdmin
-      .from("professor_subject_periods")
-      .select("id, profile_id, subject_id, period_id, period:periods(academy_id)")
+    const { data: course, error: courseErr } = await supabaseAdmin
+      .from("courses")
+      .select("id, profile_id, academy_id")
       .eq("id", courseId)
+      .is("deleted_at", null)
       .single();
 
-    if (pspErr || !psp) {
-      return NextResponse.json({ error: "Curso no encontrado" }, { status: 404 });
+    if (courseErr || !course) {
+      return NextResponse.json(
+        { error: "Curso no encontrado" },
+        { status: 404 }
+      );
     }
 
-    const period = psp.period as { academy_id?: string } | null;
     if (profile.role === "professor") {
-      if (psp.profile_id !== user.id) {
+      if (course.profile_id !== user.id) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
     } else if (
       profile.role !== "super_admin" &&
-      period?.academy_id !== profile.academy_id
+      course.academy_id !== profile.academy_id
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Sesiones del curso: period_dates tipo clase (mismo period_id + subject_id; opcional profile_id)
-    const { data: allSessions, error } = await supabaseAdmin
-      .from("period_dates")
-      .select("id, date, date_type, comment, profile_id")
-      .eq("period_id", psp.period_id)
-      .eq("subject_id", psp.subject_id)
-      .eq("date_type", "clase")
-      .is("deleted_at", null)
+    const { data: sessions, error } = await supabaseAdmin
+      .from("course_sessions")
+      .select("id, date")
+      .eq("course_id", courseId)
       .order("date", { ascending: true });
-
-    const sessions =
-      allSessions?.filter(
-        (s) => !s.profile_id || s.profile_id === psp.profile_id
-      ) ?? [];
 
     if (error) {
       console.error("Error fetching sessions:", error);
@@ -98,7 +92,14 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ sessions: sessions || [] });
+    const sessionsWithType = (sessions || []).map((s) => ({
+      ...s,
+      date_type: "clase",
+      comment: null,
+      profile_id: course.profile_id,
+    }));
+
+    return NextResponse.json({ sessions: sessionsWithType });
   } catch (e) {
     console.error("GET /api/courses/[id]/sessions:", e);
     return NextResponse.json(

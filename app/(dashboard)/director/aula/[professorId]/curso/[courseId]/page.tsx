@@ -42,7 +42,6 @@ export default async function AulaCursoPage({
     redirect("/");
   }
 
-  // Usar service role para evitar RLS en profesor_subject_periods y tablas relacionadas
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     redirect(`/director/aula/${professorId}`);
   }
@@ -70,51 +69,35 @@ export default async function AulaCursoPage({
     redirect("/director/aula");
   }
 
-  const { data: psp, error: pspErr } = await supabaseAdmin
-    .from("professor_subject_periods")
-    .select(
-      `
-      id,
-      profile_id,
-      subject_id,
-      period_id,
-      period:periods(id, year, period, academy_id),
-      subject:subjects(id, name)
-    `
-    )
+  const { data: courseRow, error: courseErr } = await supabaseAdmin
+    .from("courses")
+    .select("id, profile_id, academy_id, name, year")
     .eq("id", courseId)
+    .is("deleted_at", null)
     .maybeSingle();
 
-  if (pspErr || !psp) {
+  if (courseErr || !courseRow) {
     redirect(`/director/aula/${professorId}`);
   }
 
-  const period = psp.period as { academy_id?: string; id?: string; year?: number; period?: string } | null;
-  if (profile.role !== "super_admin" && period?.academy_id !== profile.academy_id) {
+  if (
+    profile.role !== "super_admin" &&
+    courseRow.academy_id !== profile.academy_id
+  ) {
     redirect("/director/aula");
   }
 
-  if (psp.profile_id !== professorId) {
+  if (courseRow.profile_id !== professorId) {
     redirect(`/director/aula/${professorId}`);
   }
-
-  const course = {
-    id: psp.id,
-    profile_id: psp.profile_id,
-    subject_id: psp.subject_id,
-    period_id: psp.period_id,
-    period: (psp.period as unknown) as { id: string; year: number; period: string } | undefined,
-    subject: (psp.subject as unknown) as { id: string; name: string } | undefined,
-  };
 
   const professorName =
     professor.first_name || professor.last_name
       ? `${professor.first_name || ""} ${professor.last_name || ""}`.trim()
       : professor.email || "Profesor";
 
-  const periodLabel = course.period
-    ? `${course.period.year} - Período ${course.period.period}`
-    : "";
+  const courseLabel = courseRow.name ?? "Curso";
+  const yearLabel = courseRow.year ? String(courseRow.year) : "";
 
   return (
     <div className="space-y-6">
@@ -128,12 +111,11 @@ export default async function AulaCursoPage({
             {professorName}
           </Link>
           <ChevronRight className="h-4 w-4" />
-          <span className="text-gray-900 font-medium">
-            {course.subject?.name ?? "Curso"}
-          </span>
+          <span className="text-gray-900 font-medium">{courseLabel}</span>
         </nav>
         <h1 className="text-2xl font-bold text-gray-900">
-          {course.subject?.name ?? "Curso"} — {periodLabel}
+          {courseLabel}
+          {yearLabel ? ` — ${yearLabel}` : ""}
         </h1>
         <p className="mt-1 text-sm text-gray-500">
           Sesiones de clase. Selecciona una sesión para ver asistencia y expedientes.
@@ -141,13 +123,11 @@ export default async function AulaCursoPage({
       </div>
       <ProfessorSelector academyId={profile.academy_id ?? ""} />
       <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Sesiones
-        </h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Sesiones</h2>
         <AulaSessionList
           professorId={professorId}
           courseId={courseId}
-          courseName={course.subject?.name ?? "Curso"}
+          courseName={courseLabel}
           pathPrefix="director"
         />
       </div>

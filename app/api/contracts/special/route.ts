@@ -5,10 +5,7 @@ import { cookies } from "next/headers";
 
 // POST: Create a special contract - creates course_registrations if needed, one contract with custom monthly_amount
 // Body: { guardian_id, items: [{ student_id, course_id }], monthly_amount }
-// - course_id = professor_subject_periods id
-// - Creates course_registrations for each (student, course) that don't exist
-// - start_date, end_date = min/max across all courses' session dates
-// - monthly_amount overrides course defaults (special pricing)
+// course_id = courses table id (new flow)
 export async function POST(request: NextRequest) {
   try {
     const cookieStore = cookies();
@@ -63,7 +60,10 @@ export async function POST(request: NextRequest) {
 
     if (!guardian_id || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
-        { error: "guardian_id and items (non-empty array of {student_id, course_id}) are required" },
+        {
+          error:
+            "guardian_id and items (non-empty array of {student_id, course_id}) are required",
+        },
         { status: 400 }
       );
     }
@@ -75,7 +75,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify guardian
     const { data: guardianProfile, error: guardianError } = await supabaseAdmin
       .from("profiles")
       .select("id, academy_id, role")
@@ -85,28 +84,37 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (guardianError || !guardianProfile) {
-      return NextResponse.json({ error: "Guardian not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Guardian not found" },
+        { status: 404 }
+      );
     }
 
     const effectiveAcademyId = guardianProfile.academy_id || academyId;
-    if (profile.role !== "super_admin" && guardianProfile.academy_id !== academyId) {
+    if (
+      profile.role !== "super_admin" &&
+      guardianProfile.academy_id !== academyId
+    ) {
       return NextResponse.json(
         { error: "Guardian does not belong to this academy" },
         { status: 403 }
       );
     }
 
-    // Get guardian's students
     const { data: guardianStudents } = await supabaseAdmin
       .from("guardian_students")
       .select("student_id")
       .eq("guardian_id", guardian_id);
 
-    const guardianStudentIds = (guardianStudents || []).map((gs: { student_id: string }) => gs.student_id);
+    const guardianStudentIds = (guardianStudents || []).map(
+      (gs: { student_id: string }) => gs.student_id
+    );
 
     const createdRegistrationIds: string[] = [];
     const seenPairs = new Set<string>();
-    const uniqueItems = (items as { student_id: string; course_id: string }[]).filter((i) => {
+    const uniqueItems = (
+      items as { student_id: string; course_id: string }[]
+    ).filter((i) => {
       const key = `${i.student_id}:${i.course_id}`;
       if (seenPairs.has(key)) return false;
       seenPairs.add(key);
@@ -114,11 +122,12 @@ export async function POST(request: NextRequest) {
     });
     const courseIds = [...new Set(uniqueItems.map((i) => i.course_id))];
 
-    // Get all courses
+    // Get all courses from courses table
     const { data: courses, error: coursesErr } = await supabaseAdmin
-      .from("professor_subject_periods")
-      .select("id, profile_id, subject_id, period_id")
-      .in("id", courseIds);
+      .from("courses")
+      .select("id, profile_id, academy_id")
+      .in("id", courseIds)
+      .is("deleted_at", null);
 
     if (coursesErr || !courses || courses.length !== courseIds.length) {
       return NextResponse.json(
@@ -127,9 +136,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    type CourseRow = { id: string; profile_id: string; subject_id: string; period_id: string };
     const courseMap = Object.fromEntries(
-      (courses as CourseRow[]).map((c) => [c.id, c])
+      (courses as { id: string; profile_id: string; academy_id: string }[]).map(
+        (c) => [c.id, c]
+      )
     );
 
     for (const item of uniqueItems) {
@@ -142,31 +152,40 @@ export async function POST(request: NextRequest) {
       }
       if (!guardianStudentIds.includes(student_id)) {
         return NextResponse.json(
-          { error: "Uno o más estudiantes no pertenecen al encargado seleccionado" },
+          {
+            error: "Uno o más estudiantes no pertenecen al encargado seleccionado",
+          },
           { status: 400 }
         );
       }
 
-      const course = courseMap[course_id] as CourseRow | undefined;
+      const course = courseMap[course_id] as
+        | { id: string; profile_id: string; academy_id: string }
+        | undefined;
       if (!course) {
-        return NextResponse.json({ error: "Curso no encontrado" }, { status: 400 });
+        return NextResponse.json(
+          { error: "Curso no encontrado" },
+          { status: 400 }
+        );
+      }
+      if (course.academy_id !== effectiveAcademyId) {
+        return NextResponse.json(
+          { error: "El curso no pertenece a esta academia" },
+          { status: 400 }
+        );
       }
 
-      // Check if course_registration exists
       const { data: existing } = await supabaseAdmin
         .from("course_registrations")
         .select("id")
         .eq("student_id", student_id)
-        .eq("subject_id", course.subject_id)
-        .eq("period_id", course.period_id)
-        .eq("profile_id", course.profile_id)
+        .eq("course_id", course_id)
         .is("deleted_at", null)
         .maybeSingle();
 
       if (existing) {
         createdRegistrationIds.push(existing.id);
       } else {
-        // Create course_registration
         const { data: student } = await supabaseAdmin
           .from("students")
           .select("academy_id")
@@ -185,8 +204,7 @@ export async function POST(request: NextRequest) {
           .insert({
             academy_id: effectiveAcademyId,
             student_id: student_id,
-            subject_id: course.subject_id,
-            period_id: course.period_id,
+            course_id: course_id,
             profile_id: course.profile_id,
             status: "active",
           })
@@ -196,7 +214,10 @@ export async function POST(request: NextRequest) {
         if (regErr) {
           console.error("Error creating course_registration:", regErr);
           return NextResponse.json(
-            { error: "Error al crear matrícula", details: regErr.message },
+            {
+              error: "Error al crear matrícula",
+              details: regErr.message,
+            },
             { status: 500 }
           );
         }
@@ -204,23 +225,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Get date range from period_dates for all courses
-    const periodSubjectProfiles = (courses as CourseRow[]).map((c) => ({
-      period_id: c.period_id,
-      subject_id: c.subject_id,
-      profile_id: c.profile_id,
-    }));
-
+    // Get date range from course_sessions
     const allDates: string[] = [];
-    for (const { period_id, subject_id, profile_id } of periodSubjectProfiles) {
+    for (const courseId of courseIds) {
       const { data: dates } = await supabaseAdmin
-        .from("period_dates")
+        .from("course_sessions")
         .select("date")
-        .eq("period_id", period_id)
-        .eq("subject_id", subject_id)
-        .eq("profile_id", profile_id)
-        .eq("date_type", "clase")
-        .is("deleted_at", null);
+        .eq("course_id", courseId);
 
       for (const d of dates || []) {
         allDates.push((d as { date: string }).date);
@@ -229,7 +240,10 @@ export async function POST(request: NextRequest) {
 
     if (allDates.length === 0) {
       return NextResponse.json(
-        { error: "No se encontraron fechas de sesiones para los cursos seleccionados" },
+        {
+          error:
+            "No se encontraron fechas de sesiones para los cursos seleccionados",
+        },
         { status: 400 }
       );
     }
@@ -238,7 +252,6 @@ export async function POST(request: NextRequest) {
     const start_date = sortedDates[0];
     const end_date = sortedDates[sortedDates.length - 1];
 
-    // Create contract
     const { data: contract, error: contractError } = await supabaseAdmin
       .from("contracts")
       .insert({
@@ -254,12 +267,14 @@ export async function POST(request: NextRequest) {
     if (contractError) {
       console.error("Error creating contract:", contractError);
       return NextResponse.json(
-        { error: "Error al crear contrato", details: contractError.message },
+        {
+          error: "Error al crear contrato",
+          details: contractError.message,
+        },
         { status: 500 }
       );
     }
 
-    // Create contract_course_registrations
     const ccrInserts = createdRegistrationIds.map((crId) => ({
       contract_id: contract.id,
       course_registration_id: crId,
@@ -273,15 +288,22 @@ export async function POST(request: NextRequest) {
       console.error("Error creating contract_course_registrations:", ccrError);
       await supabaseAdmin.from("contracts").delete().eq("id", contract.id);
       return NextResponse.json(
-        { error: "Error al vincular matrículas", details: ccrError.message },
+        {
+          error: "Error al vincular matrículas",
+          details: ccrError.message,
+        },
         { status: 500 }
       );
     }
 
-    // Generate invoices
     const start = new Date(start_date);
     const end = new Date(end_date);
-    const invoices: { contract_id: string; month: string; amount: number; status: string }[] = [];
+    const invoices: {
+      contract_id: string;
+      month: string;
+      amount: number;
+      status: string;
+    }[] = [];
     let current = new Date(start.getFullYear(), start.getMonth(), 1);
     const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
 
@@ -303,10 +325,16 @@ export async function POST(request: NextRequest) {
 
       if (invError) {
         console.error("Error creating invoices:", invError);
-        await supabaseAdmin.from("contract_course_registrations").delete().eq("contract_id", contract.id);
+        await supabaseAdmin
+          .from("contract_course_registrations")
+          .delete()
+          .eq("contract_id", contract.id);
         await supabaseAdmin.from("contracts").delete().eq("id", contract.id);
         return NextResponse.json(
-          { error: "Error al crear facturas", details: invError.message },
+          {
+            error: "Error al crear facturas",
+            details: invError.message,
+          },
           { status: 500 }
         );
       }

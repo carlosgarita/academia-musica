@@ -97,8 +97,15 @@ export function HogarContent({
         </div>
       )}
 
+      {/* Loading state */}
+      {loading && students.length === 0 && !error && (
+        <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">
+          <p className="text-gray-500">Cargando estudiantes...</p>
+        </div>
+      )}
+
       {/* Selected student view */}
-      {selectedStudent && (
+      {selectedStudent && !loading && (
         <div className="rounded-lg border border-gray-200 bg-white p-6">
           <HogarStudentView
             student={selectedStudent}

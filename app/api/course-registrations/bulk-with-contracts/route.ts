@@ -5,10 +5,7 @@ import { cookies } from "next/headers";
 
 // POST: Create course registrations for multiple students and generate contracts per guardian
 // Body: { course_id: string, student_ids: string[] }
-// - Creates course_registrations for each student (same course)
-// - Groups students by guardian
-// - Creates one contract per guardian with monthly_amount = sum of mensualidad (count * course.mensualidad for this single course)
-// - Uses first_session_date and last_session_date from course
+// course_id references the courses table (new flow)
 export async function POST(request: NextRequest) {
   try {
     const cookieStore = cookies();
@@ -63,18 +60,21 @@ export async function POST(request: NextRequest) {
 
     if (!course_id || !Array.isArray(student_ids) || student_ids.length === 0) {
       return NextResponse.json(
-        { error: "course_id and student_ids (non-empty array) are required" },
+        {
+          error: "course_id y student_ids (array no vacío) son obligatorios",
+        },
         { status: 400 }
       );
     }
 
     const uniqueStudentIds = [...new Set(student_ids as string[])];
 
-    // 1) Get course (professor_subject_periods) with mensualidad, period_id, subject_id, profile_id
+    // 1) Get course from courses table
     const { data: course, error: courseErr } = await supabaseAdmin
-      .from("professor_subject_periods")
-      .select("id, profile_id, subject_id, period_id, mensualidad")
+      .from("courses")
+      .select("id, profile_id, academy_id, mensualidad")
       .eq("id", course_id)
+      .is("deleted_at", null)
       .single();
 
     if (courseErr || !course) {
@@ -84,75 +84,72 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const periodId = course.period_id;
-    const subjectId = course.subject_id;
     const profileId = course.profile_id;
     const mensualidad = course.mensualidad;
 
     if (mensualidad == null || Number(mensualidad) <= 0) {
       return NextResponse.json(
-        { error: "El curso no tiene mensualidad definida. Define la mensualidad en el curso antes de generar contratos." },
+        {
+          error:
+            "El curso no tiene mensualidad definida. Define la mensualidad en el curso antes de generar contratos.",
+        },
         { status: 400 }
       );
     }
 
     const monthlyAmount = Number(mensualidad);
 
-    // 2) Get period to verify academy
-    const { data: period, error: periodErr } = await supabaseAdmin
-      .from("periods")
-      .select("id, academy_id")
-      .eq("id", periodId)
-      .is("deleted_at", null)
-      .single();
-
-    if (periodErr || !period) {
-      return NextResponse.json(
-        { error: "Periodo no encontrado" },
-        { status: 404 }
-      );
-    }
-
-    const effectiveAcademyId = period.academy_id;
-    if (profile.role !== "super_admin" && effectiveAcademyId !== academyId) {
+    const effectiveAcademyId = course.academy_id;
+    if (
+      profile.role !== "super_admin" &&
+      effectiveAcademyId !== academyId
+    ) {
       return NextResponse.json(
         { error: "El curso no pertenece a tu academia" },
         { status: 403 }
       );
     }
 
-    // 3) Get session date range
+    // 2) Get session date range from course_sessions
     const { data: dates } = await supabaseAdmin
-      .from("period_dates")
+      .from("course_sessions")
       .select("date")
-      .eq("period_id", periodId)
-      .eq("subject_id", subjectId)
-      .eq("profile_id", profileId)
-      .eq("date_type", "clase")
-      .is("deleted_at", null)
+      .eq("course_id", course_id)
       .order("date", { ascending: true });
 
     const dateList = (dates || []) as { date: string }[];
-    const start_date = dateList.length > 0 ? dateList[0].date : null;
-    const end_date = dateList.length > 0 ? dateList[dateList.length - 1].date : null;
+    const start_date =
+      dateList.length > 0 ? dateList[0].date : null;
+    const end_date =
+      dateList.length > 0 ? dateList[dateList.length - 1].date : null;
 
     if (!start_date || !end_date) {
       return NextResponse.json(
-        { error: "El curso no tiene fechas de sesiones. No se puede generar el contrato." },
+        {
+          error:
+            "El curso no tiene fechas de sesiones. No se puede generar el contrato.",
+        },
         { status: 400 }
       );
     }
 
-    // 4) Validate students exist, belong to academy, not withdrawn, not already enrolled
+    // 3) Validate students
     const { data: students, error: studentsErr } = await supabaseAdmin
       .from("students")
       .select("id, academy_id, enrollment_status, deleted_at")
       .in("id", uniqueStudentIds)
       .is("deleted_at", null);
 
-    if (studentsErr || !students || students.length !== uniqueStudentIds.length) {
+    if (
+      studentsErr ||
+      !students ||
+      students.length !== uniqueStudentIds.length
+    ) {
       return NextResponse.json(
-        { error: "Uno o más estudiantes no fueron encontrados o están inactivos" },
+        {
+          error:
+            "Uno o más estudiantes no fueron encontrados o están inactivos",
+        },
         { status: 400 }
       );
     }
@@ -176,13 +173,13 @@ export async function POST(request: NextRequest) {
     const { data: existingRegs } = await supabaseAdmin
       .from("course_registrations")
       .select("id, student_id")
-      .eq("subject_id", subjectId)
-      .eq("period_id", periodId)
-      .eq("profile_id", profileId)
+      .eq("course_id", course_id)
       .in("student_id", uniqueStudentIds)
       .is("deleted_at", null);
 
-    const alreadyEnrolled = (existingRegs || []).map((r: { student_id: string }) => r.student_id);
+    const alreadyEnrolled = (existingRegs || []).map(
+      (r: { student_id: string }) => r.student_id
+    );
     if (alreadyEnrolled.length > 0) {
       return NextResponse.json(
         {
@@ -193,7 +190,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 5) Get guardian for each student
+    // 4) Get guardian for each student
     const { data: guardianAssignments } = await supabaseAdmin
       .from("guardian_students")
       .select("student_id, guardian_id")
@@ -201,27 +198,36 @@ export async function POST(request: NextRequest) {
 
     const studentToGuardian: Record<string, string> = {};
     for (const gs of guardianAssignments || []) {
-      studentToGuardian[(gs as { student_id: string }).student_id] = (gs as { guardian_id: string }).guardian_id;
+      studentToGuardian[(gs as { student_id: string }).student_id] = (
+        gs as { guardian_id: string }
+      ).guardian_id;
     }
 
-    const studentsWithoutGuardian = uniqueStudentIds.filter((id) => !studentToGuardian[id]);
+    const studentsWithoutGuardian = uniqueStudentIds.filter(
+      (id) => !studentToGuardian[id]
+    );
     if (studentsWithoutGuardian.length > 0) {
       return NextResponse.json(
         {
-          error: "Uno o más estudiantes no tienen encargado asignado. Asigna un encargado antes de generar contratos.",
+          error:
+            "Uno o más estudiantes no tienen encargado asignado. Asigna un encargado antes de generar contratos.",
         },
         { status: 400 }
       );
     }
 
-    // 6) Create course_registrations
+    // 5) Create course_registrations (using course_id)
+    // subject_id and period_id are null for the new courses flow (migration makes them nullable)
+    const enrollmentDate = new Date().toISOString().split("T")[0];
     const regInserts = uniqueStudentIds.map((studentId) => ({
       academy_id: effectiveAcademyId,
       student_id: studentId,
-      subject_id: subjectId,
-      period_id: periodId,
+      course_id: course_id,
       profile_id: profileId,
       status: "active",
+      enrollment_date: enrollmentDate,
+      subject_id: null,
+      period_id: null,
     }));
 
     const { data: newRegs, error: regErr } = await supabaseAdmin
@@ -231,13 +237,22 @@ export async function POST(request: NextRequest) {
 
     if (regErr || !newRegs || newRegs.length !== uniqueStudentIds.length) {
       console.error("Error creating course registrations:", regErr);
+      const errMsg = (regErr as { message?: string; code?: string })?.message ?? "";
+      const errCode = (regErr as { code?: string })?.code;
+      const hint =
+        errCode === "23502"
+          ? " Es posible que falten migraciones. Ejecuta: npx supabase db push"
+          : "";
       return NextResponse.json(
-        { error: "Error al crear las matrículas", details: regErr?.message },
+        {
+          error: "Error al crear las matrículas",
+          details: errMsg + hint,
+        },
         { status: 500 }
       );
     }
 
-    // 7) Group registrations by guardian and create contracts
+    // 6) Group registrations by guardian and create contracts
     const byGuardian: Record<string, string[]> = {};
     for (const reg of newRegs) {
       const gid = studentToGuardian[reg.student_id];
@@ -245,7 +260,12 @@ export async function POST(request: NextRequest) {
       byGuardian[gid].push(reg.id);
     }
 
-    const createdContracts: { id: string; guardian_id: string; monthly_amount: number; course_registration_ids: string[] }[] = [];
+    const createdContracts: {
+      id: string;
+      guardian_id: string;
+      monthly_amount: number;
+      course_registration_ids: string[];
+    }[] = [];
 
     for (const [guardianId, crIds] of Object.entries(byGuardian)) {
       const guardianMonthlyAmount = crIds.length * monthlyAmount;
@@ -264,13 +284,15 @@ export async function POST(request: NextRequest) {
 
       if (contractErr) {
         console.error("Error creating contract:", contractErr);
-        // Rollback: delete created registrations
         await supabaseAdmin
           .from("course_registrations")
           .update({ deleted_at: new Date().toISOString() })
           .in("id", newRegs.map((r) => r.id));
         return NextResponse.json(
-          { error: "Error al crear el contrato", details: contractErr.message },
+          {
+            error: "Error al crear el contrato",
+            details: contractErr.message,
+          },
           { status: 500 }
         );
       }
@@ -292,14 +314,22 @@ export async function POST(request: NextRequest) {
           .update({ deleted_at: new Date().toISOString() })
           .in("id", newRegs.map((r) => r.id));
         return NextResponse.json(
-          { error: "Error al vincular matrículas al contrato", details: ccrErr.message },
+          {
+            error: "Error al vincular matrículas al contrato",
+            details: ccrErr.message,
+          },
           { status: 500 }
         );
       }
 
       const start = new Date(start_date);
       const end = new Date(end_date);
-      const invoices: { contract_id: string; month: string; amount: number; status: string }[] = [];
+      const invoices: {
+        contract_id: string;
+        month: string;
+        amount: number;
+        status: string;
+      }[] = [];
       let current = new Date(start.getFullYear(), start.getMonth(), 1);
       const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
 
@@ -321,14 +351,20 @@ export async function POST(request: NextRequest) {
 
         if (invErr) {
           console.error("Error creating invoices:", invErr);
-          await supabaseAdmin.from("contract_course_registrations").delete().eq("contract_id", contract.id);
+          await supabaseAdmin
+            .from("contract_course_registrations")
+            .delete()
+            .eq("contract_id", contract.id);
           await supabaseAdmin.from("contracts").delete().eq("id", contract.id);
           await supabaseAdmin
             .from("course_registrations")
             .update({ deleted_at: new Date().toISOString() })
             .in("id", newRegs.map((r) => r.id));
           return NextResponse.json(
-            { error: "Error al crear facturas", details: invErr.message },
+            {
+              error: "Error al crear facturas",
+              details: invErr.message,
+            },
             { status: 500 }
           );
         }
@@ -347,7 +383,10 @@ export async function POST(request: NextRequest) {
       contracts: createdContracts,
     });
   } catch (error) {
-    console.error("Unexpected error in POST /api/course-registrations/bulk-with-contracts:", error);
+    console.error(
+      "Unexpected error in POST /api/course-registrations/bulk-with-contracts:",
+      error
+    );
     return NextResponse.json(
       {
         error: "An unexpected error occurred",

@@ -63,40 +63,24 @@ export default async function ProfessorAulaCursoPage({
     redirect("/professor/aula");
   }
 
-  const { data: psp, error: pspErr } = await supabaseAdmin
-    .from("professor_subject_periods")
-    .select(`
-      id,
-      profile_id,
-      subject_id,
-      period_id,
-      period:periods(id, year, period, academy_id),
-      subject:subjects(id, name)
-    `)
+  const { data: courseRow, error: courseErr } = await supabaseAdmin
+    .from("courses")
+    .select("id, profile_id, name, year")
     .eq("id", courseId)
+    .is("deleted_at", null)
     .maybeSingle();
 
-  if (pspErr || !psp || psp.profile_id !== professorId) {
+  if (courseErr || !courseRow || courseRow.profile_id !== professorId) {
     redirect(`/professor/aula/${professorId}`);
   }
-
-  const course = {
-    id: psp.id,
-    profile_id: psp.profile_id,
-    subject_id: psp.subject_id,
-    period_id: psp.period_id,
-    period: (psp.period as unknown) as { id: string; year: number; period: string } | undefined,
-    subject: (psp.subject as unknown) as { id: string; name: string } | undefined,
-  };
 
   const professorName =
     professor.first_name || professor.last_name
       ? `${professor.first_name || ""} ${professor.last_name || ""}`.trim()
       : professor.email || "Profesor";
 
-  const periodLabel = course.period
-    ? `${course.period.year} - Período ${course.period.period}`
-    : "";
+  const courseLabel = courseRow.name ?? "Curso";
+  const yearLabel = courseRow.year ? String(courseRow.year) : "";
 
   return (
     <div className="space-y-6">
@@ -110,12 +94,11 @@ export default async function ProfessorAulaCursoPage({
             {professorName}
           </Link>
           <ChevronRight className="h-4 w-4" />
-          <span className="text-gray-900 font-medium">
-            {course.subject?.name ?? "Curso"}
-          </span>
+          <span className="text-gray-900 font-medium">{courseLabel}</span>
         </nav>
         <h1 className="text-2xl font-bold text-gray-900">
-          {course.subject?.name ?? "Curso"} — {periodLabel}
+          {courseLabel}
+          {yearLabel ? ` — ${yearLabel}` : ""}
         </h1>
         <p className="mt-1 text-sm text-gray-500">
           Sesiones de clase. Selecciona una sesión para ver asistencia y expedientes.
@@ -126,7 +109,7 @@ export default async function ProfessorAulaCursoPage({
         <AulaSessionList
           professorId={professorId}
           courseId={courseId}
-          courseName={course.subject?.name ?? "Curso"}
+          courseName={courseLabel}
           pathPrefix="professor"
         />
       </div>

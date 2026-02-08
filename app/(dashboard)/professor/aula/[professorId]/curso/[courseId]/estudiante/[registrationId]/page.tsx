@@ -70,13 +70,14 @@ export default async function ProfessorAulaEstudiantePage({
     redirect("/professor/aula");
   }
 
-  const { data: psp } = await supabaseAdmin
-    .from("professor_subject_periods")
-    .select("id, profile_id, subject_id, period_id, period:periods(academy_id), subject:subjects(name)")
+  const { data: courseRow, error: courseErr } = await supabaseAdmin
+    .from("courses")
+    .select("id, profile_id, name")
     .eq("id", courseId)
+    .is("deleted_at", null)
     .maybeSingle();
 
-  if (!psp || psp.profile_id !== professorId) {
+  if (courseErr || !courseRow || courseRow.profile_id !== professorId) {
     redirect(`/professor/aula/${professorId}`);
   }
 
@@ -85,16 +86,13 @@ export default async function ProfessorAulaEstudiantePage({
     .select(`
       id,
       student_id,
-      subject_id,
-      period_id,
+      course_id,
       profile_id,
       student:students(id, first_name, last_name, deleted_at),
-      subject:subjects(id, name, deleted_at),
-      period:periods(id, year, period, deleted_at)
+      course:courses(id, name, year)
     `)
     .eq("id", registrationId)
-    .eq("period_id", psp.period_id)
-    .eq("subject_id", psp.subject_id)
+    .eq("course_id", courseId)
     .is("deleted_at", null)
     .maybeSingle();
 
@@ -109,7 +107,7 @@ export default async function ProfessorAulaEstudiantePage({
     redirect(`/professor/aula/${professorId}/curso/${courseId}`);
   }
 
-  const subject = psp.subject as { name?: string } | null;
+  const courseInfo = reg.course as { name?: string } | null;
   const professorName =
     professor.first_name || professor.last_name
       ? `${professor.first_name || ""} ${professor.last_name || ""}`.trim()
@@ -133,7 +131,7 @@ export default async function ProfessorAulaEstudiantePage({
           </Link>
           <ChevronRight className="h-4 w-4 shrink-0" />
           <Link href={`/professor/aula/${professorId}/curso/${courseId}`} className="hover:text-gray-700">
-            {subject?.name ?? "Curso"}
+            {courseInfo?.name ?? courseRow.name ?? "Curso"}
           </Link>
           <ChevronRight className="h-4 w-4 shrink-0" />
           <span className="text-gray-900 font-medium">{studentName}</span>

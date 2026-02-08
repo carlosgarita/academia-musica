@@ -33,9 +33,19 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const periodDateId = searchParams.get("period_date_id");
+    const courseSessionId = searchParams.get("course_session_id");
 
-    if (!periodDateId) {
-      return NextResponse.json({ error: "period_date_id is required" }, { status: 400 });
+    if (!periodDateId && !courseSessionId) {
+      return NextResponse.json(
+        { error: "period_date_id or course_session_id is required" },
+        { status: 400 }
+      );
+    }
+    if (periodDateId && courseSessionId) {
+      return NextResponse.json(
+        { error: "Provide period_date_id OR course_session_id, not both" },
+        { status: 400 }
+      );
     }
 
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -48,10 +58,12 @@ export async function GET(request: NextRequest) {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    const { data: comments, error } = await supabaseAdmin
+    const query = supabaseAdmin
       .from("session_comments")
-      .select("course_registration_id, comment")
-      .eq("period_date_id", periodDateId);
+      .select("course_registration_id, comment");
+    const { data: comments, error } = courseSessionId
+      ? await query.eq("course_session_id", courseSessionId)
+      : await query.eq("period_date_id", periodDateId);
 
     if (error) {
       console.error("Error fetching comments:", error);
@@ -83,7 +95,7 @@ export async function GET(request: NextRequest) {
 }
 
 // PUT: Crear o actualizar comentario (upsert)
-// Body: { course_registration_id, period_date_id, comment }
+// Body: { course_registration_id, period_date_id?, course_session_id?, comment }
 // comment es obligatorio (texto, max 1500 chars). Para borrar, enviar string vacío y usar DELETE.
 export async function PUT(request: NextRequest) {
   try {
@@ -110,11 +122,23 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { course_registration_id, period_date_id, comment } = body;
+    const { course_registration_id, period_date_id, course_session_id, comment } = body;
 
-    if (!course_registration_id || !period_date_id) {
+    if (!course_registration_id) {
       return NextResponse.json(
-        { error: "course_registration_id and period_date_id are required" },
+        { error: "course_registration_id is required" },
+        { status: 400 }
+      );
+    }
+    if (!period_date_id && !course_session_id) {
+      return NextResponse.json(
+        { error: "period_date_id or course_session_id is required" },
+        { status: 400 }
+      );
+    }
+    if (period_date_id && course_session_id) {
+      return NextResponse.json(
+        { error: "Provide period_date_id OR course_session_id, not both" },
         { status: 400 }
       );
     }
@@ -140,11 +164,14 @@ export async function PUT(request: NextRequest) {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
+    const sessionFilter = course_session_id
+      ? { course_session_id }
+      : { period_date_id };
     const { data: existing } = await supabaseAdmin
       .from("session_comments")
       .select("id")
       .eq("course_registration_id", course_registration_id)
-      .eq("period_date_id", period_date_id)
+      .match(sessionFilter)
       .maybeSingle();
 
     if (existing) {
@@ -164,13 +191,12 @@ export async function PUT(request: NextRequest) {
       }
       return NextResponse.json({ comment: updated });
     } else {
+      const insertPayload = course_session_id
+        ? { course_registration_id, course_session_id, comment }
+        : { course_registration_id, period_date_id, comment };
       const { data: created, error } = await supabaseAdmin
         .from("session_comments")
-        .insert({
-          course_registration_id,
-          period_date_id,
-          comment,
-        })
+        .insert(insertPayload)
         .select()
         .single();
 
@@ -196,7 +222,7 @@ export async function PUT(request: NextRequest) {
 }
 
 // DELETE: Eliminar comentario
-// Query: ?course_registration_id=uuid&period_date_id=uuid
+// Query: ?course_registration_id=uuid&period_date_id=uuid OR ?course_registration_id=uuid&course_session_id=uuid
 export async function DELETE(request: NextRequest) {
   try {
     const cookieStore = cookies();
@@ -224,10 +250,23 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const courseRegistrationId = searchParams.get("course_registration_id");
     const periodDateId = searchParams.get("period_date_id");
+    const courseSessionId = searchParams.get("course_session_id");
 
-    if (!courseRegistrationId || !periodDateId) {
+    if (!courseRegistrationId) {
       return NextResponse.json(
-        { error: "course_registration_id and period_date_id are required" },
+        { error: "course_registration_id is required" },
+        { status: 400 }
+      );
+    }
+    if (!periodDateId && !courseSessionId) {
+      return NextResponse.json(
+        { error: "period_date_id or course_session_id is required" },
+        { status: 400 }
+      );
+    }
+    if (periodDateId && courseSessionId) {
+      return NextResponse.json(
+        { error: "Provide period_date_id OR course_session_id, not both" },
         { status: 400 }
       );
     }
@@ -242,11 +281,13 @@ export async function DELETE(request: NextRequest) {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
+    const deleteFilter = courseSessionId
+      ? { course_registration_id: courseRegistrationId, course_session_id: courseSessionId }
+      : { course_registration_id: courseRegistrationId, period_date_id: periodDateId };
     const { error } = await supabaseAdmin
       .from("session_comments")
       .delete()
-      .eq("course_registration_id", courseRegistrationId)
-      .eq("period_date_id", periodDateId);
+      .match(deleteFilter);
 
     if (error) {
       console.error("Error deleting comment:", error);

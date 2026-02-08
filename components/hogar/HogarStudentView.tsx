@@ -17,12 +17,10 @@ type Student = {
 type Course = {
   id: string;
   student_id: string;
-  subject_id: string;
-  period_id: string;
+  course_id: string;
   academy_id: string;
   status: string | null;
-  subject: { id: string; name: string; description?: string | null } | null;
-  period: { id: string; year: number; period: string } | null;
+  course: { id: string; name: string; year: number };
   profile: { id: string; first_name: string; last_name: string } | null;
   isCurrent: boolean;
 };
@@ -172,10 +170,7 @@ export function HogarStudentView({
                   >
                     {currentCourses.map((course) => (
                       <option key={course.id} value={course.id}>
-                        {course.subject?.name || "Curso sin nombre"} -{" "}
-                        {course.period?.year || ""}
-                        {course.period?.year && course.period?.period ? ", " : ""}
-                        {course.period?.period || ""}
+                        {course.course?.name || "Curso sin nombre"} — {course.course?.year ?? ""}
                       </option>
                     ))}
                   </select>
@@ -183,7 +178,7 @@ export function HogarStudentView({
                   {selectedCourse && (
                     <div className="mt-4">
                       <h3 className="text-lg font-semibold text-gray-900">
-                        {selectedCourse.subject?.name || "Curso sin nombre"}
+                        {selectedCourse.course?.name || "Curso sin nombre"}
                       </h3>
                       <p className="text-sm text-gray-600 mt-0.5">
                         Profesor: {professorName ?? "No asignado"}
@@ -197,7 +192,7 @@ export function HogarStudentView({
               {currentCourses.length === 1 && (
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">
-                    {currentCourses[0].subject?.name || "Curso sin nombre"}
+                    {currentCourses[0].course?.name || "Curso sin nombre"}
                   </h3>
                   <p className="text-sm text-gray-600 mt-0.5">
                     Profesor:{" "}

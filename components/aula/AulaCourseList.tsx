@@ -6,11 +6,9 @@ import { BookOpen, Calendar, Users } from "lucide-react";
 
 type Course = {
   id: string;
-  period_id: string;
-  subject_id: string;
+  name: string;
   profile_id: string;
-  period?: { id: string; year: number; period: string; academy_id?: string };
-  subject?: { id: string; name: string };
+  year: number;
   profile?: {
     id: string;
     first_name: string | null;
@@ -68,9 +66,6 @@ export function AulaCourseList({
     );
   }
 
-  const periodLabel = (c: Course) =>
-    c.period ? `${c.period.year} - Período ${c.period.period}` : "—";
-
   return (
     <ul className="divide-y divide-gray-200">
       {courses.map((course) => (
@@ -81,11 +76,11 @@ export function AulaCourseList({
           >
             <div className="flex-1 min-w-0">
               <p className="font-medium text-gray-900 truncate">
-                {course.subject?.name ?? "Sin materia"}
+                {course.name ?? "Sin nombre"}
               </p>
               <p className="text-sm text-gray-500 flex items-center gap-2 mt-0.5">
                 <Calendar className="h-4 w-4 shrink-0" />
-                {periodLabel(course)}
+                {course.year}
               </p>
             </div>
             <div className="flex items-center gap-4 text-sm text-gray-500 shrink-0">
