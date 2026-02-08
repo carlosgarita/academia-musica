@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { FileText, Plus } from "lucide-react";
+import { FileText } from "lucide-react";
 
 type Guardian = {
   id: string;
@@ -103,20 +103,11 @@ export function ContractsList({ academyId: _academyId }: ContractsListProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Contratos</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Gestiona los contratos financieros con los encargados
-          </p>
-        </div>
-        <Link
-          href="/director/direccion/contracts/new"
-          className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
-        >
-          <Plus className="h-4 w-4" />
-          Nuevo contrato
-        </Link>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Contratos</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          Gestiona los contratos financieros con los encargados
+        </p>
       </div>
 
       {contracts.length === 0 ? (
@@ -124,10 +115,10 @@ export function ContractsList({ academyId: _academyId }: ContractsListProps) {
           <FileText className="mx-auto h-12 w-12 text-gray-400" />
           <p className="mt-2 text-gray-500">No hay contratos registrados aún.</p>
           <Link
-            href="/director/direccion/contracts/new"
+            href="/director/direccion/course-registrations/special-registrations"
             className="mt-4 inline-flex items-center text-indigo-600 hover:text-indigo-500"
           >
-            Crear tu primer contrato
+            Matrículas especiales
           </Link>
         </div>
       ) : (

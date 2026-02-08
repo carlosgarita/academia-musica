@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 type Song = {
   id: string;
@@ -13,11 +13,13 @@ type Song = {
   updated_at: string;
 };
 
-export default function EditSongPage() {
-  const router = useRouter();
-  const params = useParams();
-  const songId = params.id as string;
+interface EditSongFormProps {
+  songId: string;
+  basePath: string;
+}
 
+export function EditSongForm({ songId, basePath }: EditSongFormProps) {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +61,6 @@ export default function EditSongPage() {
     const author = formData.get("author") as string;
     const difficulty_level = parseInt(formData.get("difficulty_level") as string);
 
-    // Validation
     if (!name || !name.trim()) {
       setError("El nombre de la canción es requerido");
       setSubmitting(false);
@@ -94,8 +95,7 @@ export default function EditSongPage() {
         throw new Error(errorMessage);
       }
 
-      // Success
-      router.push("/director/direccion/songs");
+      router.push(basePath);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Error inesperado al actualizar la canción"
@@ -119,7 +119,7 @@ export default function EditSongPage() {
           <p className="text-sm text-red-700">{error}</p>
         </div>
         <button
-          onClick={() => router.back()}
+          onClick={() => router.push(basePath)}
           className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
         >
           Volver
@@ -153,7 +153,6 @@ export default function EditSongPage() {
         )}
 
         <div className="space-y-6">
-          {/* Song Name */}
           <div>
             <label
               htmlFor="name"
@@ -174,7 +173,6 @@ export default function EditSongPage() {
             <p className="mt-1 text-xs text-gray-500">Máximo 200 caracteres</p>
           </div>
 
-          {/* Author */}
           <div>
             <label
               htmlFor="author"
@@ -194,7 +192,6 @@ export default function EditSongPage() {
             <p className="mt-1 text-xs text-gray-500">Máximo 200 caracteres (opcional)</p>
           </div>
 
-          {/* Difficulty Level */}
           <div>
             <label
               htmlFor="difficulty_level"
@@ -224,7 +221,7 @@ export default function EditSongPage() {
         <div className="mt-6 flex justify-end space-x-3">
           <button
             type="button"
-            onClick={() => router.back()}
+            onClick={() => router.push(basePath)}
             className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
           >
             Cancelar

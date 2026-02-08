@@ -42,6 +42,7 @@ export default function NewCoursePage() {
   const [period, setPeriod] = useState<string>("");
   const [subjectId, setSubjectId] = useState("");
   const [profileId, setProfileId] = useState("");
+  const [mensualidad, setMensualidad] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [sessionDates, setSessionDates] = useState<string[]>([]);
@@ -238,6 +239,7 @@ export default function NewCoursePage() {
           period,
           subject_id: subjectId,
           profile_id: profileId,
+          mensualidad: mensualidad.trim() || null,
           session_dates: sessionDates,
           turnos: turnos.map((t) => ({
             day_of_week: t.day_of_week,
@@ -400,6 +402,27 @@ export default function NewCoursePage() {
                 </option>
               )}
             </select>
+          </div>
+
+          <div>
+            <label
+              htmlFor="mensualidad"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Mensualidad
+            </label>
+            <input
+              id="mensualidad"
+              type="text"
+              inputMode="decimal"
+              placeholder="ej. 50000"
+              value={mensualidad}
+              onChange={(e) => setMensualidad(e.target.value)}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Monto mensual del curso (opcional)
+            </p>
           </div>
         </div>
 

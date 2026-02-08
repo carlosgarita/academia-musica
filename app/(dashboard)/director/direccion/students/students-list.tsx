@@ -20,15 +20,27 @@ interface CourseRegistrationWithDetails extends CourseRegistration {
   professor: Profile | null;
 }
 
+type ProfessorCourse = {
+  id: string;
+  subject?: { name?: string } | null;
+  period?: { year?: number; period?: string } | null;
+};
+
 interface StudentsListProps {
   academyId: string;
+  /** Si true, oculta botones Nuevo/Editar/Eliminar (ej. vista de profesores) */
+  readOnly?: boolean;
+  /** ID del profesor: filtra estudiantes a los matriculados en sus cursos */
+  professorId?: string;
 }
 
-export function StudentsList({ academyId }: StudentsListProps) {
+export function StudentsList({ academyId, readOnly = false, professorId }: StudentsListProps) {
   const [students, setStudents] = useState<Student[]>([]);
   const [coursesByStudent, setCoursesByStudent] = useState<
     Record<string, CourseRegistrationWithDetails[]>
   >({});
+  const [professorCourses, setProfessorCourses] = useState<ProfessorCourse[]>([]);
+  const [selectedCourseId, setSelectedCourseId] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [enrollmentFilter, setEnrollmentFilter] = useState<
@@ -45,9 +57,38 @@ export function StudentsList({ academyId }: StudentsListProps) {
     });
   };
 
+  // Cargar cursos del profesor (cuando es vista de profesor)
+  useEffect(() => {
+    if (!professorId) {
+      setProfessorCourses([]);
+      setSelectedCourseId("");
+      return;
+    }
+    let cancelled = false;
+    async function loadCourses() {
+      try {
+        const res = await fetch(`/api/courses?profile_id=${professorId}`);
+        const data = await res.json();
+        if (cancelled) return;
+        const list = (data.courses || []).filter((c: ProfessorCourse) => {
+          const per = Array.isArray(c.period) ? c.period[0] : c.period;
+          const year = (per as { year?: number } | null)?.year;
+          const currentYear = new Date().getFullYear();
+          return year != null && year >= currentYear - 1;
+        });
+        setProfessorCourses(list);
+      } catch {
+        if (!cancelled) setProfessorCourses([]);
+      }
+    }
+    loadCourses();
+    return () => { cancelled = true; };
+  }, [professorId]);
+
   // Cargar estudiantes (con encargado desde guardian_students)
   useEffect(() => {
-    if (!academyId) return;
+    if (!academyId && !professorId) return;
+    if (professorId && !academyId) return; // profesor siempre necesita academyId para course_registrations
 
     let cancelled = false;
     setIsLoading(true);
@@ -55,7 +96,13 @@ export function StudentsList({ academyId }: StudentsListProps) {
 
     async function loadStudents() {
       try {
-        const response = await fetch("/api/students");
+        let url = "/api/students";
+        if (professorId) {
+          const params = new URLSearchParams({ professor_id: professorId });
+          if (selectedCourseId) params.set("course_id", selectedCourseId);
+          url += `?${params.toString()}`;
+        }
+        const response = await fetch(url);
         const data = await response.json();
 
         if (cancelled) return;
@@ -82,7 +129,7 @@ export function StudentsList({ academyId }: StudentsListProps) {
     return () => {
       cancelled = true;
     };
-  }, [academyId]);
+  }, [academyId, professorId, selectedCourseId]);
 
   // Cargar cursos (separado para evitar loops)
   useEffect(() => {
@@ -262,6 +309,7 @@ export function StudentsList({ academyId }: StudentsListProps) {
   // Filter and sort students by last name
   const filteredStudents = students
     .filter((student) => {
+      if (professorId) return true;
       if (enrollmentFilter === "all") return true;
       return student.enrollment_status === enrollmentFilter;
     })
@@ -284,83 +332,147 @@ export function StudentsList({ academyId }: StudentsListProps) {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Estudiantes</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Gestiona los estudiantes de tu academia
+            {professorId
+              ? "Estudiantes matriculados en tus cursos"
+              : readOnly
+              ? "Lista de estudiantes de la academia"
+              : "Gestiona los estudiantes de tu academia"}
           </p>
         </div>
-        <Link
-          href="/director/students/new"
-          className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
-        >
-          Nuevo Estudiante
-        </Link>
+        {!readOnly && (
+          <Link
+            href="/director/students/new"
+            className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+          >
+            Nuevo Estudiante
+          </Link>
+        )}
       </div>
 
       {students.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-lg shadow">
-          <p className="text-gray-500">No hay estudiantes registrados aún.</p>
-          <Link
-            href="/director/students/new"
-            className="mt-4 inline-flex items-center text-indigo-600 hover:text-indigo-500"
-          >
-            Crear tu primer estudiante
-          </Link>
+          <p className="text-gray-500">
+            {professorId
+              ? selectedCourseId
+                ? "No hay estudiantes matriculados en este curso."
+                : "No hay estudiantes matriculados en tus cursos."
+              : "No hay estudiantes registrados aún."}
+          </p>
+          {!readOnly && (
+            <Link
+              href="/director/students/new"
+              className="mt-4 inline-flex items-center text-indigo-600 hover:text-indigo-500"
+            >
+              Crear tu primer estudiante
+            </Link>
+          )}
         </div>
       ) : (
         <>
-          {/* Enrollment Status Filter - Only show when there are students */}
+          {/* Filtros */}
           <div className="bg-white shadow rounded-lg p-4">
-            <div className="flex items-center space-x-4">
-              <label
-                htmlFor="enrollmentFilter"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Filtrar por estado:
-              </label>
-              <select
-                id="enrollmentFilter"
-                value={enrollmentFilter}
-                onChange={(e) =>
-                  setEnrollmentFilter(
-                    e.target.value as
-                      | "all"
-                      | "inscrito"
-                      | "retirado"
-                      | "graduado"
-                  )
-                }
-                className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-              >
-                <option value="all">Todos</option>
-                <option value="inscrito">Inscritos</option>
-                <option value="retirado">Retirados</option>
-                <option value="graduado">Graduados</option>
-              </select>
-              {enrollmentFilter !== "all" && (
-                <span className="text-sm text-gray-500">
-                  ({filteredStudents.length} estudiante
-                  {filteredStudents.length !== 1 ? "s" : ""})
-                </span>
-              )}
-            </div>
+            {professorId ? (
+              professorCourses.length > 0 ? (
+                <div className="flex items-center space-x-4">
+                  <label
+                    htmlFor="courseFilter"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Filtrar por curso:
+                  </label>
+                  <select
+                    id="courseFilter"
+                    value={selectedCourseId}
+                    onChange={(e) => setSelectedCourseId(e.target.value)}
+                    className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  >
+                    <option value="">Todos mis cursos activos</option>
+                    {professorCourses.map((c) => {
+                      const subj = Array.isArray(c.subject) ? c.subject[0] : c.subject;
+                      const per = Array.isArray(c.period) ? c.period[0] : c.period;
+                      const name = subj?.name || "Curso";
+                      const periodStr = per ? `${per.year} – ${per.period}` : "";
+                      return (
+                        <option key={c.id} value={c.id}>
+                          {name} {periodStr}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  {filteredStudents.length > 0 && (
+                    <span className="text-sm text-gray-500">
+                      ({filteredStudents.length} estudiante
+                      {filteredStudents.length !== 1 ? "s" : ""})
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">
+                  No tienes cursos activos asignados.
+                </p>
+              )
+            ) : (
+              <div className="flex items-center space-x-4">
+                <label
+                  htmlFor="enrollmentFilter"
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  Filtrar por estado:
+                </label>
+                <select
+                  id="enrollmentFilter"
+                  value={enrollmentFilter}
+                  onChange={(e) =>
+                    setEnrollmentFilter(
+                      e.target.value as
+                        | "all"
+                        | "inscrito"
+                        | "retirado"
+                        | "graduado"
+                    )
+                  }
+                  className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                >
+                  <option value="all">Todos</option>
+                  <option value="inscrito">Inscritos</option>
+                  <option value="retirado">Retirados</option>
+                  <option value="graduado">Graduados</option>
+                </select>
+                {enrollmentFilter !== "all" && (
+                  <span className="text-sm text-gray-500">
+                    ({filteredStudents.length} estudiante
+                    {filteredStudents.length !== 1 ? "s" : ""})
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {filteredStudents.length === 0 ? (
             <div className="text-center py-12 bg-white rounded-lg shadow">
               <p className="text-gray-500">
-                No hay estudiantes{" "}
-                {enrollmentFilter === "inscrito"
-                  ? "inscritos"
-                  : enrollmentFilter === "retirado"
-                  ? "retirados"
-                  : "graduados"}
-                .
+                {professorId
+                  ? selectedCourseId
+                    ? "No hay estudiantes matriculados en este curso."
+                    : "No hay estudiantes matriculados en tus cursos activos."
+                  : `No hay estudiantes${
+                      enrollmentFilter === "inscrito"
+                        ? " inscritos"
+                        : enrollmentFilter === "retirado"
+                        ? " retirados"
+                        : enrollmentFilter === "graduado"
+                        ? " graduados"
+                        : ""
+                    }.`}
               </p>
-              <button
-                onClick={() => setEnrollmentFilter("all")}
-                className="mt-4 inline-flex items-center text-indigo-600 hover:text-indigo-500"
-              >
-                Ver todos los estudiantes
-              </button>
+              {!professorId && enrollmentFilter !== "all" && (
+                <button
+                  onClick={() => setEnrollmentFilter("all")}
+                  className="mt-4 inline-flex items-center text-indigo-600 hover:text-indigo-500"
+                >
+                  Ver todos los estudiantes
+                </button>
+              )}
             </div>
           ) : (
             <div className="bg-white shadow overflow-hidden sm:rounded-md">
@@ -392,26 +504,28 @@ export function StudentsList({ academyId }: StudentsListProps) {
                             {fullName}
                           </h3>
                         </button>
-                        <div className="ml-4 flex items-center gap-4 shrink-0">
-                          <Link
-                            href={`/director/students/${student.id}/edit`}
-                            className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-700 text-sm font-normal"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <Pencil className="h-4 w-4" />
-                            Editar
-                          </Link>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDelete(student.id, fullName);
-                            }}
-                            className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-700 text-sm font-normal"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            Eliminar
-                          </button>
-                        </div>
+                        {!readOnly && (
+                          <div className="ml-4 flex items-center gap-4 shrink-0">
+                            <Link
+                              href={`/director/students/${student.id}/edit`}
+                              className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-700 text-sm font-normal"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Pencil className="h-4 w-4" />
+                              Editar
+                            </Link>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDelete(student.id, fullName);
+                              }}
+                              className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-700 text-sm font-normal"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              Eliminar
+                            </button>
+                          </div>
+                        )}
                       </div>
                       {isExpanded && (
                         <div className="px-4 pb-4 pt-0 pl-12 bg-gray-50/50">

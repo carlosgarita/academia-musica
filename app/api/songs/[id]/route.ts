@@ -114,8 +114,12 @@ export async function PATCH(
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
-    // Only directors and super admins can update songs
-    if (profile.role !== "director" && profile.role !== "super_admin") {
+    // Directors, professors and super admins can update songs
+    if (
+      profile.role !== "director" &&
+      profile.role !== "professor" &&
+      profile.role !== "super_admin"
+    ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -274,8 +278,12 @@ export async function DELETE(
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
-    // Only directors and super admins can delete songs
-    if (profile.role !== "director" && profile.role !== "super_admin") {
+    // Directors, professors and super admins can delete songs
+    if (
+      profile.role !== "director" &&
+      profile.role !== "professor" &&
+      profile.role !== "super_admin"
+    ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

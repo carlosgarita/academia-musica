@@ -16,7 +16,11 @@ type Song = {
   updated_at: string;
 };
 
-export default function SongsPage() {
+interface SongsPageContentProps {
+  basePath: string;
+}
+
+export function SongsPageContent({ basePath }: SongsPageContentProps) {
   const router = useRouter();
   const { data, error, isLoading, revalidate } = useApi<{ songs: Song[] }>(
     "/api/songs"
@@ -74,19 +78,27 @@ export default function SongsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Canciones</h1>
           <p className="mt-1 text-sm text-gray-500">
             Gestiona las canciones disponibles en tu academia
           </p>
         </div>
-        <Link
-          href="/director/direccion/songs/new"
-          className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
-        >
-          Nueva Canción
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            href={`${basePath}/asignar`}
+            className="inline-flex items-center rounded-md bg-gray-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-500"
+          >
+            Asignar Canciones
+          </Link>
+          <Link
+            href={`${basePath}/new`}
+            className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+          >
+            Nueva Canción
+          </Link>
+        </div>
       </div>
 
       {error && (
@@ -99,7 +111,7 @@ export default function SongsPage() {
         <div className="text-center py-12 bg-white rounded-lg shadow">
           <p className="text-gray-500">No hay canciones creadas aún.</p>
           <Link
-            href="/director/direccion/songs/new"
+            href={`${basePath}/new`}
             className="mt-4 inline-flex items-center text-indigo-600 hover:text-indigo-500"
           >
             Crear tu primera canción
@@ -124,7 +136,7 @@ export default function SongsPage() {
                   </div>
                   <div className="ml-4 flex space-x-4">
                     <Link
-                      href={`/director/direccion/songs/${song.id}/edit`}
+                      href={`${basePath}/${song.id}/edit`}
                       className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-700 text-sm font-normal"
                     >
                       <Pencil className="h-4 w-4" />

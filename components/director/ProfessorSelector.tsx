@@ -22,12 +22,14 @@ export function ProfessorSelector({ academyId }: ProfessorSelectorProps) {
     if (!path || typeof path !== "string") return null;
     const pathParts = path.split("/").filter(Boolean);
     const aulaIndex = pathParts.indexOf("aula");
+    const nextSegment = pathParts[aulaIndex + 1];
     if (
       aulaIndex >= 0 &&
-      pathParts[aulaIndex + 1] &&
-      pathParts[aulaIndex + 1] !== "curso"
+      nextSegment &&
+      nextSegment !== "curso" &&
+      nextSegment !== "estudiantes"
     ) {
-      return pathParts[aulaIndex + 1];
+      return nextSegment;
     }
     return null;
   };
@@ -88,13 +90,25 @@ export function ProfessorSelector({ academyId }: ProfessorSelectorProps) {
       return;
     }
 
-    // Si ya estamos en la página de ese profesor, no hacer nada
-    if (pathname.includes(`/director/aula/${newProfessorId}`)) {
+    const baseMatch = pathname.match(/\/director\/aula\/([^/]+)/);
+    const currentProfessorId = baseMatch?.[1];
+    if (currentProfessorId === newProfessorId) {
       return;
     }
 
     setSelectedProfessorId(newProfessorId);
-    router.push(`/director/aula/${newProfessorId}`);
+    const isOnEstudiantes = pathname.includes("/estudiantes");
+    const isOnSongs = pathname.includes("/songs");
+    const isOnAsignar = pathname.includes("/asignar");
+    router.push(
+      isOnEstudiantes
+        ? `/director/aula/${newProfessorId}/estudiantes`
+        : isOnSongs
+        ? isOnAsignar
+          ? `/director/aula/${newProfessorId}/songs/asignar`
+          : `/director/aula/${newProfessorId}/songs`
+        : `/director/aula/${newProfessorId}`
+    );
   };
 
   if (loading) {

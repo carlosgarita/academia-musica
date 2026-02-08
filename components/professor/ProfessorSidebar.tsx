@@ -3,13 +3,15 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
-import { School, Power } from "lucide-react";
+import { School, Power, GraduationCap, Music } from "lucide-react";
 
 export function ProfessorSidebar() {
   const pathname = usePathname();
   const router = useRouter();
 
   const isAulaActive = pathname.startsWith("/professor/aula");
+  const isEstudiantesActive = pathname.endsWith("/estudiantes") && pathname.startsWith("/professor/aula");
+  const isCancionesActive = pathname.includes("/songs") && pathname.startsWith("/professor/aula");
 
   const handleLogout = async () => {
     const supabase = createBrowserClient(
@@ -58,13 +60,35 @@ export function ProfessorSidebar() {
             <Link
               href="/professor/aula"
               className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-colors mx-2 ${
-                isAulaActive
+                isAulaActive && !isEstudiantesActive && !isCancionesActive
                   ? "bg-gray-100 text-gray-900"
                   : "text-gray-700 hover:bg-gray-50"
               }`}
             >
               <School className="h-5 w-5 flex-shrink-0" />
               <span>Aula</span>
+            </Link>
+            <Link
+              href="/professor/aula/estudiantes"
+              className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-colors mx-2 ${
+                isEstudiantesActive
+                  ? "bg-gray-100 text-gray-900"
+                  : "text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              <GraduationCap className="h-5 w-5 flex-shrink-0" />
+              <span>Estudiantes</span>
+            </Link>
+            <Link
+              href="/professor/aula/songs"
+              className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-colors mx-2 ${
+                isCancionesActive
+                  ? "bg-gray-100 text-gray-900"
+                  : "text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              <Music className="h-5 w-5 flex-shrink-0" />
+              <span>Canciones</span>
             </Link>
           </div>
         </nav>

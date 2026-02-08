@@ -60,7 +60,6 @@ const navigation: NavigationItem[] = [
         icon: BookOpen,
       },
       { name: "Cursos", href: "/director/direccion/courses", icon: BookMarked },
-      { name: "Canciones", href: "/director/direccion/songs", icon: Music },
       {
         name: "Matrículas",
         href: "/director/direccion/course-registrations",
@@ -77,6 +76,19 @@ const navigation: NavigationItem[] = [
     name: "Aula",
     href: "/director/aula",
     icon: School,
+    children: [
+      { name: "Inicio", href: "/director/aula", icon: School },
+      {
+        name: "Estudiantes",
+        href: "/director/aula",
+        icon: GraduationCap,
+      },
+      {
+        name: "Canciones",
+        href: "/director/aula",
+        icon: Music,
+      },
+    ],
   },
   {
     name: "Hogar",
@@ -85,10 +97,18 @@ const navigation: NavigationItem[] = [
   },
 ];
 
+function getAulaProfessorId(pathname: string): string | null {
+  const match = pathname.match(/\/director\/aula\/([^/]+)/);
+  const id = match?.[1];
+  if (id && id !== "curso" && id !== "estudiantes") return id;
+  return null;
+}
+
 export function DirectorSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { isCollapsed, toggleCollapse } = useSidebar();
+  const aulaProfessorId = getAulaProfessorId(pathname);
   const [expandedSections, setExpandedSections] = useState<string[]>(() => {
     // Auto-expand section that contains current path
     if (pathname.startsWith("/director/direccion")) return ["dirección"];
@@ -209,12 +229,23 @@ export function DirectorSidebar() {
                     </button>
                     {sectionExpanded && !isCollapsed && (
                       <div className="ml-4 mt-1 space-y-1">
-                        {section.children.map((child) => {
-                          const childActive = isActive(child.href);
+                        {section.children!.map((child) => {
+                          const isAulaSection = section.name === "Aula";
+                          const href =
+                            isAulaSection && aulaProfessorId
+                              ? child.name === "Inicio"
+                                ? `/director/aula/${aulaProfessorId}`
+                                : child.name === "Estudiantes"
+                                ? `/director/aula/${aulaProfessorId}/estudiantes`
+                                : child.name === "Canciones"
+                                ? `/director/aula/${aulaProfessorId}/songs`
+                                : child.href
+                              : child.href;
+                          const childActive = isActive(href);
                           return (
                             <Link
                               key={child.name}
-                              href={child.href}
+                              href={href}
                               className={`flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors ${
                                 childActive
                                   ? "bg-gray-100 text-gray-900 font-medium"

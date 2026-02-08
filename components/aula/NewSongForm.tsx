@@ -3,7 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function NewSongPage() {
+interface NewSongFormProps {
+  basePath: string;
+}
+
+export function NewSongForm({ basePath }: NewSongFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -18,7 +22,6 @@ export default function NewSongPage() {
     const author = formData.get("author") as string;
     const difficulty_level = parseInt(formData.get("difficulty_level") as string);
 
-    // Validation
     if (!name || !name.trim()) {
       setError("El nombre de la canción es requerido");
       setLoading(false);
@@ -53,8 +56,7 @@ export default function NewSongPage() {
         throw new Error(errorMessage);
       }
 
-      // Success
-      router.push("/director/direccion/songs");
+      router.push(basePath);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Error inesperado al crear la canción"
@@ -80,7 +82,6 @@ export default function NewSongPage() {
         )}
 
         <div className="space-y-6">
-          {/* Song Name */}
           <div>
             <label
               htmlFor="name"
@@ -100,7 +101,6 @@ export default function NewSongPage() {
             <p className="mt-1 text-xs text-gray-500">Máximo 200 caracteres</p>
           </div>
 
-          {/* Author */}
           <div>
             <label
               htmlFor="author"
@@ -119,7 +119,6 @@ export default function NewSongPage() {
             <p className="mt-1 text-xs text-gray-500">Máximo 200 caracteres (opcional)</p>
           </div>
 
-          {/* Difficulty Level */}
           <div>
             <label
               htmlFor="difficulty_level"
@@ -149,7 +148,7 @@ export default function NewSongPage() {
         <div className="mt-6 flex justify-end space-x-3">
           <button
             type="button"
-            onClick={() => router.back()}
+            onClick={() => router.push(basePath)}
             className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
           >
             Cancelar

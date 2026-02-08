@@ -24,7 +24,11 @@ export async function DELETE(
       .eq("id", user.id)
       .single();
 
-    if (profile?.role !== "director" && profile?.role !== "super_admin") {
+    if (
+      profile?.role !== "director" &&
+      profile?.role !== "professor" &&
+      profile?.role !== "super_admin"
+    ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -40,7 +44,7 @@ export async function DELETE(
 
     const { data: reg } = await supabaseAdmin
       .from("course_registrations")
-      .select("id, academy_id")
+      .select("id, academy_id, profile_id")
       .eq("id", id)
       .is("deleted_at", null)
       .single();
@@ -49,7 +53,15 @@ export async function DELETE(
       return NextResponse.json({ error: "Course registration not found" }, { status: 404 });
     }
 
-    if (profile?.role !== "super_admin" && profile?.academy_id && reg.academy_id !== profile.academy_id) {
+    if (
+      profile?.role !== "super_admin" &&
+      profile?.academy_id &&
+      reg.academy_id !== profile.academy_id
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    if (profile?.role === "professor" && reg.profile_id !== user.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

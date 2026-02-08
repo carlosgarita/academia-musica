@@ -663,6 +663,7 @@ export type Database = {
         Row: {
           created_at: string;
           id: string;
+          mensualidad: number | null;
           period_id: string;
           profile_id: string;
           subject_id: string;
@@ -670,6 +671,7 @@ export type Database = {
         Insert: {
           created_at?: string;
           id?: string;
+          mensualidad?: number | null;
           period_id: string;
           profile_id: string;
           subject_id: string;
@@ -677,6 +679,7 @@ export type Database = {
         Update: {
           created_at?: string;
           id?: string;
+          mensualidad?: number | null;
           period_id?: string;
           profile_id?: string;
           subject_id?: string;

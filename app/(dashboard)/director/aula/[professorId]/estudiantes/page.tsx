@@ -1,14 +1,15 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { ProfessorSelector } from "@/components/director/ProfessorSelector";
-import { AulaMainContent } from "@/components/aula";
+import { StudentsList } from "@/app/(dashboard)/director/direccion/students/students-list";
 import type { Database } from "@/lib/database.types";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 
-export default async function AulaProfessorPage({
+export default async function AulaEstudiantesPage({
   params,
 }: {
   params: Promise<{ professorId: string }>;
@@ -51,12 +52,7 @@ export default async function AulaProfessorPage({
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    }
+    { auth: { autoRefreshToken: false, persistSession: false } }
   );
 
   const { data: professor, error: professorError } = await supabaseAdmin
@@ -78,19 +74,24 @@ export default async function AulaProfessorPage({
     redirect("/director/aula");
   }
 
-  const professorName =
-    professor && (professor.first_name || professor.last_name)
-      ? `${professor.first_name || ""} ${professor.last_name || ""}`.trim()
-      : professor?.email || "Profesor";
-
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Link
+          href={`/director/aula/${professorId}`}
+          className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
+        >
+          ← Volver a Aula
+        </Link>
+      </div>
       <ProfessorSelector academyId={profile.academy_id ?? ""} />
-      <AulaMainContent
-        professorId={professorId}
-        professorName={professorName}
-        pathPrefix="director"
-      />
+      <div className="container mx-auto">
+        <StudentsList
+          academyId={profile.academy_id!}
+          professorId={professorId}
+          readOnly
+        />
+      </div>
     </div>
   );
 }

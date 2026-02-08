@@ -34,13 +34,13 @@ export default async function AulaPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Aula</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Visualiza y gestiona las funciones del profesor
+          Selecciona un profesor para ver su vista y realizar sus funciones
         </p>
       </div>
       <ProfessorSelector academyId={profile.academy_id} />
       <div className="bg-white rounded-lg shadow p-6">
         <p className="text-gray-500">
-          Selecciona un profesor para ver su vista y realizar sus funciones.
+          Selecciona un profesor para impersonarlo y ver exactamente lo que él ve: cursos, estudiantes, sesiones y expedientes.
         </p>
       </div>
     </div>

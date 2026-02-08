@@ -34,12 +34,6 @@ type Student = {
   last_name: string;
   enrollment_status?: string;
 };
-type Song = {
-  id: string;
-  name: string;
-  author: string | null;
-  difficulty_level: number;
-};
 
 type Reg = {
   id: string;
@@ -64,7 +58,6 @@ export default function CourseRegistrationsPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [regs, setRegs] = useState<Reg[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
-  const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedAdd, setExpandedAdd] = useState<string | null>(null);
@@ -78,16 +71,14 @@ export default function CourseRegistrationsPage() {
     try {
       setLoading(true);
       setError(null);
-      const [cRes, rRes, sRes, soRes] = await Promise.all([
+      const [cRes, rRes, sRes] = await Promise.all([
         fetch("/api/courses"),
         fetch("/api/course-registrations"),
         fetch("/api/students"),
-        fetch("/api/songs"),
       ]);
       const cData = await cRes.json();
       const rData = await rRes.json();
       const sData = await sRes.json();
-      const soData = await soRes.json();
       if (!cRes.ok) throw new Error(cData.error || "Error al cargar cursos");
       if (!rRes.ok)
         throw new Error(rData.error || "Error al cargar matrículas");
@@ -98,7 +89,6 @@ export default function CourseRegistrationsPage() {
           (s: Student) => s.enrollment_status !== "retirado"
         )
       );
-      setSongs(soData.songs || []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error");
     } finally {
@@ -126,11 +116,19 @@ export default function CourseRegistrationsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Matrículas</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Agrega estudiantes a cada curso y asígnales canciones para el periodo
-        </p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Matrículas</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Agrega estudiantes a cada curso y genera contratos de forma masiva
+          </p>
+        </div>
+        <Link
+          href="/director/direccion/course-registrations/special-registrations"
+          className="inline-flex items-center gap-2 rounded-md bg-gray-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-500"
+        >
+          Matrículas Especiales
+        </Link>
       </div>
 
       {error && (
@@ -160,34 +158,30 @@ export default function CourseRegistrationsPage() {
               course={c}
               regs={regsForCourse(c)}
               students={students}
-              songs={songs}
               expandedAdd={expandedAdd === c.id}
               onToggleAdd={() =>
                 setExpandedAdd((x) => (x === c.id ? null : c.id))
               }
-              onEnroll={async (studentId, songIds) => {
+              onGenerateContracts={async (studentIds) => {
                 setSending(c.id);
                 try {
-                  const r = await fetch("/api/course-registrations", {
+                  const r = await fetch("/api/course-registrations/bulk-with-contracts", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                      student_id: studentId,
-                      subject_id: c.subject_id,
-                      period_id: c.period_id,
-                      profile_id: c.profile_id,
-                      song_ids: songIds,
+                      course_id: c.id,
+                      student_ids: studentIds,
                     }),
                   });
                   const d = await r.json();
                   if (!r.ok)
                     throw new Error(
-                      d.error || d.details || "Error al matricular"
+                      d.error || d.details || "Error al generar contratos"
                     );
                   setExpandedAdd(null);
                   load();
                 } catch (e) {
-                  alert(e instanceof Error ? e.message : "Error al matricular");
+                  alert(e instanceof Error ? e.message : "Error al generar contratos");
                 } finally {
                   setSending(null);
                 }
@@ -217,10 +211,9 @@ type CourseBlockProps = {
   course: Course;
   regs: Reg[];
   students: Student[];
-  songs: Song[];
   expandedAdd: boolean;
   onToggleAdd: () => void;
-  onEnroll: (studentId: string, songIds: string[]) => Promise<void>;
+  onGenerateContracts: (studentIds: string[]) => Promise<void>;
   onRemove: (regId: string) => Promise<void>;
   sending: boolean;
 };
@@ -229,31 +222,38 @@ function CourseBlock({
   course,
   regs,
   students,
-  songs,
   expandedAdd,
   onToggleAdd,
-  onEnroll,
+  onGenerateContracts,
   onRemove,
   sending,
 }: CourseBlockProps) {
   const [studentId, setStudentId] = useState("");
-  const [songIds, setSongIds] = useState<string[]>([]);
+  const [pendingStudents, setPendingStudents] = useState<Student[]>([]);
 
   const enrolledIds = new Set(regs.map((r) => r.student_id));
-  const availableStudents = students.filter((s) => !enrolledIds.has(s.id));
+  const pendingIds = new Set(pendingStudents.map((s) => s.id));
+  const availableStudents = students.filter(
+    (s) => !enrolledIds.has(s.id) && !pendingIds.has(s.id)
+  );
 
-  function toggleSong(id: string) {
-    setSongIds((p) =>
-      p.includes(id) ? p.filter((x) => x !== id) : [...p, id]
-    );
+  function addToPending() {
+    if (!studentId) return;
+    const student = students.find((s) => s.id === studentId);
+    if (student) {
+      setPendingStudents((prev) => [...prev, student]);
+      setStudentId("");
+    }
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!studentId) return;
-    await onEnroll(studentId, songIds);
-    setStudentId("");
-    setSongIds([]);
+  function removeFromPending(id: string) {
+    setPendingStudents((prev) => prev.filter((s) => s.id !== id));
+  }
+
+  async function handleGenerateContracts() {
+    if (pendingStudents.length === 0) return;
+    await onGenerateContracts(pendingStudents.map((s) => s.id));
+    setPendingStudents([]);
   }
 
   const cl = course.subject?.name ?? "—";
@@ -303,7 +303,7 @@ function CourseBlock({
                         className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-700 text-sm font-normal"
                       >
                         <Pencil className="h-4 w-4" />
-                        Editar
+                        Editar Estado
                       </Link>
                       <button
                         type="button"
@@ -345,10 +345,7 @@ function CourseBlock({
 
             {/* Formulario expandido: dropdown estudiantes + canciones */}
             {expandedAdd && (
-              <form
-                onSubmit={handleSubmit}
-                className="mt-4 p-4 border border-gray-200 rounded-lg bg-gray-50"
-              >
+              <div className="mt-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
@@ -357,7 +354,6 @@ function CourseBlock({
                     <select
                       value={studentId}
                       onChange={(e) => setStudentId(e.target.value)}
-                      required={availableStudents.length > 0}
                       className="mt-1 block w-full max-w-xs rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                     >
                       <option value="">Seleccione un estudiante</option>
@@ -372,7 +368,7 @@ function CourseBlock({
                         </option>
                       )}
                     </select>
-                    {availableStudents.length === 0 && (
+                    {availableStudents.length === 0 && pendingStudents.length === 0 && (
                       <p className="mt-1 text-sm text-amber-600">
                         Todos los estudiantes activos ya están matriculados en
                         este curso o no hay estudiantes.
@@ -380,55 +376,72 @@ function CourseBlock({
                     )}
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Canciones para este curso y periodo
-                    </label>
-                    <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-md bg-white p-3 space-y-2">
-                      {songs.length === 0 ? (
-                        <p className="text-sm text-gray-500">
-                          No hay canciones en la academia.
-                        </p>
-                      ) : (
-                        songs.map((s) => (
-                          <label key={s.id} className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={songIds.includes(s.id)}
-                              onChange={() => toggleSong(s.id)}
-                              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                            />
-                            <span className="text-sm">
-                              {s.name}
-                              {s.author ? ` — ${s.author}` : ""}{" "}
-                              <span className="text-gray-400">
-                                (nivel {s.difficulty_level})
-                              </span>
-                            </span>
-                          </label>
-                        ))
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      type="submit"
-                      disabled={sending || !studentId}
-                      className="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
+                  <button
+                    type="button"
+                    onClick={addToPending}
+                    disabled={!studentId}
+                      className="rounded-md bg-gray-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-500 disabled:opacity-50"
                     >
-                      {sending ? "Matriculando…" : "Matricular"}
+                      Agregar Estudiante
                     </button>
+
+                  {pendingStudents.length > 0 && (
+                    <>
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-700 mb-2">
+                          Estudiantes agregados ({pendingStudents.length})
+                        </h4>
+                        <ul className="divide-y divide-gray-200 rounded-md border border-gray-200 bg-white max-h-40 overflow-y-auto">
+                          {pendingStudents.map((s) => (
+                            <li
+                              key={s.id}
+                              className="flex items-center justify-between px-3 py-2"
+                            >
+                              <span className="text-sm font-medium text-gray-900">
+                                {s.first_name} {s.last_name}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => removeFromPending(s.id)}
+                                className="text-gray-500 hover:text-red-600 text-sm"
+                              >
+                                Quitar
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="flex gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={handleGenerateContracts}
+                          disabled={sending}
+                          className="rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {sending ? "Generando…" : "Matricular y Generar Contrato(s)"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={onToggleAdd}
+                          className="rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                        >
+                          Cerrar
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {pendingStudents.length === 0 && (
                     <button
                       type="button"
                       onClick={onToggleAdd}
                       className="rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
                     >
-                      Cancelar
+                      Cerrar
                     </button>
-                  </div>
+                  )}
                 </div>
-              </form>
+              </div>
             )}
           </div>
         </div>

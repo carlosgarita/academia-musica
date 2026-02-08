@@ -73,6 +73,7 @@ export async function GET(request: NextRequest) {
         profile_id,
         subject_id,
         period_id,
+        mensualidad,
         period:periods(id, year, period, academy_id, deleted_at),
         subject:subjects(id, name, deleted_at),
         profile:profiles(id, first_name, last_name, email, deleted_at)
@@ -112,13 +113,13 @@ export async function GET(request: NextRequest) {
       return true;
     });
 
-    // Enrich with session count and turnos count
+    // Enrich with session count, turnos count, and session date range
     const courses = await Promise.all(
       filtered.map(async (c: Record<string, unknown>) => {
         const periodId = c.period_id as string | undefined;
         const subjectId = c.subject_id as string | undefined;
         const profileId = c.profile_id as string | undefined;
-        const [sessionsRes, turnosRes] = await Promise.all([
+        const [sessionsRes, turnosRes, datesRes] = await Promise.all([
           supabaseAdmin
             .from("period_dates")
             .select("id", { count: "exact", head: true })
@@ -133,11 +134,25 @@ export async function GET(request: NextRequest) {
             .eq("subject_id", subjectId)
             .eq("profile_id", profileId)
             .is("deleted_at", null),
+          supabaseAdmin
+            .from("period_dates")
+            .select("date")
+            .eq("period_id", periodId)
+            .eq("subject_id", subjectId)
+            .eq("profile_id", profileId)
+            .eq("date_type", "clase")
+            .is("deleted_at", null)
+            .order("date", { ascending: true }),
         ]);
+        const dates = (datesRes.data || []) as { date: string }[];
+        const firstSessionDate = dates.length > 0 ? dates[0].date : null;
+        const lastSessionDate = dates.length > 0 ? dates[dates.length - 1].date : null;
         return {
           ...c,
           sessions_count: sessionsRes.count ?? 0,
           turnos_count: turnosRes.count ?? 0,
+          first_session_date: firstSessionDate,
+          last_session_date: lastSessionDate,
         };
       })
     );
@@ -199,7 +214,7 @@ export async function POST(request: NextRequest) {
     );
 
     const body = await request.json();
-    const { year, period, academy_id: bodyAcademyId, subject_id, profile_id, start_date, end_date, session_dates, turnos } = body;
+    const { year, period, academy_id: bodyAcademyId, subject_id, profile_id, start_date, end_date, session_dates, turnos, mensualidad } = body;
 
     if (year == null || year === "" || typeof year !== "number" || year < 2000 || year > 2100) {
       return NextResponse.json(
@@ -390,10 +405,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // mensualidad: número no negativo o null
+    const mensualidadVal = mensualidad != null && mensualidad !== "" ? Number(mensualidad) : null;
+    if (mensualidadVal != null && (Number.isNaN(mensualidadVal) || mensualidadVal < 0)) {
+      return NextResponse.json(
+        { error: "mensualidad debe ser un número mayor o igual a 0" },
+        { status: 400 }
+      );
+    }
+
     // 1) professor_subject_periods (ignorar si ya existe)
     const { error: pspErr } = await supabaseAdmin
       .from("professor_subject_periods")
-      .insert({ profile_id, subject_id, period_id: periodId });
+      .insert({
+        profile_id,
+        subject_id,
+        period_id: periodId,
+        mensualidad: mensualidadVal,
+      });
     if (pspErr && (pspErr as { code?: string }).code !== "23505") {
       console.error("Error creating professor_subject_periods:", pspErr);
       return NextResponse.json(

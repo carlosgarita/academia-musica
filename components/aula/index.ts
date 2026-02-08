@@ -1,4 +1,9 @@
 export { AulaCourseList } from "./AulaCourseList";
+export { AulaMainContent } from "./AulaMainContent";
+export { SongsPageContent } from "./SongsPageContent";
+export { AsignarCancionesContent } from "./AsignarCancionesContent";
+export { NewSongForm } from "./NewSongForm";
+export { EditSongForm } from "./EditSongForm";
 export { AulaSessionList } from "./AulaSessionList";
 export { AulaSessionStudents } from "./AulaSessionStudents";
 export { AulaSongEvaluations } from "./AulaSongEvaluations";
