@@ -57,7 +57,13 @@ export async function POST(request: NextRequest) {
     );
 
     const body = await request.json();
-    const { course_id, student_ids } = body;
+    const {
+      course_id,
+      student_ids,
+      billing_day: bodyBillingDay,
+      grace_period_days: bodyGracePeriod,
+      penalty_percent: bodyPenaltyPercent,
+    } = body;
 
     if (!course_id || !Array.isArray(student_ids) || student_ids.length === 0) {
       return NextResponse.json(
@@ -133,6 +139,23 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const validGracePeriods = [3, 5, 7, 15];
+    const validPenaltyPercents = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50];
+    const defaultBillingDay =
+      typeof bodyBillingDay === "number" && bodyBillingDay >= 1 && bodyBillingDay <= 31
+        ? Math.min(31, Math.max(1, Math.floor(bodyBillingDay)))
+        : (() => {
+            const d = new Date(start_date + "T12:00:00");
+            const day = d.getDate();
+            return day >= 1 && day <= 31 ? day : 1;
+          })();
+    const grace_period_days = validGracePeriods.includes(Number(bodyGracePeriod))
+      ? Number(bodyGracePeriod)
+      : 5;
+    const penalty_percent = validPenaltyPercents.includes(Number(bodyPenaltyPercent))
+      ? Number(bodyPenaltyPercent)
+      : 20;
 
     // 3) Validate students
     const { data: students, error: studentsErr } = await supabaseAdmin
@@ -276,6 +299,9 @@ export async function POST(request: NextRequest) {
           monthly_amount: guardianMonthlyAmount,
           start_date: start_date,
           end_date: end_date,
+          billing_day: defaultBillingDay,
+          grace_period_days,
+          penalty_percent,
         })
         .select()
         .single();

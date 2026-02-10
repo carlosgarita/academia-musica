@@ -302,8 +302,12 @@ export type Database = {
           monthly_amount: number;
           start_date: string;
           end_date: string;
+          billing_day: number;
+          grace_period_days: number;
+          penalty_percent: number;
           created_at: string;
           updated_at: string;
+          billing_frequency?: string;
         };
         Insert: {
           id?: string;
@@ -312,8 +316,12 @@ export type Database = {
           monthly_amount: number;
           start_date: string;
           end_date: string;
+          billing_day?: number;
+          grace_period_days?: number;
+          penalty_percent?: number;
           created_at?: string;
           updated_at?: string;
+          billing_frequency?: string;
         };
         Update: {
           id?: string;
@@ -322,8 +330,12 @@ export type Database = {
           monthly_amount?: number;
           start_date?: string;
           end_date?: string;
+          billing_day?: number;
+          grace_period_days?: number;
+          penalty_percent?: number;
           created_at?: string;
           updated_at?: string;
+          billing_frequency?: string;
         };
         Relationships: [
           {

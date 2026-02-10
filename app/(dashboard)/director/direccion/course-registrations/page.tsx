@@ -155,7 +155,7 @@ export default function CourseRegistrationsPage() {
               onToggleAdd={() =>
                 setExpandedAdd((x) => (x === c.id ? null : c.id))
               }
-              onGenerateContracts={async (studentIds) => {
+              onGenerateContracts={async (studentIds, options) => {
                 setSending(c.id);
                 try {
                   const r = await fetch(
@@ -166,6 +166,9 @@ export default function CourseRegistrationsPage() {
                       body: JSON.stringify({
                         course_id: c.id,
                         student_ids: studentIds,
+                        billing_day: options.billing_day,
+                        grace_period_days: options.grace_period_days,
+                        penalty_percent: options.penalty_percent,
                       }),
                     }
                   );
@@ -210,13 +213,19 @@ export default function CourseRegistrationsPage() {
   );
 }
 
+type ContractOptions = {
+  billing_day: number;
+  grace_period_days: number;
+  penalty_percent: number;
+};
+
 type CourseBlockProps = {
   course: Course;
   regs: Reg[];
   students: Student[];
   expandedAdd: boolean;
   onToggleAdd: () => void;
-  onGenerateContracts: (studentIds: string[]) => Promise<void>;
+  onGenerateContracts: (studentIds: string[], options: ContractOptions) => Promise<void>;
   onRemove: (regId: string) => Promise<void>;
   sending: boolean;
 };
@@ -253,9 +262,17 @@ function CourseBlock({
     setPendingStudents((prev) => prev.filter((s) => s.id !== id));
   }
 
+  const [billingDay, setBillingDay] = useState(1);
+  const [gracePeriodDays, setGracePeriodDays] = useState(5);
+  const [penaltyPercent, setPenaltyPercent] = useState(20);
+
   async function handleGenerateContracts() {
     if (pendingStudents.length === 0) return;
-    await onGenerateContracts(pendingStudents.map((s) => s.id));
+    await onGenerateContracts(pendingStudents.map((s) => s.id), {
+      billing_day: billingDay,
+      grace_period_days: gracePeriodDays,
+      penalty_percent: penaltyPercent,
+    });
     setPendingStudents([]);
   }
 
@@ -409,6 +426,67 @@ function CourseBlock({
                             </li>
                           ))}
                         </ul>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-gray-200 pt-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Día de cobro
+                          </label>
+                          <p className="text-xs text-gray-500 mb-1">
+                            Día de cada mes en que se efectúa el cobro (1-31). Por defecto: 1.
+                          </p>
+                          <input
+                            type="number"
+                            min={1}
+                            max={31}
+                            value={billingDay}
+                            onChange={(e) =>
+                              setBillingDay(Math.min(31, Math.max(1, parseInt(e.target.value, 10) || 1)))
+                            }
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Periodo de gracia
+                          </label>
+                          <p className="text-xs text-gray-500 mb-1">
+                            Días para pagar antes de multa.
+                          </p>
+                          <select
+                            value={gracePeriodDays}
+                            onChange={(e) =>
+                              setGracePeriodDays(Number(e.target.value) as 3 | 5 | 7 | 15)
+                            }
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                          >
+                            <option value={3}>3 días</option>
+                            <option value={5}>5 días</option>
+                            <option value={7}>7 días</option>
+                            <option value={15}>15 días</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            % multa por morosidad
+                          </label>
+                          <p className="text-xs text-gray-500 mb-1">
+                            Por defecto: 20%.
+                          </p>
+                          <select
+                            value={penaltyPercent}
+                            onChange={(e) =>
+                              setPenaltyPercent(Number(e.target.value))
+                            }
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                          >
+                            {[5, 10, 15, 20, 25, 30, 35, 40, 45, 50].map((n) => (
+                              <option key={n} value={n}>
+                                {n}%
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
                       <div className="flex gap-2 flex-wrap">
                         <button

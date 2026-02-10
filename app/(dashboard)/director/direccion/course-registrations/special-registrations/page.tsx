@@ -65,6 +65,9 @@ export default function SpecialRegistrationsPage() {
   const [pendingItems, setPendingItems] = useState<PendingItem[]>([]);
   const [billingFrequency, setBillingFrequency] = useState<"mensual" | "bimestral" | "trimestral" | "cuatrimestral" | "semestral">("mensual");
   const [periodAmount, setPeriodAmount] = useState("");
+  const [billingDay, setBillingDay] = useState(1);
+  const [gracePeriodDays, setGracePeriodDays] = useState(5);
+  const [penaltyPercent, setPenaltyPercent] = useState(20);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [loading, setLoading] = useState(true);
@@ -194,6 +197,9 @@ export default function SpecialRegistrationsPage() {
           items: pendingItems.map((p) => ({ student_id: p.student_id, course_id: p.course_id })),
           monthly_amount: amount,
           billing_frequency: billingFrequency,
+          billing_day: billingDay,
+          grace_period_days: gracePeriodDays,
+          penalty_percent: penaltyPercent,
         }),
       });
       const data = await res.json();
@@ -394,6 +400,66 @@ export default function SpecialRegistrationsPage() {
                 placeholder="0.00"
                 className="block w-full max-w-xs rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Día de cobro
+                </label>
+                <p className="text-xs text-gray-500 mb-1">
+                  Día de cada mes en que se efectúa el cobro (1-31). Por defecto: 1.
+                </p>
+                <input
+                  type="number"
+                  min={1}
+                  max={31}
+                  value={billingDay}
+                  onChange={(e) =>
+                    setBillingDay(Math.min(31, Math.max(1, parseInt(e.target.value, 10) || 1)))
+                  }
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Periodo de gracia
+                </label>
+                <p className="text-xs text-gray-500 mb-1">
+                  Días para pagar antes de multa.
+                </p>
+                <select
+                  value={gracePeriodDays}
+                  onChange={(e) =>
+                    setGracePeriodDays(Number(e.target.value) as 3 | 5 | 7 | 15)
+                  }
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                >
+                  <option value={3}>3 días</option>
+                  <option value={5}>5 días</option>
+                  <option value={7}>7 días</option>
+                  <option value={15}>15 días</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  % multa por morosidad
+                </label>
+                <p className="text-xs text-gray-500 mb-1">
+                  Por defecto: 20%.
+                </p>
+                <select
+                  value={penaltyPercent}
+                  onChange={(e) => setPenaltyPercent(Number(e.target.value))}
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                >
+                  {[5, 10, 15, 20, 25, 30, 35, 40, 45, 50].map((n) => (
+                    <option key={n} value={n}>
+                      {n}%
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <p className="text-xs text-gray-500">

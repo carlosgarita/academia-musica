@@ -60,6 +60,9 @@ export async function GET(
         billing_frequency,
         start_date,
         end_date,
+        billing_day,
+        grace_period_days,
+        penalty_percent,
         created_at,
         updated_at,
         guardian:profiles!contracts_guardian_id_fkey(

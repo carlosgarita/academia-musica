@@ -486,6 +486,9 @@ export default function NewCoursePage() {
                 >
                   Fecha de inicio <span className="text-red-500">*</span>
                 </label>
+                <p className="mt-0.5 text-xs text-gray-500">
+                  Seleccionar el día 1 del mes que inicia el curso
+                </p>
                 <input
                   id="start"
                   type="date"
@@ -501,6 +504,9 @@ export default function NewCoursePage() {
                 >
                   Fecha de fin <span className="text-red-500">*</span>
                 </label>
+                <p className="mt-0.5 text-xs text-gray-500">
+                  Seleccionar el día 30 ó 31 del mes que termina el curso
+                </p>
                 <input
                   id="end"
                   type="date"
@@ -525,37 +531,6 @@ export default function NewCoursePage() {
 
           {sessionDates.length > 0 && (
             <div className="mt-4 space-y-4">
-              {(() => {
-                const firstSession = sessionDates[0];
-                const lastSession = sessionDates[sessionDates.length - 1];
-                const rangeMismatch =
-                  (startDate && firstSession !== startDate) ||
-                  (endDate && lastSession !== endDate);
-                return rangeMismatch ? (
-                  <div className="rounded-md bg-amber-50 border border-amber-200 p-4">
-                    <p className="text-sm font-medium text-amber-800">
-                      Las fechas de sesión no coinciden exactamente con el rango elegido
-                    </p>
-                    <p className="mt-1 text-sm text-amber-700">
-                      La primera sesión es el{" "}
-                      {new Date(firstSession + "T12:00:00").toLocaleDateString("es-CR", {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      })}{" "}
-                      y la última el{" "}
-                      {new Date(lastSession + "T12:00:00").toLocaleDateString("es-CR", {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      })}
-                      . Los contratos y facturas se calcularán con este rango real. Si
-                      la fecha de fin que elegiste es más tarde que la última sesión,
-                      podrían generarse facturas de más.
-                    </p>
-                  </div>
-                ) : null;
-              })()}
               <h3 className="text-sm font-medium text-gray-700 mb-2">
                 Fechas agregadas ({sessionDates.length})
               </h3>

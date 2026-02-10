@@ -43,6 +43,9 @@ type Contract = {
   billing_frequency?: BillingFrequency | null;
   start_date: string;
   end_date: string;
+  billing_day?: number | null;
+  grace_period_days?: number | null;
+  penalty_percent?: number | null;
   created_at: string;
   guardian?: Guardian;
   contract_course_registrations?: CourseRegLink[];
@@ -108,19 +111,31 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
-function getDisplayStatus(
+type InvoiceDisplayStatus = "pagado" | "pendiente" | "por_pagar" | "en_gracia" | "vencida";
+
+function getInvoiceDisplayStatus(
   invoice: Invoice,
-  freq: BillingFrequency | null | undefined
-): "pendiente" | "pagado" | "atrasado" {
+  contract: Contract
+): InvoiceDisplayStatus {
   if (invoice.status === "pagado") return "pagado";
-  const n = freq ? MONTHS_PER_PERIOD[freq] : 1;
-  const periodEnd = new Date(invoice.month + "T12:00:00");
-  periodEnd.setMonth(periodEnd.getMonth() + n);
-  periodEnd.setDate(0);
+  const billingDay = Math.min(31, Math.max(1, contract.billing_day ?? 1));
+  const graceDays = contract.grace_period_days ?? 5;
+  const monthStr = invoice.month.replace(/^(\d{4})-(\d{2}).*/, "$1-$2-01");
+  const d = new Date(monthStr + "T12:00:00");
+  const year = d.getFullYear();
+  const month = d.getMonth();
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  const dueDay = Math.min(billingDay, lastDay);
+  const dueDate = new Date(year, month, dueDay);
+  dueDate.setHours(0, 0, 0, 0);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  if (today > periodEnd) return "atrasado";
-  return "pendiente";
+  if (today < dueDate) return "pendiente";
+  if (today.getTime() === dueDate.getTime()) return "por_pagar";
+  const graceEnd = new Date(dueDate);
+  graceEnd.setDate(graceEnd.getDate() + graceDays);
+  if (today <= graceEnd) return "en_gracia";
+  return "vencida";
 }
 
 function periodLabel(freq: BillingFrequency | null | undefined): string {
@@ -286,6 +301,24 @@ export default function ContractDetailPage() {
               {formatCurrency(Number(contract.monthly_amount))}
             </p>
           </div>
+          <div>
+            <h2 className="text-sm font-medium text-gray-500">Día de cobro</h2>
+            <p className="mt-1 text-sm text-gray-900">
+              Día {contract.billing_day ?? 1} de cada mes
+            </p>
+          </div>
+          <div>
+            <h2 className="text-sm font-medium text-gray-500">Periodo de gracia</h2>
+            <p className="mt-1 text-sm text-gray-900">
+              {contract.grace_period_days ?? 5} días
+            </p>
+          </div>
+          <div>
+            <h2 className="text-sm font-medium text-gray-500">Multa por morosidad</h2>
+            <p className="mt-1 text-sm text-gray-900">
+              {contract.penalty_percent ?? 20}%
+            </p>
+          </div>
           {courseRegs.length > 0 && (
             <div>
               <h2 className="text-sm font-medium text-gray-500 mb-2">
@@ -332,7 +365,25 @@ export default function ContractDetailPage() {
         <div className="border-t border-gray-200">
           <ul className="divide-y divide-gray-200">
             {invoices.map((inv) => {
-              const displayStatus = getDisplayStatus(inv, contract.billing_frequency);
+              const displayStatus = getInvoiceDisplayStatus(inv, contract);
+              const statusLabel =
+                displayStatus === "pagado"
+                  ? "Pagado"
+                  : displayStatus === "por_pagar"
+                    ? "Por Pagar"
+                    : displayStatus === "en_gracia"
+                      ? "En Gracia"
+                      : displayStatus === "vencida"
+                        ? "Vencida"
+                        : "Pendiente";
+              const statusClass =
+                displayStatus === "pagado"
+                  ? "bg-green-100 text-green-800"
+                  : displayStatus === "por_pagar" || displayStatus === "en_gracia"
+                    ? "bg-green-100 text-green-800"
+                    : displayStatus === "vencida"
+                      ? "bg-red-100 text-red-800"
+                      : "bg-gray-100 text-gray-800";
               return (
                 <li
                   key={inv.id}
@@ -348,19 +399,9 @@ export default function ContractDetailPage() {
                   </div>
                   <div className="flex items-center gap-3">
                     <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        displayStatus === "pagado"
-                          ? "bg-green-100 text-green-800"
-                          : displayStatus === "atrasado"
-                            ? "bg-amber-100 text-amber-800"
-                            : "bg-gray-100 text-gray-800"
-                      }`}
+                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusClass}`}
                     >
-                      {displayStatus === "pagado"
-                        ? "Pagado"
-                        : displayStatus === "atrasado"
-                          ? "Atrasado"
-                          : "Pendiente"}
+                      {statusLabel}
                     </span>
                     {displayStatus !== "pagado" && (
                       <>
