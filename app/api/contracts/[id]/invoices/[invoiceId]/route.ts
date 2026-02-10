@@ -137,3 +137,124 @@ export async function PATCH(
     );
   }
 }
+
+// DELETE: Remove an invoice (only if status is pendiente)
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string; invoiceId: string }> }
+) {
+  try {
+    const { id: contractId, invoiceId } = await params;
+    const cookieStore = cookies();
+    const supabase = await createServerClient(cookieStore);
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role, academy_id")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+    }
+
+    if (profile.role !== "director" && profile.role !== "super_admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return NextResponse.json(
+        { error: "Server configuration error" },
+        { status: 500 }
+      );
+    }
+
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+
+    const { data: invoice, error: invoiceError } = await supabaseAdmin
+      .from("contract_invoices")
+      .select("id, contract_id, status")
+      .eq("id", invoiceId)
+      .eq("contract_id", contractId)
+      .single();
+
+    if (invoiceError || !invoice) {
+      return NextResponse.json(
+        { error: "Factura no encontrada" },
+        { status: 404 }
+      );
+    }
+
+    if (invoice.status !== "pendiente") {
+      return NextResponse.json(
+        { error: "Solo se pueden eliminar facturas en estado Pendiente" },
+        { status: 400 }
+      );
+    }
+
+    const { data: contract, error: contractError } = await supabaseAdmin
+      .from("contracts")
+      .select("academy_id")
+      .eq("id", contractId)
+      .single();
+
+    if (contractError || !contract) {
+      return NextResponse.json(
+        { error: "Contrato no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    if (
+      profile.role !== "super_admin" &&
+      contract.academy_id !== profile.academy_id
+    ) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const { error: deleteError } = await supabaseAdmin
+      .from("contract_invoices")
+      .delete()
+      .eq("id", invoiceId);
+
+    if (deleteError) {
+      console.error("Error deleting invoice:", deleteError);
+      return NextResponse.json(
+        {
+          error: "Error al eliminar la factura",
+          details: deleteError.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      message: "Factura eliminada",
+    });
+  } catch (error) {
+    console.error(
+      "Unexpected error in DELETE /api/contracts/[id]/invoices/[invoiceId]:",
+      error
+    );
+    return NextResponse.json(
+      {
+        error: "An unexpected error occurred",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 }
+    );
+  }
+}

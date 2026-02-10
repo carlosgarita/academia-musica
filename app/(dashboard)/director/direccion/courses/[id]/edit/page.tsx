@@ -33,6 +33,7 @@ export default function EditCoursePage() {
   const [courseName, setCourseName] = useState("");
   const [professorName, setProfessorName] = useState("");
   const [courseYear, setCourseYear] = useState("");
+  const [mensualidad, setMensualidad] = useState("");
 
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -65,6 +66,9 @@ export default function EditCoursePage() {
                 p.email ||
                 ""
             : ""
+        );
+        setMensualidad(
+          c.mensualidad != null ? String(c.mensualidad) : ""
         );
         setSessionDates(c.session_dates ?? []);
         setTurnos(
@@ -191,17 +195,27 @@ export default function EditCoursePage() {
       );
       return;
     }
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    // Parse as local date (YYYY-MM-DD) to avoid UTC midnight shifting the day in other timezones
+    const [sy, sm, sd] = startDate.split("-").map(Number);
+    const [ey, em, ed] = endDate.split("-").map(Number);
+    const start = new Date(sy, sm - 1, sd, 12, 0, 0);
+    const end = new Date(ey, em - 1, ed, 12, 0, 0);
     if (end < start) {
       setError("La fecha de fin debe ser posterior o igual a la de inicio");
       return;
     }
     const daysSet = new Set(turnos.map((t) => t.day_of_week));
     const out: string[] = [];
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const d = new Date(start.getTime());
+    while (d <= end) {
       const dow = d.getDay() === 0 ? 7 : d.getDay();
-      if (daysSet.has(dow)) out.push(d.toISOString().split("T")[0]);
+      if (daysSet.has(dow)) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        out.push(`${y}-${m}-${day}`);
+      }
+      d.setDate(d.getDate() + 1);
     }
     if (out.length === 0) {
       setError(
@@ -236,6 +250,7 @@ export default function EditCoursePage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          mensualidad: mensualidad.trim() || null,
           session_dates: sessionDates,
           turnos: turnos.map((t) => ({
             day_of_week: t.day_of_week,
@@ -308,6 +323,26 @@ export default function EditCoursePage() {
             <div className="mt-1 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
               {professorName || "—"}
             </div>
+          </div>
+          <div>
+            <label
+              htmlFor="mensualidad"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Mensualidad
+            </label>
+            <input
+              id="mensualidad"
+              type="text"
+              inputMode="decimal"
+              placeholder="ej. 50000"
+              value={mensualidad}
+              onChange={(e) => setMensualidad(e.target.value)}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Monto mensual del curso (opcional)
+            </p>
           </div>
         </div>
 
@@ -486,7 +521,38 @@ export default function EditCoursePage() {
           </div>
 
           {sessionDates.length > 0 && (
-            <div className="mt-4">
+            <div className="mt-4 space-y-4">
+              {(() => {
+                const firstSession = sessionDates[0];
+                const lastSession = sessionDates[sessionDates.length - 1];
+                const rangeMismatch =
+                  (startDate && firstSession !== startDate) ||
+                  (endDate && lastSession !== endDate);
+                return rangeMismatch ? (
+                  <div className="rounded-md bg-amber-50 border border-amber-200 p-4">
+                    <p className="text-sm font-medium text-amber-800">
+                      Las fechas de sesión no coinciden exactamente con el rango elegido
+                    </p>
+                    <p className="mt-1 text-sm text-amber-700">
+                      La primera sesión es el{" "}
+                      {new Date(firstSession + "T12:00:00").toLocaleDateString("es-CR", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      })}{" "}
+                      y la última el{" "}
+                      {new Date(lastSession + "T12:00:00").toLocaleDateString("es-CR", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      })}
+                      . Los contratos y facturas se calcularán con este rango real. Si
+                      la fecha de fin que elegiste es más tarde que la última sesión,
+                      podrían generarse facturas de más.
+                    </p>
+                  </div>
+                ) : null;
+              })()}
               <h3 className="text-sm font-medium text-gray-700 mb-2">
                 Fechas agregadas ({sessionDates.length})
               </h3>

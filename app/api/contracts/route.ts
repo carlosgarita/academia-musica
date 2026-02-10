@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { billingPeriodStarts } from "@/lib/utils";
 import { createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
@@ -284,20 +285,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate monthly invoices from start_date to end_date
+    // Generate monthly invoices from start_date to end_date (excluding period that starts on end_date)
     const invoices: { contract_id: string; month: string; amount: number; status: string }[] = [];
-    let current = new Date(start.getFullYear(), start.getMonth(), 1);
-    const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
-
-    while (current <= endMonth) {
-      const monthStr = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}-01`;
+    for (const d of billingPeriodStarts(start_date, end_date, 1)) {
+      const monthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
       invoices.push({
         contract_id: contract.id,
         month: monthStr,
         amount: Number(monthly_amount),
         status: "pendiente",
       });
-      current.setMonth(current.getMonth() + 1);
     }
 
     if (invoices.length > 0) {

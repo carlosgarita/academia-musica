@@ -63,7 +63,8 @@ export default function SpecialRegistrationsPage() {
   const [studentId, setStudentId] = useState("");
   const [courseId, setCourseId] = useState("");
   const [pendingItems, setPendingItems] = useState<PendingItem[]>([]);
-  const [monthlyAmount, setMonthlyAmount] = useState("");
+  const [billingFrequency, setBillingFrequency] = useState<"mensual" | "bimestral" | "trimestral" | "cuatrimestral" | "semestral">("mensual");
+  const [periodAmount, setPeriodAmount] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [loading, setLoading] = useState(true);
@@ -162,15 +163,23 @@ export default function SpecialRegistrationsPage() {
     setPendingItems((prev) => prev.filter((_, i) => i !== index));
   }
 
+  const periodLabel = {
+    mensual: "mes",
+    bimestral: "bimestre",
+    trimestral: "trimestre",
+    cuatrimestral: "cuatrimestre",
+    semestral: "semestre",
+  }[billingFrequency];
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!guardianId || pendingItems.length === 0 || !monthlyAmount) {
+    if (!guardianId || pendingItems.length === 0 || !periodAmount) {
       alert("Completa todos los campos requeridos y agrega al menos un estudiante con curso.");
       return;
     }
-    const amount = parseFloat(monthlyAmount);
+    const amount = parseFloat(periodAmount);
     if (isNaN(amount) || amount < 0) {
-      alert("El monto mensual debe ser un número no negativo.");
+      alert(`El monto por ${periodLabel} debe ser un número no negativo.`);
       return;
     }
 
@@ -184,6 +193,7 @@ export default function SpecialRegistrationsPage() {
           guardian_id: guardianId,
           items: pendingItems.map((p) => ({ student_id: p.student_id, course_id: p.course_id })),
           monthly_amount: amount,
+          billing_frequency: billingFrequency,
         }),
       });
       const data = await res.json();
@@ -347,17 +357,39 @@ export default function SpecialRegistrationsPage() {
           <>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Monto mensual (₡) <span className="text-red-500">*</span>
+                Frecuencia de pago <span className="text-red-500">*</span>
               </label>
               <p className="text-xs text-gray-500 mb-1">
-                Este monto reemplaza el valor por defecto de los cursos. Es el precio especial del contrato.
+                Define cada cuántos meses se genera una factura. El sistema calcula la cantidad según la duración del curso.
+              </p>
+              <select
+                value={billingFrequency}
+                onChange={(e) =>
+                  setBillingFrequency(e.target.value as "mensual" | "bimestral" | "trimestral" | "cuatrimestral" | "semestral")
+                }
+                className="block w-full max-w-xs rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              >
+                <option value="mensual">Mensual (1 factura por mes)</option>
+                <option value="bimestral">Bimestral (1 factura cada 2 meses)</option>
+                <option value="trimestral">Trimestral (1 factura cada 3 meses)</option>
+                <option value="cuatrimestral">Cuatrimestral (1 factura cada 4 meses)</option>
+                <option value="semestral">Semestral (1 factura cada 6 meses)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Monto por {periodLabel} (₡) <span className="text-red-500">*</span>
+              </label>
+              <p className="text-xs text-gray-500 mb-1">
+                Este es el monto que el encargado pagará en cada {periodLabel}. Es el precio especial del contrato.
               </p>
               <input
                 type="number"
                 min="0"
                 step="0.01"
-                value={monthlyAmount}
-                onChange={(e) => setMonthlyAmount(e.target.value)}
+                value={periodAmount}
+                onChange={(e) => setPeriodAmount(e.target.value)}
                 required
                 placeholder="0.00"
                 className="block w-full max-w-xs rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
@@ -373,7 +405,7 @@ export default function SpecialRegistrationsPage() {
         <div className="flex gap-4">
           <button
             type="submit"
-            disabled={saving || !guardianId || pendingItems.length === 0 || !monthlyAmount}
+            disabled={saving || !guardianId || pendingItems.length === 0 || !periodAmount}
             className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50"
           >
             {saving ? "Creando…" : "Crear contrato"}

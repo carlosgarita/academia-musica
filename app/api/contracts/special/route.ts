@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { billingPeriodStarts } from "@/lib/utils";
 
-// POST: Create a special contract - creates course_registrations if needed, one contract with custom monthly_amount
-// Body: { guardian_id, items: [{ student_id, course_id }], monthly_amount }
+// POST: Create a special contract - creates course_registrations if needed, one contract with custom period amount
+// Body: { guardian_id, items: [{ student_id, course_id }], monthly_amount, billing_frequency? }
+// billing_frequency: 'mensual' | 'bimestral' | 'trimestral' | 'cuatrimestral' | 'semestral' (default: mensual)
 // course_id = courses table id (new flow)
 export async function POST(request: NextRequest) {
   try {
@@ -56,7 +58,7 @@ export async function POST(request: NextRequest) {
     );
 
     const body = await request.json();
-    const { guardian_id, items, monthly_amount } = body;
+    const { guardian_id, items, monthly_amount, billing_frequency: freq } = body;
 
     if (!guardian_id || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
@@ -74,6 +76,17 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const validFreq = ["mensual", "bimestral", "trimestral", "cuatrimestral", "semestral"];
+    const billing_frequency = validFreq.includes(freq) ? freq : "mensual";
+    const monthsPerPeriod: Record<string, number> = {
+      mensual: 1,
+      bimestral: 2,
+      trimestral: 3,
+      cuatrimestral: 4,
+      semestral: 6,
+    };
+    const periodMonths = monthsPerPeriod[billing_frequency];
 
     const { data: guardianProfile, error: guardianError } = await supabaseAdmin
       .from("profiles")
@@ -258,6 +271,7 @@ export async function POST(request: NextRequest) {
         academy_id: effectiveAcademyId,
         guardian_id,
         monthly_amount: Number(monthly_amount),
+        billing_frequency,
         start_date,
         end_date,
       })
@@ -296,26 +310,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const start = new Date(start_date);
-    const end = new Date(end_date);
     const invoices: {
       contract_id: string;
       month: string;
       amount: number;
       status: string;
     }[] = [];
-    let current = new Date(start.getFullYear(), start.getMonth(), 1);
-    const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
-
-    while (current <= endMonth) {
-      const monthStr = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}-01`;
+    for (const d of billingPeriodStarts(start_date, end_date, periodMonths)) {
+      const monthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
       invoices.push({
         contract_id: contract.id,
         month: monthStr,
         amount: Number(monthly_amount),
         status: "pendiente",
       });
-      current.setMonth(current.getMonth() + 1);
     }
 
     if (invoices.length > 0) {

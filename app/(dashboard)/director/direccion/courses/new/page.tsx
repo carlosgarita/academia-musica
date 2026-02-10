@@ -154,17 +154,27 @@ export default function NewCoursePage() {
       );
       return;
     }
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    // Parse as local date (YYYY-MM-DD) to avoid UTC midnight shifting the day in other timezones
+    const [sy, sm, sd] = startDate.split("-").map(Number);
+    const [ey, em, ed] = endDate.split("-").map(Number);
+    const start = new Date(sy, sm - 1, sd, 12, 0, 0);
+    const end = new Date(ey, em - 1, ed, 12, 0, 0);
     if (end < start) {
       setError("La fecha de fin debe ser posterior o igual a la de inicio");
       return;
     }
     const daysSet = new Set(turnos.map((t) => t.day_of_week));
     const out: string[] = [];
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const d = new Date(start.getTime());
+    while (d <= end) {
       const dow = d.getDay() === 0 ? 7 : d.getDay();
-      if (daysSet.has(dow)) out.push(d.toISOString().split("T")[0]);
+      if (daysSet.has(dow)) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        out.push(`${y}-${m}-${day}`);
+      }
+      d.setDate(d.getDate() + 1);
     }
     if (out.length === 0) {
       setError(
@@ -514,7 +524,38 @@ export default function NewCoursePage() {
           </div>
 
           {sessionDates.length > 0 && (
-            <div className="mt-4">
+            <div className="mt-4 space-y-4">
+              {(() => {
+                const firstSession = sessionDates[0];
+                const lastSession = sessionDates[sessionDates.length - 1];
+                const rangeMismatch =
+                  (startDate && firstSession !== startDate) ||
+                  (endDate && lastSession !== endDate);
+                return rangeMismatch ? (
+                  <div className="rounded-md bg-amber-50 border border-amber-200 p-4">
+                    <p className="text-sm font-medium text-amber-800">
+                      Las fechas de sesión no coinciden exactamente con el rango elegido
+                    </p>
+                    <p className="mt-1 text-sm text-amber-700">
+                      La primera sesión es el{" "}
+                      {new Date(firstSession + "T12:00:00").toLocaleDateString("es-CR", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      })}{" "}
+                      y la última el{" "}
+                      {new Date(lastSession + "T12:00:00").toLocaleDateString("es-CR", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      })}
+                      . Los contratos y facturas se calcularán con este rango real. Si
+                      la fecha de fin que elegiste es más tarde que la última sesión,
+                      podrían generarse facturas de más.
+                    </p>
+                  </div>
+                ) : null;
+              })()}
               <h3 className="text-sm font-medium text-gray-700 mb-2">
                 Fechas agregadas ({sessionDates.length})
               </h3>

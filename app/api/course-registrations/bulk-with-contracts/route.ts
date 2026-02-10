@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { billingPeriodStarts } from "@/lib/utils";
 
 // POST: Create course registrations for multiple students and generate contracts per guardian
 // Body: { course_id: string, student_ids: string[] }
@@ -217,7 +218,6 @@ export async function POST(request: NextRequest) {
     }
 
     // 5) Create course_registrations (using course_id)
-    // subject_id and period_id are null for the new courses flow (migration makes them nullable)
     const enrollmentDate = new Date().toISOString().split("T")[0];
     const regInserts = uniqueStudentIds.map((studentId) => ({
       academy_id: effectiveAcademyId,
@@ -226,8 +226,6 @@ export async function POST(request: NextRequest) {
       profile_id: profileId,
       status: "active",
       enrollment_date: enrollmentDate,
-      subject_id: null,
-      period_id: null,
     }));
 
     const { data: newRegs, error: regErr } = await supabaseAdmin
@@ -322,26 +320,20 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const start = new Date(start_date);
-      const end = new Date(end_date);
       const invoices: {
         contract_id: string;
         month: string;
         amount: number;
         status: string;
       }[] = [];
-      let current = new Date(start.getFullYear(), start.getMonth(), 1);
-      const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
-
-      while (current <= endMonth) {
-        const monthStr = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}-01`;
+      for (const d of billingPeriodStarts(start_date, end_date, 1)) {
+        const monthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
         invoices.push({
           contract_id: contract.id,
           month: monthStr,
           amount: guardianMonthlyAmount,
           status: "pendiente",
         });
-        current.setMonth(current.getMonth() + 1);
       }
 
       if (invoices.length > 0) {

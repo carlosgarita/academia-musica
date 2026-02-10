@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Check, FileText } from "lucide-react";
+import { ArrowLeft, Check, FileText, Trash2 } from "lucide-react";
 
 type Guardian = {
   id: string;
@@ -33,11 +33,14 @@ type Invoice = {
   paid_at: string | null;
 };
 
+type BillingFrequency = "mensual" | "bimestral" | "trimestral" | "cuatrimestral" | "semestral";
+
 type Contract = {
   id: string;
   academy_id: string;
   guardian_id: string;
   monthly_amount: number;
+  billing_frequency?: BillingFrequency | null;
   start_date: string;
   end_date: string;
   created_at: string;
@@ -77,6 +80,27 @@ function formatMonth(monthStr: string): string {
   }
 }
 
+const MONTHS_PER_PERIOD: Record<BillingFrequency, number> = {
+  mensual: 1,
+  bimestral: 2,
+  trimestral: 3,
+  cuatrimestral: 4,
+  semestral: 6,
+};
+
+function formatInvoicePeriod(
+  monthStr: string,
+  freq: BillingFrequency | null | undefined
+): string {
+  if (!freq || freq === "mensual") return formatMonth(monthStr);
+  const d = new Date(monthStr + "T12:00:00");
+  const n = MONTHS_PER_PERIOD[freq];
+  const endDate = new Date(d.getFullYear(), d.getMonth() + n, 0);
+  const startMonth = d.toLocaleDateString("es-CR", { month: "long", year: "numeric" });
+  const endMonth = endDate.toLocaleDateString("es-CR", { month: "long", year: "numeric" });
+  return startMonth === endMonth ? startMonth : `${startMonth} – ${endMonth}`;
+}
+
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("es-CR", {
     style: "currency",
@@ -84,15 +108,31 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
-function getDisplayStatus(invoice: Invoice): "pendiente" | "pagado" | "atrasado" {
+function getDisplayStatus(
+  invoice: Invoice,
+  freq: BillingFrequency | null | undefined
+): "pendiente" | "pagado" | "atrasado" {
   if (invoice.status === "pagado") return "pagado";
-  const monthEnd = new Date(invoice.month);
-  monthEnd.setMonth(monthEnd.getMonth() + 1);
-  monthEnd.setDate(0);
+  const n = freq ? MONTHS_PER_PERIOD[freq] : 1;
+  const periodEnd = new Date(invoice.month + "T12:00:00");
+  periodEnd.setMonth(periodEnd.getMonth() + n);
+  periodEnd.setDate(0);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  if (today > monthEnd) return "atrasado";
+  if (today > periodEnd) return "atrasado";
   return "pendiente";
+}
+
+function periodLabel(freq: BillingFrequency | null | undefined): string {
+  if (!freq || freq === "mensual") return "Facturas mensuales";
+  const labels: Record<BillingFrequency, string> = {
+    mensual: "Facturas mensuales",
+    bimestral: "Facturas bimestrales",
+    trimestral: "Facturas trimestrales",
+    cuatrimestral: "Facturas cuatrimestrales",
+    semestral: "Facturas semestrales",
+  };
+  return labels[freq] ?? "Facturas";
 }
 
 export default function ContractDetailPage() {
@@ -102,6 +142,7 @@ export default function ContractDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [markingPaid, setMarkingPaid] = useState<string | null>(null);
+  const [deletingInvoiceId, setDeletingInvoiceId] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) loadContract();
@@ -143,6 +184,24 @@ export default function ContractDetailPage() {
     }
   }
 
+  async function deleteInvoice(invoiceId: string) {
+    if (!confirm("¿Eliminar esta factura? Solo se pueden eliminar facturas pendientes.")) return;
+    setDeletingInvoiceId(invoiceId);
+    try {
+      const res = await fetch(
+        `/api/contracts/${id}/invoices/${invoiceId}`,
+        { method: "DELETE" }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al eliminar");
+      await loadContract();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Error al eliminar factura");
+    } finally {
+      setDeletingInvoiceId(null);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center py-12">
@@ -181,15 +240,13 @@ export default function ContractDetailPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <div className="flex items-center gap-4">
-        <Link
-          href="/director/direccion/contracts"
-          className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Volver a Contratos
-        </Link>
-      </div>
+      <Link
+        href="/director/direccion/contracts"
+        className="inline-flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Volver a Contratos
+      </Link>
 
       <div className="bg-white shadow overflow-hidden sm:rounded-lg">
         <div className="px-4 py-5 sm:px-6 flex items-center gap-3">
@@ -213,7 +270,18 @@ export default function ContractDetailPage() {
             )}
           </div>
           <div>
-            <h2 className="text-sm font-medium text-gray-500">Monto mensual</h2>
+            <h2 className="text-sm font-medium text-gray-500">
+              Monto por{" "}
+              {!contract.billing_frequency || contract.billing_frequency === "mensual"
+                ? "mes"
+                : contract.billing_frequency === "bimestral"
+                  ? "bimestre"
+                  : contract.billing_frequency === "trimestral"
+                    ? "trimestre"
+                    : contract.billing_frequency === "cuatrimestral"
+                      ? "cuatrimestre"
+                      : "semestre"}
+            </h2>
             <p className="mt-1 text-lg font-medium text-gray-900">
               {formatCurrency(Number(contract.monthly_amount))}
             </p>
@@ -254,15 +322,17 @@ export default function ContractDetailPage() {
 
       <div className="bg-white shadow overflow-hidden sm:rounded-lg">
         <div className="px-4 py-5 sm:px-6">
-          <h2 className="text-lg font-medium text-gray-900">Facturas mensuales</h2>
+          <h2 className="text-lg font-medium text-gray-900">
+            {periodLabel(contract.billing_frequency)}
+          </h2>
           <p className="mt-1 text-sm text-gray-500">
-            El director puede cambiar el estado de Pendiente a Pagado y registrar la fecha de pago
+            El director puede marcar como pagado o eliminar facturas pendientes (por ejemplo, si se generó una de más).
           </p>
         </div>
         <div className="border-t border-gray-200">
           <ul className="divide-y divide-gray-200">
             {invoices.map((inv) => {
-              const displayStatus = getDisplayStatus(inv);
+              const displayStatus = getDisplayStatus(inv, contract.billing_frequency);
               return (
                 <li
                   key={inv.id}
@@ -270,7 +340,7 @@ export default function ContractDetailPage() {
                 >
                   <div>
                     <p className="text-sm font-medium text-gray-900">
-                      {formatMonth(inv.month)}
+                      {formatInvoicePeriod(inv.month, contract.billing_frequency)}
                     </p>
                     <p className="text-sm text-gray-500">
                       {formatCurrency(Number(inv.amount))}
@@ -293,21 +363,39 @@ export default function ContractDetailPage() {
                           : "Pendiente"}
                     </span>
                     {displayStatus !== "pagado" && (
-                      <button
-                        type="button"
-                        onClick={() => markAsPaid(inv.id)}
-                        disabled={markingPaid === inv.id}
-                        className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
-                      >
-                        {markingPaid === inv.id ? (
-                          "Guardando…"
-                        ) : (
-                          <>
-                            <Check className="h-3 w-3" />
-                            Marcar pagado
-                          </>
-                        )}
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => markAsPaid(inv.id)}
+                          disabled={markingPaid === inv.id}
+                          className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+                        >
+                          {markingPaid === inv.id ? (
+                            "Guardando…"
+                          ) : (
+                            <>
+                              <Check className="h-3 w-3" />
+                              Marcar pagado
+                            </>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteInvoice(inv.id)}
+                          disabled={deletingInvoiceId === inv.id}
+                          className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                          title="Eliminar factura (solo pendientes)"
+                        >
+                          {deletingInvoiceId === inv.id ? (
+                            "Eliminando…"
+                          ) : (
+                            <>
+                              <Trash2 className="h-3 w-3" />
+                              Eliminar
+                            </>
+                          )}
+                        </button>
+                      </>
                     )}
                     {displayStatus === "pagado" && inv.paid_at && (
                       <span className="text-xs text-gray-500">

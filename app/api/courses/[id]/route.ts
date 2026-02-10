@@ -190,7 +190,7 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { session_dates, turnos } = body;
+    const { session_dates, turnos, mensualidad } = body;
 
     const useSessionDates =
       Array.isArray(session_dates) && session_dates.length > 0;
@@ -213,6 +213,14 @@ export async function PATCH(
         { status: 400 }
       );
     }
+
+    const mensualidadVal =
+      mensualidad != null && mensualidad !== ""
+        ? (() => {
+            const n = Number(mensualidad);
+            return !Number.isNaN(n) && n >= 0 ? n : null;
+          })()
+        : null;
 
     for (const t of turnos) {
       if (
@@ -252,7 +260,13 @@ export async function PATCH(
 
     const scheduleName = `${course.name} ${course.year}`.slice(0, 100);
 
-    // 1) Delete existing course_sessions and schedules for this course
+    // 1) Update mensualidad
+    await supabaseAdmin
+      .from("courses")
+      .update({ mensualidad: mensualidadVal })
+      .eq("id", id);
+
+    // 2) Delete existing course_sessions and schedules for this course
     await supabaseAdmin
       .from("course_sessions")
       .delete()
@@ -263,7 +277,7 @@ export async function PATCH(
       .delete()
       .eq("course_id", id);
 
-    // 2) Insert course_sessions
+    // 3) Insert course_sessions
     const dateInserts = (session_dates as string[]).filter(
       (d) => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d)
     );
@@ -276,7 +290,7 @@ export async function PATCH(
       );
     }
 
-    // 3) Insert schedules - conflict check same professor, same day
+    // 4) Insert schedules - conflict check same professor, same day
     for (const t of turnos) {
       const { data: conflict } = await supabaseAdmin
         .from("schedules")
