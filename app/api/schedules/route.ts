@@ -416,7 +416,7 @@ export async function POST(request: NextRequest) {
       if (createError) {
         console.error("Error creating schedule:", createError);
         errors.push(
-          `Error creando horario para el día ${day_of_week}: ${errorMessage || createError.code || "Error desconocido"}`
+          `Error creando horario para el día ${day_of_week}: ${createError.message || createError.code || "Error desconocido"}`
         );
         continue;
       }

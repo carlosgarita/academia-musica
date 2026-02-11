@@ -123,7 +123,7 @@ export async function GET(request: NextRequest) {
       user.id,
       profile.role,
       profile.academy_id ?? null,
-      courseSessionId
+      courseSessionId!
     );
     if (!allowed) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });

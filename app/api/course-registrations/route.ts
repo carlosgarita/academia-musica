@@ -91,8 +91,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Filter soft-deleted student; for subject/period/course, allow null (legacy or new)
-    const filtered = (rows || []).filter((r: { student?: { deleted_at?: string | null } }) => !r.student?.deleted_at);
+    // Filter soft-deleted student; Supabase may return student as object or array
+    const filtered = (rows || []).filter((r: unknown) => {
+      const s = (r as { student?: { deleted_at?: string | null } | Array<{ deleted_at?: string | null }> }).student;
+      const student = Array.isArray(s) ? s[0] : s;
+      return !student?.deleted_at;
+    });
 
     const ids = filtered.map((r: { id: string }) => r.id);
     let counts: Record<string, number> = {};
@@ -112,36 +116,28 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const courseRegistrations = filtered.map((r: {
-      id: string;
-      student_id: string;
-      course_id?: string | null;
-      profile_id?: string | null;
-      academy_id: string;
-      status: string;
-      enrollment_date: string;
-      created_at: string;
-      student?: { id: string; first_name: string; last_name: string } | null;
-      course?: { id: string; name: string; year: number } | null;
-    }) => ({
-      id: r.id,
-      student_id: r.student_id,
-      course_id: r.course_id ?? null,
-      profile_id: r.profile_id ?? null,
-      academy_id: r.academy_id,
-      status: r.status,
-      enrollment_date: r.enrollment_date,
-      created_at: r.created_at,
-      student: r.student
-        ? {
-            id: r.student.id,
-            first_name: r.student.first_name,
-            last_name: r.student.last_name,
-          }
-        : null,
-      course: r.course && !r.course.deleted_at ? r.course : null,
-      songs_count: counts[r.id] || 0,
-    }));
+    // Supabase returns nested relations as arrays; extract first element
+    const courseRegistrations = filtered.map((r: Record<string, unknown>) => {
+      const student = Array.isArray(r.student) ? r.student[0] : r.student;
+      const course = Array.isArray(r.course) ? r.course[0] : r.course;
+      const s = student as { id: string; first_name: string; last_name: string } | null | undefined;
+      const c = course as { id: string; name: string; year: number; deleted_at?: string | null } | null | undefined;
+      return {
+        id: r.id,
+        student_id: r.student_id,
+        course_id: r.course_id ?? null,
+        profile_id: r.profile_id ?? null,
+        academy_id: r.academy_id,
+        status: r.status,
+        enrollment_date: r.enrollment_date,
+        created_at: r.created_at,
+        student: s
+          ? { id: s.id, first_name: s.first_name, last_name: s.last_name }
+          : null,
+        course: c && !c.deleted_at ? { id: c.id, name: c.name, year: c.year } : null,
+        songs_count: counts[r.id as string] || 0,
+      };
+    });
 
     return NextResponse.json({ courseRegistrations });
   } catch (error) {

@@ -1,0 +1,7 @@
+# Local development files (not needed for deployment)
+.env*
+!.env.example
+supabase/.branches
+supabase/.temp
+supabase/seed.sql
+supabase/.env.local

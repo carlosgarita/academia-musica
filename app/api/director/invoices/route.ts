@@ -162,7 +162,7 @@ export async function GET(request: NextRequest) {
     }[] = [];
 
     for (const c of contracts || []) {
-      const contract = c as {
+      const contract = c as unknown as {
         id: string;
         academy_id: string;
         guardian_id: string;
