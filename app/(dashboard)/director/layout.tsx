@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { DirectorSidebar } from "@/components/director/DirectorSidebar";
 import { SidebarProvider } from "@/components/director/SidebarContext";
 import { MainContent } from "@/components/director/MainContent";
+import { AcademyCurrencyProvider } from "@/lib/contexts/AcademyCurrencyContext";
 import type { Database } from "@/lib/database.types";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
@@ -27,7 +28,7 @@ export default async function DirectorLayout({
 
   const { data: profile } = (await supabase
     .from("profiles")
-    .select("role")
+    .select("role, academy_id")
     .eq("id", user.id)
     .single()) as { data: Profile | null };
 
@@ -35,10 +36,23 @@ export default async function DirectorLayout({
     redirect("/");
   }
 
+  let currency: "CRC" | "EUR" = "CRC";
+  if (profile.academy_id) {
+    const { data: academy } = await supabase
+      .from("academies")
+      .select("currency")
+      .eq("id", profile.academy_id)
+      .single();
+    const c = (academy as { currency?: string } | null)?.currency;
+    if (c === "EUR" || c === "CRC") currency = c;
+  }
+
   return (
-    <SidebarProvider>
-      <DirectorSidebar />
-      <MainContent>{children}</MainContent>
-    </SidebarProvider>
+    <AcademyCurrencyProvider currency={currency}>
+      <SidebarProvider>
+        <DirectorSidebar />
+        <MainContent>{children}</MainContent>
+      </SidebarProvider>
+    </AcademyCurrencyProvider>
   );
 }

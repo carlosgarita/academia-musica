@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
       academyAddress,
       academyPhone,
       academyWebsite,
+      currency: academyCurrency,
       // Director fields
       directorFirstName,
       directorLastName,
@@ -89,6 +90,8 @@ export async function POST(request: NextRequest) {
       }
     );
 
+    const currency = academyCurrency === "EUR" ? "EUR" : "CRC";
+
     // Step 1: Create the academy first
     const { data: academy, error: academyError } = await supabaseAdmin
       .from("academies")
@@ -97,6 +100,7 @@ export async function POST(request: NextRequest) {
         address: academyAddress || null,
         phone: academyPhone || null,
         website: academyWebsite || null,
+        currency,
       })
       .select()
       .single();

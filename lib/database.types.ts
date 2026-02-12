@@ -38,6 +38,7 @@ export type Database = {
         Row: {
           address: string | null;
           created_at: string;
+          currency: string;
           id: string;
           logo_url: string | null;
           name: string;
@@ -50,6 +51,7 @@ export type Database = {
         Insert: {
           address?: string | null;
           created_at?: string;
+          currency?: string;
           id?: string;
           logo_url?: string | null;
           name: string;
@@ -62,6 +64,7 @@ export type Database = {
         Update: {
           address?: string | null;
           created_at?: string;
+          currency?: string;
           id?: string;
           logo_url?: string | null;
           name?: string;

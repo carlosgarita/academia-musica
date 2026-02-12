@@ -2,18 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { Banknote } from "lucide-react";
+import { useAcademyCurrency } from "@/lib/contexts/AcademyCurrencyContext";
 
 const MONTH_NAMES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ];
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("es-CR", {
-    style: "currency",
-    currency: "CRC",
-  }).format(amount);
-}
 
 type Summary = {
   year: number;
@@ -25,6 +19,7 @@ type Summary = {
 };
 
 export function CashFlowSummaryCard() {
+  const { formatCurrency } = useAcademyCurrency();
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
   const [monthStart, setMonthStart] = useState(1);

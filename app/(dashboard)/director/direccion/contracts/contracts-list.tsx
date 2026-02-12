@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { FileText } from "lucide-react";
+import { FileText, Trash2 } from "lucide-react";
+import { useAcademyCurrency } from "@/lib/contexts/AcademyCurrencyContext";
 
 type Guardian = {
   id: string;
@@ -48,14 +49,8 @@ function formatDate(dateStr: string): string {
   }
 }
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("es-CR", {
-    style: "currency",
-    currency: "CRC",
-  }).format(amount);
-}
-
 export function ContractsList({ academyId: _academyId }: ContractsListProps) {
+  const { formatCurrency } = useAcademyCurrency();
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,6 +58,32 @@ export function ContractsList({ academyId: _academyId }: ContractsListProps) {
   useEffect(() => {
     loadContracts();
   }, []);
+
+  async function handleDelete(id: string, fullName: string) {
+    if (
+      !confirm(
+        `¿Estás seguro de que deseas eliminar el contrato de "${fullName}"? Esta acción eliminará el contrato y sus facturas asociadas.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/contracts/${id}`, {
+        method: "DELETE",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.details || data.error || "Error al eliminar el contrato");
+      }
+
+      loadContracts();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Error al eliminar el contrato");
+    }
+  }
 
   async function loadContracts() {
     try {
@@ -136,27 +157,33 @@ export function ContractsList({ academyId: _academyId }: ContractsListProps) {
 
               return (
                 <li key={contract.id}>
-                  <Link
-                    href={`/director/direccion/contracts/${contract.id}`}
-                    className="block hover:bg-gray-50"
-                  >
-                    <div className="px-4 py-4 sm:px-6 flex justify-between items-center">
-                      <div className="flex items-center gap-3">
-                        <FileText className="h-5 w-5 text-gray-400" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">
-                            {fullName}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            {formatDate(contract.start_date)} –{" "}
-                            {formatDate(contract.end_date)} ·{" "}
-                            {formatCurrency(Number(contract.monthly_amount))}/mes
-                          </p>
-                        </div>
+                  <div className="px-4 py-4 sm:px-6 flex justify-between items-center hover:bg-gray-50 group">
+                    <Link
+                      href={`/director/direccion/contracts/${contract.id}`}
+                      className="flex-1 flex items-center gap-3 min-w-0"
+                    >
+                      <FileText className="h-5 w-5 text-gray-400 shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {fullName}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          {formatDate(contract.start_date)} –{" "}
+                          {formatDate(contract.end_date)} ·{" "}
+                          {formatCurrency(Number(contract.monthly_amount))}/mes
+                        </p>
                       </div>
-                      <span className="text-gray-400">→</span>
-                    </div>
-                  </Link>
+                      <span className="text-gray-400 group-hover:text-gray-600 ml-auto mr-2">→</span>
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(contract.id, fullName)}
+                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg shrink-0"
+                      title="Eliminar contrato"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </li>
               );
             })}

@@ -11,6 +11,7 @@ export default function NewAcademyPage() {
   const [academyAddress, setAcademyAddress] = useState("");
   const [academyPhone, setAcademyPhone] = useState("");
   const [academyWebsite, setAcademyWebsite] = useState("");
+  const [currency, setCurrency] = useState<"CRC" | "EUR">("CRC");
 
   // Director fields
   const [directorFirstName, setDirectorFirstName] = useState("");
@@ -38,6 +39,7 @@ export default function NewAcademyPage() {
           academyAddress,
           academyPhone,
           academyWebsite,
+          currency,
           directorFirstName,
           directorLastName,
           directorEmail,
@@ -184,6 +186,32 @@ export default function NewAcademyPage() {
                 />
                 <p className="mt-1 text-xs text-gray-500">
                   Máximo 200 caracteres
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label
+                htmlFor="currency"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Moneda
+              </label>
+              <div className="mt-1">
+                <select
+                  id="currency"
+                  name="currency"
+                  value={currency}
+                  onChange={(e) =>
+                    setCurrency(e.target.value as "CRC" | "EUR")
+                  }
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                >
+                  <option value="CRC">Colón (Costa Rica)</option>
+                  <option value="EUR">Euro</option>
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  Usada para facturación y montos en esta academia
                 </p>
               </div>
             </div>

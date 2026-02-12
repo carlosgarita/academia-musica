@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Check, FileText, Trash2 } from "lucide-react";
+import { useAcademyCurrency } from "@/lib/contexts/AcademyCurrencyContext";
 
 type Guardian = {
   id: string;
@@ -104,13 +105,6 @@ function formatInvoicePeriod(
   return startMonth === endMonth ? startMonth : `${startMonth} – ${endMonth}`;
 }
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("es-CR", {
-    style: "currency",
-    currency: "CRC",
-  }).format(amount);
-}
-
 type InvoiceDisplayStatus = "pagado" | "pendiente" | "por_pagar" | "en_gracia" | "vencida";
 
 function getInvoiceDisplayStatus(
@@ -151,6 +145,7 @@ function periodLabel(freq: BillingFrequency | null | undefined): string {
 }
 
 export default function ContractDetailPage() {
+  const { formatCurrency } = useAcademyCurrency();
   const params = useParams();
   const id = params?.id as string;
   const [contract, setContract] = useState<Contract | null>(null);

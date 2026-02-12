@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ChevronDown, ChevronRight, Check, FileText } from "lucide-react";
+import { useAcademyCurrency } from "@/lib/contexts/AcademyCurrencyContext";
 
 type Guardian = {
   id: string;
@@ -76,13 +77,6 @@ function formatMonth(monthStr: string): string {
   }
 }
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("es-CR", {
-    style: "currency",
-    currency: "CRC",
-  }).format(amount);
-}
-
 const MONTHS_PER_PERIOD: Record<string, number> = {
   mensual: 1,
   bimestral: 2,
@@ -126,6 +120,7 @@ const PERIOD_LABEL: Record<string, string> = {
 };
 
 export function FinancialInvoicesCard() {
+  const { formatCurrency } = useAcademyCurrency();
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);
   const [month, setMonth] = useState<string>("todos");

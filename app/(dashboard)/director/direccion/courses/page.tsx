@@ -140,12 +140,21 @@ export default function CoursesPage() {
                     <button
                       type="button"
                       onClick={async () => {
-                        if (
-                          !confirm(
-                            "¿Eliminar este curso? Se borrarán sus sesiones y turnos."
-                          )
-                        )
-                          return;
+                        const courseLabel = `${c.name ?? "Curso"} (${c.year})`;
+                        const confirmMessage = [
+                          `¿Eliminar el curso "${courseLabel}"?`,
+                          "",
+                          "⚠️ ADVERTENCIA - Esta acción es irreversible:",
+                          "• Se borrarán permanentemente todas las sesiones del curso.",
+                          "• Se borrarán permanentemente todos los turnos y horarios.",
+                          "• Las matrículas vinculadas quedarán sin curso activo.",
+                          "• Los estudiantes ya no verán este curso en su expediente.",
+                          "",
+                          "¿Está seguro de que desea continuar?",
+                        ].join("\n");
+
+                        if (!confirm(confirmMessage)) return;
+
                         try {
                           const r = await fetch(`/api/courses/${c.id}`, {
                             method: "DELETE",

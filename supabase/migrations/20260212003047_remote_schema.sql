@@ -20,6 +20,11 @@ CREATE EXTENSION IF NOT EXISTS "pg_net" WITH SCHEMA "extensions";
 
 
 
+
+
+ALTER SCHEMA "public" OWNER TO "postgres";
+
+
 COMMENT ON SCHEMA "public" IS 'standard public schema';
 
 
@@ -198,7 +203,9 @@ CREATE TABLE IF NOT EXISTS "public"."academies" (
     "phone" "text",
     "website" "text",
     "status" "text" DEFAULT 'active'::"text",
+    "currency" "text" DEFAULT 'CRC'::"text" NOT NULL,
     CONSTRAINT "academies_address_length_check" CHECK ((("address" IS NULL) OR ("char_length"("address") <= 200))),
+    CONSTRAINT "academies_currency_check" CHECK (("currency" = ANY (ARRAY['CRC'::"text", 'EUR'::"text"]))),
     CONSTRAINT "academies_name_length_check" CHECK (("char_length"("name") <= 100)),
     CONSTRAINT "academies_phone_length_check" CHECK ((("phone" IS NULL) OR ("char_length"("phone") <= 20))),
     CONSTRAINT "academies_status_check" CHECK (("status" = ANY (ARRAY['active'::"text", 'inactive'::"text"]))),
@@ -207,6 +214,10 @@ CREATE TABLE IF NOT EXISTS "public"."academies" (
 
 
 ALTER TABLE "public"."academies" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."academies"."currency" IS 'Moneda de la academia: CRC (colón Costa Rica) o EUR (euro).';
+
 
 
 CREATE TABLE IF NOT EXISTS "public"."audit_logs" (
@@ -299,9 +310,15 @@ CREATE TABLE IF NOT EXISTS "public"."contracts" (
     "created_at" timestamp with time zone DEFAULT "timezone"('utc'::"text", "now"()) NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "timezone"('utc'::"text", "now"()) NOT NULL,
     "billing_frequency" "text" DEFAULT 'mensual'::"text" NOT NULL,
+    "billing_day" integer DEFAULT 1 NOT NULL,
+    "grace_period_days" integer DEFAULT 5 NOT NULL,
+    "penalty_percent" numeric(5,2) DEFAULT 20 NOT NULL,
+    CONSTRAINT "contracts_billing_day_check" CHECK ((("billing_day" >= 1) AND ("billing_day" <= 31))),
     CONSTRAINT "contracts_billing_frequency_check" CHECK (("billing_frequency" = ANY (ARRAY['mensual'::"text", 'bimestral'::"text", 'trimestral'::"text", 'cuatrimestral'::"text", 'semestral'::"text"]))),
     CONSTRAINT "contracts_check" CHECK (("end_date" >= "start_date")),
-    CONSTRAINT "contracts_monthly_amount_check" CHECK (("monthly_amount" >= (0)::numeric))
+    CONSTRAINT "contracts_grace_period_days_check" CHECK (("grace_period_days" = ANY (ARRAY[3, 5, 7, 15]))),
+    CONSTRAINT "contracts_monthly_amount_check" CHECK (("monthly_amount" >= (0)::numeric)),
+    CONSTRAINT "contracts_penalty_percent_check" CHECK (("penalty_percent" = ANY (ARRAY[(5)::numeric, (10)::numeric, (15)::numeric, (20)::numeric, (25)::numeric, (30)::numeric, (35)::numeric, (40)::numeric, (45)::numeric, (50)::numeric])))
 );
 
 
@@ -313,6 +330,18 @@ COMMENT ON TABLE "public"."contracts" IS 'Financial contracts between academy an
 
 
 COMMENT ON COLUMN "public"."contracts"."billing_frequency" IS 'Frecuencia de facturación: mensual, bimestral, trimestral, cuatrimestral o semestral';
+
+
+
+COMMENT ON COLUMN "public"."contracts"."billing_day" IS 'Día del mes en que se efectúa el cobro (1-31). Default: 1.';
+
+
+
+COMMENT ON COLUMN "public"."contracts"."grace_period_days" IS 'Días de gracia para pagar antes de multa (3, 5, 7 o 15).';
+
+
+
+COMMENT ON COLUMN "public"."contracts"."penalty_percent" IS 'Porcentaje de multa por morosidad (5-50%). Default: 20.';
 
 
 
@@ -2009,10 +2038,10 @@ ALTER PUBLICATION "supabase_realtime" OWNER TO "postgres";
 
 
 
-GRANT USAGE ON SCHEMA "public" TO "postgres";
-GRANT USAGE ON SCHEMA "public" TO "anon";
-GRANT USAGE ON SCHEMA "public" TO "authenticated";
-GRANT USAGE ON SCHEMA "public" TO "service_role";
+REVOKE USAGE ON SCHEMA "public" FROM PUBLIC;
+GRANT ALL ON SCHEMA "public" TO "anon";
+GRANT ALL ON SCHEMA "public" TO "authenticated";
+GRANT ALL ON SCHEMA "public" TO "service_role";
 
 
 
@@ -2368,16 +2397,10 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQ
 
 
 
-
-
-
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "postgres";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "anon";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "authenticated";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "service_role";
-
-
-
 
 
 
@@ -2411,19 +2434,5 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TAB
 
 
 
-
-
-
-
-
-CREATE TRIGGER objects_delete_delete_prefix AFTER DELETE ON storage.objects FOR EACH ROW EXECUTE FUNCTION storage.delete_prefix_hierarchy_trigger();
-
-CREATE TRIGGER objects_insert_create_prefix BEFORE INSERT ON storage.objects FOR EACH ROW EXECUTE FUNCTION storage.objects_insert_prefix_trigger();
-
-CREATE TRIGGER objects_update_create_prefix BEFORE UPDATE ON storage.objects FOR EACH ROW WHEN (((new.name <> old.name) OR (new.bucket_id <> old.bucket_id))) EXECUTE FUNCTION storage.objects_update_prefix_trigger();
-
-CREATE TRIGGER prefixes_create_hierarchy BEFORE INSERT ON storage.prefixes FOR EACH ROW WHEN ((pg_trigger_depth() < 1)) EXECUTE FUNCTION storage.prefixes_insert_trigger();
-
-CREATE TRIGGER prefixes_delete_hierarchy AFTER DELETE ON storage.prefixes FOR EACH ROW EXECUTE FUNCTION storage.delete_prefix_hierarchy_trigger();
 
 
