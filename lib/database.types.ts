@@ -143,46 +143,134 @@ export type Database = {
           }
         ];
       };
-      badges: {
+      academy_badges: {
         Row: {
           academy_id: string;
-          created_at: string;
-          deleted_at: string | null;
-          description: string | null;
-          id: string;
-          image_url: string;
-          name: string;
-          updated_at: string;
+          badge_id: string;
         };
         Insert: {
           academy_id: string;
-          created_at?: string;
-          deleted_at?: string | null;
-          description?: string | null;
-          id?: string;
-          image_url: string;
-          name: string;
-          updated_at?: string;
+          badge_id: string;
         };
         Update: {
           academy_id?: string;
-          created_at?: string;
-          deleted_at?: string | null;
-          description?: string | null;
-          id?: string;
-          image_url?: string;
-          name?: string;
-          updated_at?: string;
+          badge_id?: string;
         };
         Relationships: [
           {
-            foreignKeyName: "badges_academy_id_fkey";
+            foreignKeyName: "academy_badges_academy_id_fkey";
             columns: ["academy_id"];
             isOneToOne: false;
             referencedRelation: "academies";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "academy_badges_badge_id_fkey";
+            columns: ["badge_id"];
+            isOneToOne: false;
+            referencedRelation: "badges";
+            referencedColumns: ["id"];
           }
         ];
+      };
+      academy_rubrics: {
+        Row: {
+          academy_id: string;
+          rubric_id: string;
+        };
+        Insert: {
+          academy_id: string;
+          rubric_id: string;
+        };
+        Update: {
+          academy_id?: string;
+          rubric_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "academy_rubrics_academy_id_fkey";
+            columns: ["academy_id"];
+            isOneToOne: false;
+            referencedRelation: "academies";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "academy_rubrics_rubric_id_fkey";
+            columns: ["rubric_id"];
+            isOneToOne: false;
+            referencedRelation: "evaluation_rubrics";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      academy_scales: {
+        Row: {
+          academy_id: string;
+          scale_id: string;
+        };
+        Insert: {
+          academy_id: string;
+          scale_id: string;
+        };
+        Update: {
+          academy_id?: string;
+          scale_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "academy_scales_academy_id_fkey";
+            columns: ["academy_id"];
+            isOneToOne: false;
+            referencedRelation: "academies";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "academy_scales_scale_id_fkey";
+            columns: ["scale_id"];
+            isOneToOne: false;
+            referencedRelation: "evaluation_scales";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      badges: {
+        Row: {
+          created_at: string;
+          deleted_at: string | null;
+          description: string | null;
+          display_order: number;
+          frase: string | null;
+          id: string;
+          image_url: string | null;
+          name: string;
+          updated_at: string;
+          virtud: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          deleted_at?: string | null;
+          description?: string | null;
+          display_order?: number;
+          frase?: string | null;
+          id?: string;
+          image_url?: string | null;
+          name: string;
+          updated_at?: string;
+          virtud?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          deleted_at?: string | null;
+          description?: string | null;
+          display_order?: number;
+          frase?: string | null;
+          id?: string;
+          image_url?: string | null;
+          name?: string;
+          updated_at?: string;
+          virtud?: string | null;
+        };
+        Relationships: [];
       };
       course_registration_songs: {
         Row: {
@@ -437,7 +525,6 @@ export type Database = {
       };
       evaluation_rubrics: {
         Row: {
-          academy_id: string;
           created_at: string;
           deleted_at: string | null;
           description: string | null;
@@ -448,7 +535,6 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
-          academy_id: string;
           created_at?: string;
           deleted_at?: string | null;
           description?: string | null;
@@ -459,7 +545,6 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
-          academy_id?: string;
           created_at?: string;
           deleted_at?: string | null;
           description?: string | null;
@@ -469,19 +554,10 @@ export type Database = {
           name?: string;
           updated_at?: string;
         };
-        Relationships: [
-          {
-            foreignKeyName: "evaluation_rubrics_academy_id_fkey";
-            columns: ["academy_id"];
-            isOneToOne: false;
-            referencedRelation: "academies";
-            referencedColumns: ["id"];
-          }
-        ];
+        Relationships: [];
       };
       evaluation_scales: {
         Row: {
-          academy_id: string;
           created_at: string;
           deleted_at: string | null;
           description: string | null;
@@ -493,7 +569,6 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
-          academy_id: string;
           created_at?: string;
           deleted_at?: string | null;
           description?: string | null;
@@ -505,7 +580,6 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
-          academy_id?: string;
           created_at?: string;
           deleted_at?: string | null;
           description?: string | null;
@@ -516,15 +590,7 @@ export type Database = {
           numeric_value?: number;
           updated_at?: string;
         };
-        Relationships: [
-          {
-            foreignKeyName: "evaluation_scales_academy_id_fkey";
-            columns: ["academy_id"];
-            isOneToOne: false;
-            referencedRelation: "academies";
-            referencedColumns: ["id"];
-          }
-        ];
+        Relationships: [];
       };
       guardian_students: {
         Row: {

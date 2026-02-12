@@ -1,7 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+type Badge = { id: string; name: string };
+type Rubric = { id: string; name: string };
+type Scale = { id: string; name: string; numeric_value: number };
 
 export default function NewAcademyPage() {
   const router = useRouter();
@@ -12,6 +16,51 @@ export default function NewAcademyPage() {
   const [academyPhone, setAcademyPhone] = useState("");
   const [academyWebsite, setAcademyWebsite] = useState("");
   const [currency, setCurrency] = useState<"CRC" | "EUR">("CRC");
+
+  // Catalog assignment
+  const [badges, setBadges] = useState<Badge[]>([]);
+  const [rubrics, setRubrics] = useState<Rubric[]>([]);
+  const [scales, setScales] = useState<Scale[]>([]);
+  const [badgeIds, setBadgeIds] = useState<Set<string>>(new Set());
+  const [rubricIds, setRubricIds] = useState<Set<string>>(new Set());
+  const [scaleIds, setScaleIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/super-admin/badges").then((r) => r.json()),
+      fetch("/api/super-admin/rubrics").then((r) => r.json()),
+      fetch("/api/super-admin/scales").then((r) => r.json()),
+    ]).then(([b, ru, s]) => {
+      setBadges(b.badges || []);
+      setRubrics(ru.rubrics || []);
+      setScales(s.scales || []);
+    });
+  }, []);
+
+  const toggleBadge = (id: string) => {
+    setBadgeIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const toggleRubric = (id: string) => {
+    setRubricIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const toggleScale = (id: string) => {
+    setScaleIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   // Director fields
   const [directorFirstName, setDirectorFirstName] = useState("");
@@ -40,6 +89,9 @@ export default function NewAcademyPage() {
           academyPhone,
           academyWebsite,
           currency,
+          badgeIds: Array.from(badgeIds),
+          rubricIds: Array.from(rubricIds),
+          scaleIds: Array.from(scaleIds),
           directorFirstName,
           directorLastName,
           directorEmail,
@@ -213,6 +265,79 @@ export default function NewAcademyPage() {
                 <p className="mt-1 text-xs text-gray-500">
                   Usada para facturación y montos en esta academia
                 </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Catalog Assignment */}
+        <div className="border-t border-gray-200 pt-6">
+          <h2 className="text-lg font-medium text-gray-900 mb-2">
+            Asignar a la academia
+          </h2>
+          <p className="text-sm text-gray-500 mb-4">
+            Selecciona los badges, rúbricas y escalas que tendrá esta academia. Si no hay creados, crea primero en Badges, Rúbricas o Escalas.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Badges</h3>
+              <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md p-3 bg-gray-50">
+                {badges.length === 0 ? (
+                  <p className="text-xs text-gray-500">Ninguno creado</p>
+                ) : (
+                  badges.map((b) => (
+                    <label key={b.id} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={badgeIds.has(b.id)}
+                        onChange={() => toggleBadge(b.id)}
+                        className="rounded border-gray-300"
+                      />
+                      <span className="text-sm">{b.name}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Rúbricas</h3>
+              <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md p-3 bg-gray-50">
+                {rubrics.length === 0 ? (
+                  <p className="text-xs text-gray-500">Ninguna creada</p>
+                ) : (
+                  rubrics.map((r) => (
+                    <label key={r.id} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={rubricIds.has(r.id)}
+                        onChange={() => toggleRubric(r.id)}
+                        className="rounded border-gray-300"
+                      />
+                      <span className="text-sm">{r.name}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Escalas</h3>
+              <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md p-3 bg-gray-50">
+                {scales.length === 0 ? (
+                  <p className="text-xs text-gray-500">Ninguna creada</p>
+                ) : (
+                  scales.map((s) => (
+                    <label key={s.id} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={scaleIds.has(s.id)}
+                        onChange={() => toggleScale(s.id)}
+                        className="rounded border-gray-300"
+                      />
+                      <span className="text-sm">{s.name}</span>
+                      <span className="text-xs text-gray-400">({s.numeric_value})</span>
+                    </label>
+                  ))
+                )}
               </div>
             </div>
           </div>

@@ -11,7 +11,14 @@ type Academy = {
   website: string | null;
   status: string | null;
   currency: string;
+  badgeIds?: string[];
+  rubricIds?: string[];
+  scaleIds?: string[];
 };
+
+type Badge = { id: string; name: string };
+type Rubric = { id: string; name: string };
+type Scale = { id: string; name: string; numeric_value: number };
 
 export default function EditAcademyPage() {
   const router = useRouter();
@@ -24,6 +31,12 @@ export default function EditAcademyPage() {
   const [phone, setPhone] = useState("");
   const [website, setWebsite] = useState("");
   const [currency, setCurrency] = useState<"CRC" | "EUR">("CRC");
+  const [badges, setBadges] = useState<Badge[]>([]);
+  const [rubrics, setRubrics] = useState<Rubric[]>([]);
+  const [scales, setScales] = useState<Scale[]>([]);
+  const [badgeIds, setBadgeIds] = useState<Set<string>>(new Set());
+  const [rubricIds, setRubricIds] = useState<Set<string>>(new Set());
+  const [scaleIds, setScaleIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -32,16 +45,30 @@ export default function EditAcademyPage() {
     if (!id) return;
     async function load() {
       try {
-        const res = await fetch(`/api/academies/${id}`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Error al cargar");
-        const a = data.academy;
+        const [acRes, bRes, rRes, sRes] = await Promise.all([
+          fetch(`/api/academies/${id}`),
+          fetch("/api/super-admin/badges"),
+          fetch("/api/super-admin/rubrics"),
+          fetch("/api/super-admin/scales"),
+        ]);
+        const acData = await acRes.json();
+        if (!acRes.ok) throw new Error(acData.error || "Error al cargar");
+        const a = acData.academy;
         setAcademy(a);
         setName(a.name || "");
         setAddress(a.address || "");
         setPhone(a.phone || "");
         setWebsite(a.website || "");
         setCurrency(a.currency === "EUR" ? "EUR" : "CRC");
+        setBadgeIds(new Set(a.badgeIds || []));
+        setRubricIds(new Set(a.rubricIds || []));
+        setScaleIds(new Set(a.scaleIds || []));
+        const b = await bRes.json();
+        const r = await rRes.json();
+        const s = await sRes.json();
+        setBadges(b.badges || []);
+        setRubrics(r.rubrics || []);
+        setScales(s.scales || []);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Error al cargar");
       } finally {
@@ -50,6 +77,31 @@ export default function EditAcademyPage() {
     }
     load();
   }, [id]);
+
+  const toggleBadge = (bid: string) => {
+    setBadgeIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(bid)) next.delete(bid);
+      else next.add(bid);
+      return next;
+    });
+  };
+  const toggleRubric = (rid: string) => {
+    setRubricIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(rid)) next.delete(rid);
+      else next.add(rid);
+      return next;
+    });
+  };
+  const toggleScale = (sid: string) => {
+    setScaleIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(sid)) next.delete(sid);
+      else next.add(sid);
+      return next;
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,6 +117,9 @@ export default function EditAcademyPage() {
           phone: phone || null,
           website: website || null,
           currency,
+          badgeIds: Array.from(badgeIds),
+          rubricIds: Array.from(rubricIds),
+          scaleIds: Array.from(scaleIds),
         }),
       });
       const data = await res.json();
@@ -174,6 +229,78 @@ export default function EditAcademyPage() {
             <p className="mt-1 text-xs text-gray-500">
               Usada para facturación y montos en esta academia
             </p>
+          </div>
+        </div>
+
+        <div className="border-t border-gray-200 pt-6">
+          <h2 className="text-lg font-medium text-gray-900 mb-2">
+            Badges, rúbricas y escalas asignados
+          </h2>
+          <p className="text-sm text-gray-500 mb-4">
+            Selecciona los badges, rúbricas y escalas que tendrá esta academia.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Badges</h3>
+              <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md p-3 bg-gray-50">
+                {badges.length === 0 ? (
+                  <p className="text-xs text-gray-500">Ninguno creado</p>
+                ) : (
+                  badges.map((b) => (
+                    <label key={b.id} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={badgeIds.has(b.id)}
+                        onChange={() => toggleBadge(b.id)}
+                        className="rounded border-gray-300"
+                      />
+                      <span className="text-sm">{b.name}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Rúbricas</h3>
+              <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md p-3 bg-gray-50">
+                {rubrics.length === 0 ? (
+                  <p className="text-xs text-gray-500">Ninguna creada</p>
+                ) : (
+                  rubrics.map((r) => (
+                    <label key={r.id} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={rubricIds.has(r.id)}
+                        onChange={() => toggleRubric(r.id)}
+                        className="rounded border-gray-300"
+                      />
+                      <span className="text-sm">{r.name}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Escalas</h3>
+              <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-200 rounded-md p-3 bg-gray-50">
+                {scales.length === 0 ? (
+                  <p className="text-xs text-gray-500">Ninguna creada</p>
+                ) : (
+                  scales.map((s) => (
+                    <label key={s.id} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={scaleIds.has(s.id)}
+                        onChange={() => toggleScale(s.id)}
+                        className="rounded border-gray-300"
+                      />
+                      <span className="text-sm">{s.name}</span>
+                      <span className="text-xs text-gray-400">({s.numeric_value})</span>
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
         </div>
 

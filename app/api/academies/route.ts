@@ -44,6 +44,9 @@ export async function POST(request: NextRequest) {
       academyPhone,
       academyWebsite,
       currency: academyCurrency,
+      badgeIds = [],
+      rubricIds = [],
+      scaleIds = [],
       // Director fields
       directorFirstName,
       directorLastName,
@@ -163,6 +166,27 @@ export async function POST(request: NextRequest) {
         },
         { status: 500 }
       );
+    }
+
+    // Step 4: Assign badges, rubrics, scales to academy
+    const badgeRows = Array.isArray(badgeIds)
+      ? badgeIds.map((badge_id: string) => ({ academy_id: academy.id, badge_id }))
+      : [];
+    const rubricRows = Array.isArray(rubricIds)
+      ? rubricIds.map((rubric_id: string) => ({ academy_id: academy.id, rubric_id }))
+      : [];
+    const scaleRows = Array.isArray(scaleIds)
+      ? scaleIds.map((scale_id: string) => ({ academy_id: academy.id, scale_id }))
+      : [];
+
+    if (badgeRows.length) {
+      await supabaseAdmin.from("academy_badges").insert(badgeRows);
+    }
+    if (rubricRows.length) {
+      await supabaseAdmin.from("academy_rubrics").insert(rubricRows);
+    }
+    if (scaleRows.length) {
+      await supabaseAdmin.from("academy_scales").insert(scaleRows);
     }
 
     return NextResponse.json(

@@ -50,22 +50,38 @@ export async function GET(request: NextRequest) {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    const { data: badges, error } = await supabaseAdmin
-      .from("badges")
-      .select("id, name, virtud, description, frase, image_url")
-      .eq("academy_id", academyId)
-      .is("deleted_at", null)
-      .order("name", { ascending: true });
-
-    if (error) {
-      console.error("Error fetching badges:", error);
+    const { data: abRows, error: abError } = await supabaseAdmin
+      .from("academy_badges")
+      .select("badge_id")
+      .eq("academy_id", academyId);
+    if (abError) {
+      console.error("Error fetching academy badges:", abError);
       return NextResponse.json(
-        { error: "Error al cargar badges", details: error.message },
+        { error: "Error al cargar badges", details: abError.message },
         { status: 500 }
       );
     }
+    const badgeIds = (abRows || []).map((r: { badge_id: string }) => r.badge_id);
 
-    return NextResponse.json({ badges: badges || [] });
+    let badges: unknown[] = [];
+    if (badgeIds.length) {
+      const { data, error } = await supabaseAdmin
+        .from("badges")
+        .select("id, name, virtud, description, frase, image_url")
+        .in("id", badgeIds)
+        .is("deleted_at", null)
+        .order("name", { ascending: true });
+      if (error) {
+        console.error("Error fetching badges:", error);
+        return NextResponse.json(
+          { error: "Error al cargar badges", details: error.message },
+          { status: 500 }
+        );
+      }
+      badges = data || [];
+    }
+
+    return NextResponse.json({ badges });
   } catch (e) {
     console.error("GET /api/badges:", e);
     return NextResponse.json(

@@ -51,31 +51,76 @@ export async function GET(request: NextRequest) {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    const { data: er } = await supabaseAdmin
-      .from("evaluation_rubrics")
-      .select("id, name, display_order")
-      .eq("academy_id", academyId)
-      .is("deleted_at", null)
-      .order("display_order", { ascending: true });
-    const rubrics = (er || []).map((r: any) => ({
-      id: r.id,
-      name: r.name,
-      display_order: r.display_order ?? 0,
-    }));
+    const { data: arRows, error: arError } = await supabaseAdmin
+      .from("academy_rubrics")
+      .select("rubric_id")
+      .eq("academy_id", academyId);
+    if (arError) {
+      console.error("Error fetching academy rubrics:", arError);
+      return NextResponse.json(
+        { error: "Error al cargar rúbricas", details: arError.message },
+        { status: 500 }
+      );
+    }
+    const rubricIds = (arRows || []).map((r: { rubric_id: string }) => r.rubric_id);
 
-    const { data: scales } = await supabaseAdmin
-      .from("evaluation_scales")
-      .select("id, name, numeric_value, display_order")
-      .eq("academy_id", academyId)
-      .is("deleted_at", null)
-      .order("display_order", { ascending: true });
+    let rubrics: { id: string; name: string; display_order: number }[] = [];
+    if (rubricIds.length) {
+      const { data: er, error: erErr } = await supabaseAdmin
+        .from("evaluation_rubrics")
+        .select("id, name, display_order")
+        .in("id", rubricIds)
+        .is("deleted_at", null)
+        .order("display_order", { ascending: true });
+      if (erErr) {
+        console.error("Error fetching rubrics:", erErr);
+        return NextResponse.json(
+          { error: "Error al cargar rúbricas", details: erErr.message },
+          { status: 500 }
+        );
+      }
+      rubrics = (er || []).map((r: { id: string; name: string; display_order?: number }) => ({
+        id: r.id,
+        name: r.name,
+        display_order: r.display_order ?? 0,
+      }));
+    }
 
-    const scaleList = (scales || []).map((s: any) => ({
-      id: s.id,
-      name: s.name,
-      numeric_value: s.numeric_value,
-      display_order: s.display_order ?? 0,
-    }));
+    const { data: asRows, error: asError } = await supabaseAdmin
+      .from("academy_scales")
+      .select("scale_id")
+      .eq("academy_id", academyId);
+    if (asError) {
+      console.error("Error fetching academy scales:", asError);
+      return NextResponse.json(
+        { error: "Error al cargar escalas", details: asError.message },
+        { status: 500 }
+      );
+    }
+    const scaleIds = (asRows || []).map((r: { scale_id: string }) => r.scale_id);
+
+    let scaleList: { id: string; name: string; numeric_value: number; display_order: number }[] = [];
+    if (scaleIds.length) {
+      const { data: scales, error: scalesErr } = await supabaseAdmin
+        .from("evaluation_scales")
+        .select("id, name, numeric_value, display_order")
+        .in("id", scaleIds)
+        .is("deleted_at", null)
+        .order("display_order", { ascending: true });
+      if (scalesErr) {
+        console.error("Error fetching scales:", scalesErr);
+        return NextResponse.json(
+          { error: "Error al cargar escalas", details: scalesErr.message },
+          { status: 500 }
+        );
+      }
+      scaleList = (scales || []).map((s: { id: string; name: string; numeric_value: number; display_order?: number }) => ({
+        id: s.id,
+        name: s.name,
+        numeric_value: s.numeric_value,
+        display_order: s.display_order ?? 0,
+      }));
+    }
 
     return NextResponse.json({ rubrics, scales: scaleList });
   } catch (e) {

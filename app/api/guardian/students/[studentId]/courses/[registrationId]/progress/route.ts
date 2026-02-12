@@ -172,18 +172,26 @@ export async function GET(
         name: s.song.name ?? "—",
       }));
 
-    // Rubrics for the academy (dynamic)
-    const { data: rubricsData } = await supabaseAdmin
-      .from("evaluation_rubrics")
-      .select("id, name, display_order")
-      .eq("academy_id", reg.academy_id)
-      .is("deleted_at", null)
-      .order("display_order", { ascending: true });
+    // Rubrics for the academy (via academy_rubrics assignment)
+    const { data: arRows } = await supabaseAdmin
+      .from("academy_rubrics")
+      .select("rubric_id")
+      .eq("academy_id", reg.academy_id);
+    const rubricIds = (arRows || []).map((r: { rubric_id: string }) => r.rubric_id);
 
-    const rubrics = (rubricsData || []).map((r: any) => ({
-      id: r.id,
-      name: r.name ?? "—",
-    }));
+    let rubrics: { id: string; name: string }[] = [];
+    if (rubricIds.length) {
+      const { data: rubricsData } = await supabaseAdmin
+        .from("evaluation_rubrics")
+        .select("id, name, display_order")
+        .in("id", rubricIds)
+        .is("deleted_at", null)
+        .order("display_order", { ascending: true });
+      rubrics = (rubricsData || []).map((r: any) => ({
+        id: r.id,
+        name: r.name ?? "—",
+      }));
+    }
 
     // Evaluaciones de canciones (new model: course_session_id + course_sessions)
     const { data: evals } = await supabaseAdmin
